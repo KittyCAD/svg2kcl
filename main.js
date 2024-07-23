@@ -117,7 +117,7 @@ class PathState {
 
           // We don't have this in KCL so treat it as a new sketch
           if (this.is_path_open) { console.log(`|> close(%)\n`); }
-          console.log(`let ${generate_variable_name()} = startSketchAt([${x}, ${y}])`);
+          console.log(`let ${generate_variable_name()} = surface |> startProfileAt([${x}, ${y}], %)`);
           this.is_path_open = true;
         }
         break;
@@ -131,7 +131,7 @@ class PathState {
           
           // We don't have this in KCL so treat it as a new sketch
           if (this.is_path_open) { console.log(`|> close(%)\n`); }
-          console.log(`let ${generate_variable_name()} = startSketchAt([${x}, ${y}])`);
+          console.log(`let ${generate_variable_name()} = surface |> startProfileAt([${x}, ${y}], %)`);
           this.is_path_open = true;
         }
         break;
@@ -423,4 +423,10 @@ const svg2kcl = (svgAsText) => {
   traverse(svg);
 }
 
+console.log("// generated from ", process.argv[2]);
+
+console.log("fn svg = (surface) => {");
 svg2kcl(fs.readFileSync(path.join(process.argv[2]), 'utf-8'));
+console.log("}");
+
+console.log("svg(startSketchOn('XY'))")

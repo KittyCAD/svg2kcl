@@ -116,8 +116,8 @@ class PathState {
           const y = -this.current_point.y + this.offsetCoords.y
 
           // We don't have this in KCL so treat it as a new sketch
-          if (this.is_path_open) { console.log(`|> close(%)\n`); }
-          console.log(`let ${generate_variable_name()} = surface |> startProfileAt([${x}, ${y}], %)`);
+          if (this.is_path_open) { console.log(`    |> close(%)\n`); }
+          console.log(`  let ${generate_variable_name()} = surface |> startProfileAt([origin[0] + ${x}, origin[1] + ${y}], %)`);
           this.is_path_open = true;
         }
         break;
@@ -130,8 +130,8 @@ class PathState {
           const y = -this.current_point.y + this.offsetCoords.y
           
           // We don't have this in KCL so treat it as a new sketch
-          if (this.is_path_open) { console.log(`|> close(%)\n`); }
-          console.log(`let ${generate_variable_name()} = surface |> startProfileAt([${x}, ${y}], %)`);
+          if (this.is_path_open) { console.log(`    |> close(%)\n`); }
+          console.log(`  let ${generate_variable_name()} = surface |> startProfileAt([origin[0] + ${x}, origin[1] + ${y}], %)`);
           this.is_path_open = true;
         }
         break;
@@ -143,7 +143,7 @@ class PathState {
           const x = this.current_point.x + this.offsetCoords.x;
           const y = -this.current_point.y + this.offsetCoords.y
           
-          console.log(`|> lineTo([${x}, ${y}], %)`);
+          console.log(`    |> lineTo([${x}, ${y}], %)`);
         }
         break;
       }
@@ -155,7 +155,7 @@ class PathState {
           const x = this.current_point.x + this.offsetCoords.x;
           const y = -this.current_point.y + this.offsetCoords.y
           
-          console.log(`|> line([${x}, ${y}], %)`);
+          console.log(`    |> line([${x}, ${y}], %)`);
         }
         break;
       }
@@ -166,7 +166,7 @@ class PathState {
           const x = this.current_point.x + this.offsetCoords.x;
           const y = -this.current_point.y + this.offsetCoords.y
           
-          console.log(`|> line([${x}, ${y}], %)`);
+          console.log(`    |> line([${x}, ${y}], %)`);
         }
         break;
       }
@@ -177,7 +177,7 @@ class PathState {
           const x = this.current_point.x + this.offsetCoords.x;
           const y = -this.current_point.y + this.offsetCoords.y
           
-          console.log(`|> line([${x}, ${y}], %)`);
+          console.log(`    |> line([${x}, ${y}], %)`);
         }
         break;
       }
@@ -188,7 +188,7 @@ class PathState {
           const x = this.current_point.x + this.offsetCoords.x;
           const y = -this.current_point.y + this.offsetCoords.y
           
-          console.log(`|> line([${x}, ${y}], %)`);
+          console.log(`    |> line([${x}, ${y}], %)`);
         }
         break;
       }
@@ -199,13 +199,13 @@ class PathState {
           const x = this.current_point.x + this.offsetCoords.x;
           const y = -this.current_point.y + this.offsetCoords.y
           
-          console.log(`|> line([${x}, ${y}], %)`);
+          console.log(`    |> line([${x}, ${y}], %)`);
         }
         break;
       }
       case Command.QuadraticBezierAbsolute: {
         for (let args of this.values.chunks(4)) {
-          console.log(`|> bezierCurve({
+          console.log(`    |> bezierCurve({
               control1: [
                 ${args[0] + this.offsetCoords.x}, ${-args[1] + this.offsetCoords.y}
               ],
@@ -229,7 +229,7 @@ class PathState {
             break;
           }
           
-          console.log(`|> bezierCurve({
+          console.log(`    |> bezierCurve({
               control1: [
                 ${this.current_point.x + args[0] + this.offsetCoords.x}, ${-(this.current_point.y + args[1]) + this.offsetCoords.y}
                 ],
@@ -250,11 +250,11 @@ class PathState {
       case Command.QuadraticBezierSmoothRelative: { break; }
       case Command.CubicBezierAbsolute: {
         for (let args of this.values.chunks(6)) {
-          console.log(`|> bezierCurve({
-    control1: [ ${args[0] - this.current_point.x  + this.offsetCoords.x}, ${-args[1] + this.current_point.y + this.offsetCoords.y} ],
-    control2: [ ${args[2] - this.current_point.x + this.offsetCoords.x}, ${-args[3] + this.current_point.y + this.offsetCoords.y} ],
-    to: [ ${args[4] - this.current_point.x + this.offsetCoords.x}, ${-args[5] + this.current_point.y + this.offsetCoords.y} ]
-}, %)`);
+          console.log(`    |> bezierCurve({
+        control1: [ ${args[0] - this.current_point.x  + this.offsetCoords.x}, ${-args[1] + this.current_point.y + this.offsetCoords.y} ],
+        control2: [ ${args[2] - this.current_point.x + this.offsetCoords.x}, ${-args[3] + this.current_point.y + this.offsetCoords.y} ],
+        to: [ ${args[4] - this.current_point.x + this.offsetCoords.x}, ${-args[5] + this.current_point.y + this.offsetCoords.y} ]
+    }, %)`);
 
           this.current_point.x = args[4];
           this.current_point.y = args[5];
@@ -268,11 +268,11 @@ class PathState {
             break;
           }
           
-          console.log(`|> bezierCurve({
-  control1: [ ${args[0] + this.offsetCoords.x}, ${-(args[1]) + this.offsetCoords.y} ],
-  control2: [ ${args[2] + this.offsetCoords.x}, ${-(args[3]) + this.offsetCoords.y} ],
-  to: [ ${args[4] + this.offsetCoords.x}, ${-(args[5]) + this.offsetCoords.y} ]
- }, %)`);
+          console.log(`    |> bezierCurve({
+    control1: [ ${args[0] + this.offsetCoords.x}, ${-(args[1]) + this.offsetCoords.y} ],
+    control2: [ ${args[2] + this.offsetCoords.x}, ${-(args[3]) + this.offsetCoords.y} ],
+    to: [ ${args[4] + this.offsetCoords.x}, ${-(args[5]) + this.offsetCoords.y} ]
+   }, %)`);
 
           this.current_point.x += args[4];
           this.current_point.y += args[5];
@@ -313,7 +313,7 @@ const svg2kcl = (svgAsText) => {
   };
 
   const closePathAndCleanUp = () => {
-    console.log(`|> close(%)\n`);
+    console.log(`  |> close(%)\n`);
     this.is_path_open = false;
   };
 
@@ -425,8 +425,8 @@ const svg2kcl = (svgAsText) => {
 
 console.log("// generated from ", process.argv[2]);
 
-console.log("fn svg = (surface) => {");
+console.log("fn svg = (surface, origin) => {");
 svg2kcl(fs.readFileSync(path.join(process.argv[2]), 'utf-8'));
 console.log("}");
 
-console.log("svg(startSketchOn('XY'))")
+console.log("svg(startSketchOn('XY'), [10, 10])")

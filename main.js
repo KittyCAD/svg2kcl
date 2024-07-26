@@ -116,7 +116,10 @@ class PathState {
           const y = -this.current_point.y + this.offsetCoords.y
 
           // We don't have this in KCL so treat it as a new sketch
-          if (this.is_path_open) { console.log(`    |> close(%)\n`); }
+          if (this.is_path_open) {
+            console.log(`    |> close(%)`);
+            console.log(`    |> extrude(depth, %)\n`);
+          }
           console.log(`  let ${generate_variable_name()} = surface |> startProfileAt([origin[0] + ${x}, origin[1] + ${y}], %)`);
           this.is_path_open = true;
         }
@@ -130,7 +133,10 @@ class PathState {
           const y = -this.current_point.y + this.offsetCoords.y
           
           // We don't have this in KCL so treat it as a new sketch
-          if (this.is_path_open) { console.log(`    |> close(%)\n`); }
+          if (this.is_path_open) {
+            console.log(`    |> close(%)`);
+            console.log(`    |> extrude(depth, %)\n`);
+          }
           console.log(`  let ${generate_variable_name()} = surface |> startProfileAt([origin[0] + ${x}, origin[1] + ${y}], %)`);
           this.is_path_open = true;
         }
@@ -313,7 +319,8 @@ const svg2kcl = (svgAsText) => {
   };
 
   const closePathAndCleanUp = () => {
-    console.log(`  |> close(%)\n`);
+    console.log(`    |> close(%)`);
+    console.log(`    |> extrude(depth, %)\n`);
     this.is_path_open = false;
   };
 
@@ -425,8 +432,8 @@ const svg2kcl = (svgAsText) => {
 
 console.log("// generated from ", process.argv[2]);
 
-console.log("fn svg = (surface, origin) => {");
+console.log("fn svg = (surface, origin, depth) => {");
 svg2kcl(fs.readFileSync(path.join(process.argv[2]), 'utf-8'));
 console.log("}");
 
-console.log("svg(startSketchOn('XY'), [10, 10])")
+console.log("svg(startSketchOn('XY'), [10, 10], -1)")

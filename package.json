@@ -1,14 +1,21 @@
 {
   "name": "svg2kcl",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "ts-node main.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "jsdom": "^24.1.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.13.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
   }
 }

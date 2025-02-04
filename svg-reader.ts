@@ -16,8 +16,6 @@ export class SVGReadError extends Error {
   }
 }
 
-// Simple Matrix class for transform calculations
-
 export interface SVGPath {
   d: string
   fill?: string
@@ -73,13 +71,10 @@ export class SVGReader {
         .split(/[\s,]+/)
         .map(Number)
 
-      console.log(`Parsing transform: ${type} with values: ${values}`) // Add this line for debugging
-
       switch (type) {
         case 'translate':
           const tx = values[0] || 0
           const ty = values[1] || 0
-          console.log(`Applying translate: tx=${tx}, ty=${ty}`) // Add this line for debugging
           matrix = matrix.translate(tx, ty)
           break
 
@@ -122,70 +117,46 @@ export class SVGReader {
     return matrix
   }
 
-  private static findPaths(g: ParsedGroup): SVGPath[] {
-    const paths: SVGPath[] = []
+  private static processPath(p: ParsedPath, groupTransform: Matrix | null): SVGPath | null {
+    if (!p.d) return null
 
-    // Get group transform if it exists
+    const pathTransform = this.parseTransform(p.transform)
+    const finalTransform = groupTransform
+      ? pathTransform
+        ? groupTransform.multiply(pathTransform)
+        : groupTransform
+      : pathTransform || null
+
+    return {
+      d: p.d,
+      fill: p.fill,
+      style: p.style,
+      transform: finalTransform
+    }
+  }
+
+  private static findPaths(g: ParsedGroup, inheritedTransform: Matrix | null = null): SVGPath[] {
+    const paths: SVGPath[] = []
     const groupTransform = this.parseTransform(g.transform)
 
-    // Handle direct paths
-    if (Array.isArray(g.path)) {
+    const combinedTransform = inheritedTransform
+      ? groupTransform
+        ? inheritedTransform.multiply(groupTransform)
+        : inheritedTransform
+      : groupTransform || null
+
+    if (g.path) {
+      const pathArray = Array.isArray(g.path) ? g.path : [g.path]
       paths.push(
-        ...g.path
-          .filter((p: ParsedPath): p is Required<Pick<ParsedPath, 'd'>> & ParsedPath => !!p.d)
-          .map((p: ParsedPath) => {
-            let finalTransform: Matrix | null = null
-            const pathTransform = this.parseTransform(p.transform)
-
-            if (groupTransform && pathTransform) {
-              finalTransform = groupTransform.multiply(pathTransform)
-            } else {
-              finalTransform = groupTransform || pathTransform || null
-            }
-
-            return {
-              d: p.d!,
-              fill: undefined,
-              style: p.style,
-              transform: finalTransform
-            }
-          })
+        ...(pathArray
+          .map((p) => this.processPath(p, combinedTransform))
+          .filter(Boolean) as SVGPath[])
       )
-    } else if (g.path?.d) {
-      const pathTransform = this.parseTransform(g.path.transform)
-      const finalTransform =
-        groupTransform && pathTransform
-          ? groupTransform.multiply(pathTransform)
-          : groupTransform || pathTransform || null
-
-      paths.push({
-        d: g.path.d,
-        fill: undefined,
-        style: g.path.style,
-        transform: finalTransform
-      })
     }
 
-    // Recursively process nested groups
-    if (Array.isArray(g.g)) {
-      for (const nestedGroup of g.g) {
-        // For nested groups, we need to combine transforms
-        if (groupTransform && nestedGroup.transform) {
-          nestedGroup.transform = `${g.transform} ${nestedGroup.transform}`
-        } else if (groupTransform) {
-          nestedGroup.transform = g.transform
-        }
-        paths.push(...this.findPaths(nestedGroup))
-      }
-    } else if (g.g) {
-      // Handle single nested group
-      const nestedGroup = g.g
-      if (groupTransform && nestedGroup.transform) {
-        nestedGroup.transform = `${g.transform} ${nestedGroup.transform}`
-      } else if (groupTransform) {
-        nestedGroup.transform = g.transform
-      }
-      paths.push(...this.findPaths(nestedGroup))
+    if (g.g) {
+      const nestedGroups = Array.isArray(g.g) ? g.g : [g.g]
+      paths.push(...nestedGroups.flatMap((nested) => this.findPaths(nested, combinedTransform)))
     }
 
     return paths

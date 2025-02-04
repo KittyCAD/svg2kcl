@@ -13,7 +13,7 @@ export interface KCLOptions {
 }
 
 export class KCLWriter {
-  private variableCounter: number = 0
+  private variableCounter: number = 1
   private readonly commands: string[] = []
   private readonly offsetCoords: Point
   private currentPoint: Point = { x: 0, y: 0 }
@@ -29,7 +29,7 @@ export class KCLWriter {
   }
 
   private generateVariableName(): string {
-    return `a${this.variableCounter++}`
+    return `sketch${String(this.variableCounter++).padStart(3, '0')}`
   }
 
   private addCommand(command: string): void {
@@ -49,7 +49,7 @@ export class KCLWriter {
     this.currentPoint = point
     const transformed = this.transformPoint(point)
     this.addCommand(
-      `let ${this.generateVariableName()} = startSketchAt([${transformed.x}, ${transformed.y}])`
+      `${this.generateVariableName()} = startSketchAt([${transformed.x}, ${transformed.y}])`
     )
   }
 
@@ -82,9 +82,9 @@ export class KCLWriter {
       }
 
       this.addCommand(`|> bezierCurve({
-  control1: [${control1.x}, ${control1.y}],
-  control2: [${control1.x}, ${control1.y}],
-  to: [${endpoint.x}, ${endpoint.y}]
+  control1 = [${control1.x}, ${control1.y}],
+  control2 = [${control1.x}, ${control1.y}],
+  to =  [${endpoint.x}, ${endpoint.y}]
 }, %)`)
 
       this.currentPoint = { x: endX, y: endY }
@@ -112,9 +112,9 @@ export class KCLWriter {
       }
 
       this.addCommand(`|> bezierCurve({
-  control1: [${control1.x}, ${control1.y}],
-  control2: [${control2.x}, ${control2.y}],
-  to: [${endpoint.x}, ${endpoint.y}]
+  control1 = [${control1.x}, ${control1.y}],
+  control2 = [${control2.x}, ${control2.y}],
+  to = [${endpoint.x}, ${endpoint.y}]
 }, %)`)
 
       this.currentPoint = { x: endX, y: endY }

@@ -14,7 +14,7 @@ async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<v
 
     // Generate KCL output
     const writer = new KCLWriter(svgContents.viewBox, {
-      centerOnViewBox: false
+      centerOnViewBox: true
     })
 
     // Process each path

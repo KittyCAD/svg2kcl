@@ -20,7 +20,7 @@ export class KCLWriter {
   constructor(viewBox: ViewBox, options: KCLOptions = {}) {
     // Calculate offset coordinates for centering if requested.
 
-    const x = options.centerOnViewBox ? viewBox.xMin + viewBox.width / -2 : 0
+    const x = options.centerOnViewBox ? viewBox.xMin + viewBox.width / 2 : 0
     const y = options.centerOnViewBox ? viewBox.yMin + viewBox.height / 2 : 0
     this.offsetCoords = { x, y }
   }
@@ -33,8 +33,8 @@ export class KCLWriter {
     this.commands.push(command)
   }
 
-  private transformPoint(point: Point, isRelative: boolean = false): Point {
-    // Point should already have SVG transforms applied.
+  private transformPoint(point: Point): Point {
+    // Point should already have SVG transforms applied, so just center.
     return {
       x: point.x - this.offsetCoords.x,
       y: point.y - this.offsetCoords.y
@@ -51,16 +51,22 @@ export class KCLWriter {
 
   private writeStartSketch(point: Point): void {
     this.currentPoint = point
-    const transformed = this.invertY(point)
+
+    // Transform, invert, and write the command.
+    let outPoint = this.transformPoint(point)
+    outPoint = this.invertY(outPoint)
     this.addCommand(
-      `${this.generateVariableName()} = startSketchAt([${transformed.x}, ${transformed.y}])`
+      `${this.generateVariableName()} = startSketchAt([${outPoint.x}, ${outPoint.y}])`
     )
   }
 
   private writeLine(point: Point): void {
     this.currentPoint = point
-    const transformed = this.invertY(point)
-    this.addCommand(`|> lineTo([${transformed.x}, ${transformed.y}], %)`)
+
+    // Transform, invert, and write the command.
+    let outPoint = this.transformPoint(point)
+    outPoint = this.invertY(outPoint)
+    this.addCommand(`|> lineTo([${outPoint.x}, ${outPoint.y}], %)`)
   }
 
   private writeBezierCurve(command: ParsedCommand): void {
@@ -85,6 +91,12 @@ export class KCLWriter {
         y: endY - this.currentPoint.y + this.offsetCoords.y
       }
 
+      this.currentPoint = { x: endX, y: endY }
+
+      // Transform, invert, and write the command.
+      control1 = this.transformPoint(control1)
+      endpoint = this.transformPoint(endpoint)
+
       control1 = this.invertY(control1)
       endpoint = this.invertY(endpoint)
 
@@ -93,8 +105,6 @@ export class KCLWriter {
   control2 = [${control1.x}, ${control1.y}],
   to =  [${endpoint.x}, ${endpoint.y}]
 }, %)`)
-
-      this.currentPoint = { x: endX, y: endY }
     } else if (command.values.length === 6) {
       // Cubic bezier
       const [x1, y1, x2, y2, x, y] = command.values
@@ -118,6 +128,13 @@ export class KCLWriter {
         y: endY - this.currentPoint.y + this.offsetCoords.y
       }
 
+      this.currentPoint = { x: endX, y: endY }
+
+      // Transform, invert, and write the command.
+      control1 = this.transformPoint(control1)
+      control2 = this.transformPoint(control2)
+      endpoint = this.transformPoint(endpoint)
+
       control1 = this.invertY(control1)
       control2 = this.invertY(control2)
       endpoint = this.invertY(endpoint)
@@ -127,8 +144,6 @@ export class KCLWriter {
   control2 = [${control2.x}, ${control2.y}],
   to = [${endpoint.x}, ${endpoint.y}]
 }, %)`)
-
-      this.currentPoint = { x: endX, y: endY }
     }
   }
 

@@ -38,6 +38,47 @@ export class SVGPathParser {
     }
   }
 
+  private isWhitespace(char: string): boolean {
+    return [',', ' ', '\t', '\n', '\r'].includes(char)
+  }
+
+  private isNumericChar(char: string): boolean {
+    return /[\d.eE]/.test(char)
+  }
+
+  private isValidNegative(): boolean {
+    if (this.state.valueBuffer.length === 0) return true
+    const lastChar = this.state.valueBuffer[this.state.valueBuffer.length - 1]
+    return lastChar !== 'e' && lastChar !== 'E'
+  }
+
+  private handleCommandChar(char: string): void {
+    this.pushValue()
+    this.handleCommand()
+    this.state.command = SVGCommandMap[char]
+    this.state.values = []
+    this.state.isValuePushed = false
+  }
+
+  private handleNegative(): void {
+    if (this.isValidNegative()) {
+      this.pushValue()
+    }
+    this.state.valueBuffer = '-'
+  }
+
+  private handleChar(char: string): void {
+    if (char in SVGCommandMap) {
+      this.handleCommandChar(char)
+    } else if (char === '-') {
+      this.handleNegative()
+    } else if (this.isWhitespace(char)) {
+      this.pushValue()
+    } else if (this.isNumericChar(char)) {
+      this.state.valueBuffer += char
+    }
+  }
+
   private pushValue(): void {
     if (this.state.valueBuffer.length === 0) {
       return
@@ -167,29 +208,8 @@ export class SVGPathParser {
       isValuePushed: true
     }
 
-    for (let i = 0; i < pathData.length; i++) {
-      const char = pathData[i]
-
-      if (char in SVGCommandMap) {
-        this.pushValue()
-        this.handleCommand()
-        this.state.command = SVGCommandMap[char]
-        this.state.values = []
-        this.state.isValuePushed = false
-      } else if (char === '-') {
-        if (
-          this.state.valueBuffer.length > 0 &&
-          this.state.valueBuffer[this.state.valueBuffer.length - 1] !== 'e' &&
-          this.state.valueBuffer[this.state.valueBuffer.length - 1] !== 'E'
-        ) {
-          this.pushValue()
-        }
-        this.state.valueBuffer = char
-      } else if (char === ',' || char === ' ' || char === '\t' || char === '\n' || char === '\r') {
-        this.pushValue()
-      } else if (/[\d.eE]/.test(char)) {
-        this.state.valueBuffer += char
-      }
+    for (const char of pathData) {
+      this.handleChar(char)
     }
 
     // Handle any remaining values and commands

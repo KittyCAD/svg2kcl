@@ -10,7 +10,7 @@ export class SVGParseError extends Error {
 
 export interface ParsedCommand {
   type: CommandType
-  values: number[]
+  parameters: number[]
   position: Point
 }
 
@@ -230,7 +230,7 @@ export class SVGPathParser {
     // Push the command with transformed values for absolute commands.
     this.path.commands.push({
       type: this.state.command,
-      values: this.state.command.endsWith('a') ? transformedChunk : parameters,
+      parameters: this.state.command.endsWith('a') ? transformedChunk : parameters,
       position: { ...this.state.currentPoint }
     })
   }
@@ -316,7 +316,10 @@ export class SVGParser {
 
   public parse(svgElement: { paths: SVGPathInfo[] }): ParsedPath[] {
     try {
-      return svgElement.paths.map((path) => this.pathParser.parsePath(path.d, path.transform))
+      const output = svgElement.paths.map((path) =>
+        this.pathParser.parsePath(path.d, path.transform)
+      )
+      return output
     } catch (error) {
       throw new SVGParseError(
         `Failed to parse SVG paths: ${error instanceof Error ? error.message : 'Unknown error'}`

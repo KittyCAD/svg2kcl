@@ -1,4 +1,15 @@
-sketch001 = startSketchAt([470.262, -76.4115])
+import { promises as fsPromises } from 'node:fs'
+import { convertSVGtoKCL } from '../main'
+import path from 'path'
+import { describe, it, expect } from '@jest/globals'
+
+const basicTransformKCL = `sketch001 = startSketchAt([60, -60])
+|> lineTo([80, -60], %)
+|> lineTo([80, -80], %)
+|> lineTo([60, -80], %)
+|> close(%)`
+
+const projectPayloadKCL = `sketch001 = startSketchAt([470.262, -76.4115])
 |> bezierCurve({
   control1 = [-104.89532000000003, -51.45250999999999],
   control2 = [-185.83431000000002, -141.59359],
@@ -225,4 +236,30 @@ sketch008 = startSketchAt([530.388, -49.9619])
   control2 = [-105.88097000000005, -20.946916],
   to = [-151.46799999999996, -49.5223]
 }, %)
-|> close(%)
+|> close(%)`
+
+describe('SVG to KCL Conversion', () => {
+  it('should correctly convert basic_transform.svg to KCL', async () => {
+    const inputPath = path.join(__dirname, 'data', 'basic_transform.svg')
+    const outputPath = path.join(__dirname, 'data', 'output.kcl')
+
+    // Run the conversion.
+    await convertSVGtoKCL(inputPath, outputPath, false)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(basicTransformKCL)
+  })
+
+  it('should correctly convert project_payload.svg to KCL', async () => {
+    const inputPath = path.join(__dirname, 'data', 'project_payload.svg')
+    const outputPath = path.join(__dirname, 'data', 'output.kcl')
+
+    // Run the conversion.
+    await convertSVGtoKCL(inputPath, outputPath, false)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(projectPayloadKCL)
+  })
+})

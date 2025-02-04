@@ -19,7 +19,6 @@ export class KCLWriter {
 
   constructor(viewBox: ViewBox, options: KCLOptions = {}) {
     // Calculate offset coordinates for centering if requested.
-
     const x = options.centerOnViewBox ? viewBox.xMin + viewBox.width / 2 : 0
     const y = options.centerOnViewBox ? viewBox.yMin + viewBox.height / 2 : 0
     this.offsetCoords = { x, y }

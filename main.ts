@@ -3,7 +3,11 @@ import { SVGReader } from './svg-reader'
 import { SVGParser } from './svg-parser'
 import { KCLWriter } from './kcl-writer'
 
-async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<void> {
+export async function convertSVGtoKCL(
+  inputPath: string,
+  outputPath: string,
+  centerOnViewBox: boolean = false
+): Promise<void> {
   try {
     // Read the SVG file to our SVGContents format.
     const svgContents = await SVGReader.readFile(fsPromises, inputPath)
@@ -12,18 +16,18 @@ async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<v
     const parser = new SVGParser()
     const parsedPaths = parser.parse(svgContents)
 
-    // Generate KCL output
+    // Generate KCL output.
     const writer = new KCLWriter(svgContents.viewBox, {
-      centerOnViewBox: true
+      centerOnViewBox: centerOnViewBox
     })
 
-    // Process each path
+    // Process each path.
     parsedPaths.forEach((path) => writer.processPath(path))
 
-    // Get final KCL content
+    // Get final KCL content.
     const kclContent = writer.generateOutput()
 
-    // Write to output file
+    // Write to output file.
     await fsPromises.writeFile(outputPath, kclContent, 'utf8')
 
     console.log(`Successfully converted ${inputPath} to ${outputPath}`)
@@ -34,8 +38,7 @@ async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<v
 }
 
 // Usage with hardcoded paths
-// const inputFile = './tests/data/basic_transform.svg'
-const inputFile = './project_payload.svg'
+const inputFile = './tests/data/project_payload.svg'
 const outputFile = './output.kcl'
 
 convertSVGtoKCL(inputFile, outputFile).catch((error) => {

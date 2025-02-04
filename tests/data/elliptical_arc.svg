@@ -1,0 +1,7 @@
+<svg width="400" height="400"
+    stroke="#258" stroke-width="1" fill="none">
+    <g transform="translate(200, 200)">
+        <path d="${test()}" />
+        <path d="M0,0A100,70,-20,1,1,-30,-70" />
+    </g>
+</svg>

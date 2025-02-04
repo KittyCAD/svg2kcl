@@ -211,7 +211,9 @@ export class SVGParser {
     try {
       return svgElement.paths.map((path) => this.pathParser.parsePath(path.d))
     } catch (error) {
-      throw new SVGParseError(`Failed to parse SVG paths: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new SVGParseError(
+        `Failed to parse SVG paths: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
     }
   }
 }

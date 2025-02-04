@@ -5,15 +5,17 @@ import { KCLWriter } from './kcl-writer'
 
 async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<void> {
   try {
-    // Read and parse SVG file
-    const svgElement = await SVGReader.readFile(fsPromises, inputPath)
+    // Read the SVG file to our SVGContents format.
+    const svgContents = await SVGReader.readFile(fsPromises, inputPath)
 
-    // Parse SVG paths
+    // Parse SVG paths.
     const parser = new SVGParser()
-    const parsedPaths = parser.parse(svgElement)
+    const parsedPaths = parser.parse(svgContents)
 
     // Generate KCL output
-    const writer = new KCLWriter(svgElement.viewBox, svgElement.translate, { centerOnViewBox: true })
+    const writer = new KCLWriter(svgContents.viewBox, svgContents.translate, {
+      centerOnViewBox: true
+    })
 
     // Process each path
     parsedPaths.forEach((path) => writer.processPath(path))

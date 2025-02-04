@@ -33,7 +33,7 @@ export async function convertSVGtoKCL(
 }
 
 // Usage with hardcoded paths
-// const inputFile = './tests/data/matrix_transform.svg'
-// const outputFile = './mixed_transforms.kcl'
+const inputFile = './tests/data/project_payload.svg'
+const outputFile = './output.kcl'
 
-// convertSVGtoKCL(inputFile, outputFile)
+convertSVGtoKCL(inputFile, outputFile)

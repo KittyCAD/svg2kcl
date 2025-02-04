@@ -259,12 +259,9 @@ export class KCLWriter {
         case CommandType.MoveAbsolute:
         case CommandType.MoveRelative: {
           if (isFirstCommand) {
-            this.writeStartSketch(command.position)
             isFirstCommand = false
-          } else {
-            this.addCommand(`|> close(%)\n`)
-            this.writeStartSketch(command.position)
           }
+          this.writeStartSketch(command.position)
           break
         }
 
@@ -308,6 +305,8 @@ export class KCLWriter {
 
         // Close path commands.
         case CommandType.StopAbsolute:
+          this.addCommand(`|> close(%)\n`)
+          break
         case CommandType.StopRelative: {
           this.addCommand(`|> close(%)\n`)
           break

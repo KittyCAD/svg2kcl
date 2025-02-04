@@ -66,11 +66,23 @@ export class SVGPathParser {
   }
 
   private handleCommandChar(char: string): void {
-    this.pushValue()
-    this.handleCommand()
-    this.state.command = SVGCommandMap[char]
-    this.state.values = []
+    this.pushValue() // 1. Push any pending value from previous command
+
+    if (this.state.command !== CommandType.NotSet) {
+      this.handleCommand() // 2. Process previous command if there was one
+    }
+
+    this.state.command = SVGCommandMap[char] // 3. Set new command
+    this.state.values = [] // 4. Clear values for new command
     this.state.isValuePushed = false
+
+    // 5. For commands that don't need values (like z/Z), process them immediately
+    if (
+      this.state.command === CommandType.StopAbsolute ||
+      this.state.command === CommandType.StopRelative
+    ) {
+      this.processValues([]) // They can be processed with empty parameters array
+    }
   }
 
   private handleNegative(): void {
@@ -236,10 +248,6 @@ export class SVGPathParser {
   }
 
   private handleCommand(): void {
-    if (this.state.command === CommandType.NotSet || this.state.values.length === 0) {
-      return
-    }
-
     const chunkSizeMap = {
       [CommandType.MoveAbsolute]: 2,
       [CommandType.MoveRelative]: 2,
@@ -261,6 +269,13 @@ export class SVGPathParser {
       [CommandType.EllipticalArcRelative]: 7,
       [CommandType.StopAbsolute]: 0,
       [CommandType.StopRelative]: 0
+    }
+
+    if (
+      this.state.command === CommandType.NotSet ||
+      (this.state.values.length === 0 && chunkSizeMap[this.state.command] > 0)
+    ) {
+      return
     }
 
     let chunkSize = chunkSizeMap[this.state.command] || 2

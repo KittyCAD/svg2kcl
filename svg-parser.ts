@@ -123,102 +123,114 @@ export class SVGPathParser {
     return transformed
   }
 
-  private processValues(chunk: number[]): void {
-    let transformedChunk = [...chunk]
+  private processValues(parameters: number[]): void {
+    let transformedChunk = [...parameters]
 
-    // For absolute commands, transform the coordinates
+    // Transform absolute coordinates.
     switch (this.state.command) {
       case CommandType.MoveAbsolute:
       case CommandType.LineAbsolute:
       case CommandType.CubicBezierAbsolute:
-      case CommandType.QuadraticBezierAbsolute: {
-        transformedChunk = this.transformChunk(chunk, 2)
+      case CommandType.QuadraticBezierAbsolute:
+      case CommandType.EllipticalArcAbsolute:
+        transformedChunk = this.transformChunk(parameters, 2)
         break
-      }
-      case CommandType.HorizontalLineAbsolute: {
+      case CommandType.HorizontalLineAbsolute:
         if (this.transform) {
-          // For H, we need to transform considering current Y
-          const point = this.applyTransform({ x: chunk[0], y: this.state.currentPoint.y })
-          transformedChunk = [point.x]
+          // For H, transform considering current X.
+          transformedChunk = [
+            this.applyTransform({ x: parameters[0], y: this.state.currentPoint.y }).x
+          ]
         }
         break
-      }
-      case CommandType.VerticalLineAbsolute: {
+      case CommandType.VerticalLineAbsolute:
         if (this.transform) {
-          // For V, we need to transform considering current X
-          const point = this.applyTransform({ x: this.state.currentPoint.x, y: chunk[0] })
-          transformedChunk = [point.y]
+          // For V, transform considering current Y.
+          transformedChunk = [
+            this.applyTransform({ x: this.state.currentPoint.x, y: parameters[0] }).y
+          ]
         }
         break
-      }
     }
 
+    // Update currentPoint for absolute commands.
     switch (this.state.command) {
-      case CommandType.MoveAbsolute: {
-        const point = { x: transformedChunk[0], y: transformedChunk[1] }
-        this.state.currentPoint = point
-        if (!this.path.commands.length) {
-          this.path.startPosition = { ...point }
-        }
-        break
-      }
-      case CommandType.MoveRelative: {
-        this.state.currentPoint.x += chunk[0]
-        this.state.currentPoint.y += chunk[1]
-        if (!this.path.commands.length) {
+      case CommandType.MoveAbsolute:
+      case CommandType.LineAbsolute:
+        this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
+        if (this.state.command === CommandType.MoveAbsolute && !this.path.commands.length) {
           this.path.startPosition = { ...this.state.currentPoint }
         }
         break
-      }
-      case CommandType.LineAbsolute: {
-        this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
-        break
-      }
-      case CommandType.LineRelative: {
-        this.state.currentPoint.x += chunk[0]
-        this.state.currentPoint.y += chunk[1]
-        break
-      }
-      case CommandType.HorizontalLineAbsolute: {
+      case CommandType.HorizontalLineAbsolute:
         this.state.currentPoint.x = transformedChunk[0]
         break
-      }
-      case CommandType.HorizontalLineRelative: {
-        this.state.currentPoint.x += chunk[0]
-        break
-      }
-      case CommandType.VerticalLineAbsolute: {
+      case CommandType.VerticalLineAbsolute:
         this.state.currentPoint.y = transformedChunk[0]
         break
-      }
-      case CommandType.VerticalLineRelative: {
-        this.state.currentPoint.y += chunk[0]
-        break
-      }
-      case CommandType.CubicBezierAbsolute: {
+      case CommandType.CubicBezierAbsolute:
         this.state.currentPoint = { x: transformedChunk[4], y: transformedChunk[5] }
         break
-      }
-      case CommandType.CubicBezierRelative: {
-        this.state.currentPoint.x += chunk[4]
-        this.state.currentPoint.y += chunk[5]
-        break
-      }
-      case CommandType.QuadraticBezierAbsolute: {
+      case CommandType.QuadraticBezierAbsolute:
         this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
         break
-      }
-      case CommandType.QuadraticBezierRelative: {
-        this.state.currentPoint.x += chunk[2]
-        this.state.currentPoint.y += chunk[3]
+      case CommandType.CubicBezierSmoothAbsolute:
+        this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
         break
-      }
+      case CommandType.QuadraticBezierSmoothAbsolute:
+        this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
+        break
+      case CommandType.EllipticalArcAbsolute:
+        this.state.currentPoint = { x: transformedChunk[5], y: transformedChunk[6] }
+        break
     }
 
-    // Push the command with transformed values for absolute commands
+    // Update currentPoint for relative commands.
+    switch (this.state.command) {
+      case CommandType.MoveRelative:
+      case CommandType.LineRelative:
+        this.state.currentPoint.x += parameters[0]
+        this.state.currentPoint.y += parameters[1]
+        if (this.state.command === CommandType.MoveRelative && !this.path.commands.length) {
+          this.path.startPosition = { ...this.state.currentPoint }
+        }
+        break
+      case CommandType.HorizontalLineRelative:
+        this.state.currentPoint.x += parameters[0]
+        break
+      case CommandType.VerticalLineRelative:
+        this.state.currentPoint.y += parameters[0]
+        break
+      case CommandType.CubicBezierRelative:
+        this.state.currentPoint.x += parameters[4]
+        this.state.currentPoint.y += parameters[5]
+        break
+      case CommandType.QuadraticBezierRelative:
+        this.state.currentPoint.x += parameters[2]
+        this.state.currentPoint.y += parameters[3]
+        break
+      case CommandType.CubicBezierSmoothRelative:
+        this.state.currentPoint.x += parameters[2]
+        this.state.currentPoint.y += parameters[3]
+        break
+      case CommandType.QuadraticBezierSmoothRelative:
+        this.state.currentPoint.x += parameters[0]
+        this.state.currentPoint.y += parameters[1]
+        break
+      case CommandType.EllipticalArcRelative:
+        this.state.currentPoint.x += parameters[5]
+        this.state.currentPoint.y += parameters[6]
+        break
+      case CommandType.StopAbsolute:
+      case CommandType.StopRelative:
+        this.state.currentPoint = { ...this.path.startPosition }
+        break
+    }
+
+    // Push the command with transformed values for absolute commands.
     this.path.commands.push({
       type: this.state.command,
-      values: this.state.command.endsWith('a') ? transformedChunk : chunk,
+      values: this.state.command.endsWith('a') ? transformedChunk : parameters,
       position: { ...this.state.currentPoint }
     })
   }
@@ -228,23 +240,30 @@ export class SVGPathParser {
       return
     }
 
-    let chunkSize = 2 // Default for most commands
-    switch (this.state.command) {
-      case CommandType.CubicBezierAbsolute:
-      case CommandType.CubicBezierRelative:
-        chunkSize = 6
-        break
-      case CommandType.QuadraticBezierAbsolute:
-      case CommandType.QuadraticBezierRelative:
-        chunkSize = 4
-        break
-      case CommandType.HorizontalLineAbsolute:
-      case CommandType.HorizontalLineRelative:
-      case CommandType.VerticalLineAbsolute:
-      case CommandType.VerticalLineRelative:
-        chunkSize = 1
-        break
+    const chunkSizeMap = {
+      [CommandType.MoveAbsolute]: 2,
+      [CommandType.MoveRelative]: 2,
+      [CommandType.LineAbsolute]: 2,
+      [CommandType.LineRelative]: 2,
+      [CommandType.HorizontalLineAbsolute]: 1,
+      [CommandType.HorizontalLineRelative]: 1,
+      [CommandType.VerticalLineAbsolute]: 1,
+      [CommandType.VerticalLineRelative]: 1,
+      [CommandType.CubicBezierAbsolute]: 6,
+      [CommandType.CubicBezierRelative]: 6,
+      [CommandType.CubicBezierSmoothAbsolute]: 4,
+      [CommandType.CubicBezierSmoothRelative]: 4,
+      [CommandType.QuadraticBezierAbsolute]: 4,
+      [CommandType.QuadraticBezierRelative]: 4,
+      [CommandType.QuadraticBezierSmoothAbsolute]: 2,
+      [CommandType.QuadraticBezierSmoothRelative]: 2,
+      [CommandType.EllipticalArcAbsolute]: 7,
+      [CommandType.EllipticalArcRelative]: 7,
+      [CommandType.StopAbsolute]: 0,
+      [CommandType.StopRelative]: 0
     }
+
+    let chunkSize = chunkSizeMap[this.state.command] || 2
 
     // Process values in chunks
     for (let i = 0; i < this.state.values.length; i += chunkSize) {

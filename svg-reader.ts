@@ -1,7 +1,7 @@
 import { XMLParser } from 'fast-xml-parser'
 import { Point, ViewBox } from './types'
 import type { promises } from 'node:fs'
-import { Matrix } from './transform'
+import { Matrix, TransformType } from './transform'
 
 export class SVGReadError extends Error {
   constructor(message: string = 'An error occurred while reading the SVG.') {
@@ -58,63 +58,61 @@ export class SVGReader {
   })
 
   private static parseTransform(transformStr: string | undefined): Matrix | null {
+    // Reads an SVG transform string and returns a matrix object that describes
+    // the transformation.
+
+    // Early out.
     if (!transformStr) return null
 
     let matrix = new Matrix()
-    const transformRegex = /(translate|scale|rotate|matrix|skewX|skewY)\s*\(([-\d\s,.e]+)\)/g
+    const regex = /(translate|scale|rotate|matrix|skewX|skewY)\s*\(([-\d\s,.e]+)\)/g
     let match
 
-    while ((match = transformRegex.exec(transformStr)) !== null) {
-      const [_, type, valuesStr] = match
-      const values = valuesStr
-        .trim()
-        .split(/[\s,]+/)
-        .map(Number)
+    while ((match = regex.exec(transformStr)) !== null) {
+      const [, type, valuesStr] = match
+      const values = valuesStr.split(/[\s,]+/).map(Number)
 
-      switch (type) {
-        case 'translate':
-          const tx = values[0] || 0
-          const ty = values[1] || 0
+      switch (type as TransformType) {
+        case TransformType.Translate: {
+          const [tx = 0, ty = 0] = values
           matrix = matrix.translate(tx, ty)
           break
-
-        case 'scale':
-          const sx = values[0] || 1
-          const sy = values.length > 1 ? values[1] : sx
+        }
+        case TransformType.Scale: {
+          const [sx = 1, sy = sx] = values
           matrix = matrix.scale(sx, sy)
           break
-
-        case 'rotate':
-          const angle = values[0] || 0
-          const cx = values[1] || 0
-          const cy = values[2] || 0
-
-          if (cx !== 0 || cy !== 0) {
-            matrix = matrix.translate(cx, cy).rotate(angle).translate(-cx, -cy)
-          } else {
-            matrix = matrix.rotate(angle)
-          }
+        }
+        case TransformType.Rotate: {
+          const [angle = 0, cx = 0, cy = 0] = values
+          matrix =
+            cx || cy
+              ? matrix.translate(cx, cy).rotate(angle).translate(-cx, -cy)
+              : matrix.rotate(angle)
           break
-
-        case 'skewX':
+        }
+        case TransformType.SkewX: {
           matrix = matrix.skewX(values[0] || 0)
           break
-
-        case 'skewY':
+        }
+        case TransformType.SkewY: {
           matrix = matrix.skewY(values[0] || 0)
           break
-
-        case 'matrix':
+        }
+        case TransformType.Matrix:
           if (values.length === 6) {
-            matrix = matrix.multiply(
-              new Matrix(values[0], values[1], values[2], values[3], values[4], values[5])
-            )
+            matrix = matrix.multiply(new Matrix(...values))
           }
           break
       }
     }
 
     return matrix
+  }
+
+  private static combineTransforms(parent: Matrix | null, child: Matrix | null): Matrix | null {
+    if (parent && child) return parent.multiply(child)
+    return parent || child || null
   }
 
   private static processPath(p: ParsedPath, groupTransform: Matrix | null): SVGPath | null {
@@ -137,26 +135,26 @@ export class SVGReader {
 
   private static findPaths(g: ParsedGroup, inheritedTransform: Matrix | null = null): SVGPath[] {
     const paths: SVGPath[] = []
+
+    // Compute the group's transform.
     const groupTransform = this.parseTransform(g.transform)
+    const combinedTransform = this.combineTransforms(inheritedTransform, groupTransform)
 
-    const combinedTransform = inheritedTransform
-      ? groupTransform
-        ? inheritedTransform.multiply(groupTransform)
-        : inheritedTransform
-      : groupTransform || null
-
+    // Process paths in this group.
     if (g.path) {
       const pathArray = Array.isArray(g.path) ? g.path : [g.path]
-      paths.push(
-        ...(pathArray
-          .map((p) => this.processPath(p, combinedTransform))
-          .filter(Boolean) as SVGPath[])
-      )
+      for (const path of pathArray) {
+        const processedPath = this.processPath(path, combinedTransform)
+        if (processedPath) paths.push(processedPath)
+      }
     }
 
+    // Process nested groups.
     if (g.g) {
       const nestedGroups = Array.isArray(g.g) ? g.g : [g.g]
-      paths.push(...nestedGroups.flatMap((nested) => this.findPaths(nested, combinedTransform)))
+      for (const nestedGroup of nestedGroups) {
+        paths.push(...this.findPaths(nestedGroup, combinedTransform))
+      }
     }
 
     return paths

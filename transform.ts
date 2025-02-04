@@ -1,3 +1,12 @@
+export enum TransformType {
+  Translate = 'translate',
+  Scale = 'scale',
+  Rotate = 'rotate',
+  SkewX = 'skewX',
+  SkewY = 'skewY',
+  Matrix = 'matrix'
+}
+
 export class Matrix {
   constructor(
     public a: number = 1,

@@ -19,7 +19,7 @@ export class KCLWriter {
   private currentPoint: Point = { x: 0, y: 0 }
 
   constructor(viewBox: ViewBox, translate: Point, options: KCLOptions = {}) {
-    // Calculate offset coordinates for centering if requested
+    // Calculate offset coordinates for centering if requested.
     this.offsetCoords = options.centerOnViewBox
       ? {
           x: viewBox.width / -2 + translate.x,
@@ -37,11 +37,10 @@ export class KCLWriter {
   }
 
   private transformPoint(point: Point, isRelative: boolean = false): Point {
-    // Point should already have SVG transforms applied
-    // Just need to handle KCL coordinate system (Y-flip)
+    // Point should already have SVG transforms applied, but we should invert Y.
     return {
-      x: point.x, // SVG transforms already applied
-      y: -point.y // Just flip Y for KCL
+      x: point.x,
+      y: -point.y
     }
   }
 

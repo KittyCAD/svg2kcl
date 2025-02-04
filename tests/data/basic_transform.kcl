@@ -1,0 +1,5 @@
+sketch001 = startSketchAt([60, -60])
+|> lineTo([80, -60], %)
+|> lineTo([80, -80], %)
+|> lineTo([60, -80], %)
+|> close(%)

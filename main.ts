@@ -13,8 +13,8 @@ async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<v
     const parsedPaths = parser.parse(svgContents)
 
     // Generate KCL output
-    const writer = new KCLWriter(svgContents.viewBox, svgContents.translate, {
-      centerOnViewBox: true
+    const writer = new KCLWriter(svgContents.viewBox, {
+      centerOnViewBox: false
     })
 
     // Process each path

@@ -1,6 +1,5 @@
 import { CommandType, Point, ViewBox } from './types'
 import { ParsedCommand, ParsedPath } from './svg-parser'
-
 export class KCLWriteError extends Error {
   constructor(message: string) {
     super(message)
@@ -18,14 +17,12 @@ export class KCLWriter {
   private readonly offsetCoords: Point
   private currentPoint: Point = { x: 0, y: 0 }
 
-  constructor(viewBox: ViewBox, translate: Point, options: KCLOptions = {}) {
+  constructor(viewBox: ViewBox, options: KCLOptions = {}) {
     // Calculate offset coordinates for centering if requested.
-    this.offsetCoords = options.centerOnViewBox
-      ? {
-          x: viewBox.width / -2 + translate.x,
-          y: viewBox.height / 2 - translate.y
-        }
-      : translate
+
+    const x = options.centerOnViewBox ? viewBox.xMin + viewBox.width / -2 : 0
+    const y = options.centerOnViewBox ? viewBox.yMin + viewBox.height / 2 : 0
+    this.offsetCoords = { x, y }
   }
 
   private generateVariableName(): string {
@@ -39,8 +36,8 @@ export class KCLWriter {
   private transformPoint(point: Point, isRelative: boolean = false): Point {
     // Point should already have SVG transforms applied, but we should invert Y.
     return {
-      x: point.x,
-      y: -point.y
+      x: point.x - this.offsetCoords.x,
+      y: -(point.y - this.offsetCoords.y)
     }
   }
 

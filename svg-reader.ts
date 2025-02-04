@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser'
-import { Point, ViewBox } from './types'
+import { ViewBox } from './types'
 import type { promises } from 'node:fs'
 import { Matrix, TransformType } from './transform'
 
@@ -26,7 +26,6 @@ export interface SVGPath {
 export interface SVGContents {
   paths: SVGPath[]
   viewBox: ViewBox
-  translate: Point
 }
 
 interface ParsedPath {
@@ -160,6 +159,21 @@ export class SVGReader {
     return paths
   }
 
+  private static parseViewBox(viewBoxStr: string | undefined): ViewBox {
+    // Early default.
+    const defaultViewBox = { xMin: 0, yMin: 0, width: 0, height: 0 }
+    if (!viewBoxStr) return defaultViewBox
+
+    const values = viewBoxStr.split(/\s+/).map(Number)
+    if (values.length !== 4 || values.some(isNaN)) {
+      // Handle error case.
+      return defaultViewBox
+    }
+
+    const [xMin, yMin, width, height] = values
+    return { xMin, yMin, width, height }
+  }
+
   public static parseContent(content: string): SVGContents {
     const parsed = this.xmlParser.parse(content) as ParsedSVG
 
@@ -167,12 +181,13 @@ export class SVGReader {
       throw new SVGReadError('No SVG element found in file contents.')
     }
 
+    // Extract viewBox, paths.
+    const viewBox = this.parseViewBox(parsed.svg.viewBox)
     const paths = parsed.svg.g ? this.findPaths(parsed.svg.g) : []
 
     return {
       paths,
-      viewBox: { width: 0, height: 0 },
-      translate: { x: 0, y: 0 }
+      viewBox: viewBox
     }
   }
 

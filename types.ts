@@ -4,6 +4,8 @@ export type Point = {
 }
 
 export interface ViewBox {
+  xMin: number
+  yMin: number
   width: number
   height: number
 }

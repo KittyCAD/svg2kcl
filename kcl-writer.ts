@@ -68,82 +68,82 @@ export class KCLWriter {
     this.addCommand(`|> lineTo([${outPoint.x}, ${outPoint.y}], %)`)
   }
 
-  private writeBezierCurve(command: ParsedCommand): void {
-    const isRelative =
-      command.type === CommandType.CubicBezierRelative ||
-      command.type === CommandType.QuadraticBezierRelative
+  private writeQuadraticBezierCurve(command: ParsedCommand): void {
+    const isRelative = command.type === CommandType.QuadraticBezierRelative
 
-    if (command.values.length === 4) {
-      // Quadratic bezier
-      const [x1, y1, x, y] = command.values
-      const c1x = isRelative ? x1 + this.currentPoint.x : x1
-      const c1y = isRelative ? y1 + this.currentPoint.y : y1
-      const endX = isRelative ? x + this.currentPoint.x : x
-      const endY = isRelative ? y + this.currentPoint.y : y
+    // Quadratic bezier
+    const [x1, y1, x, y] = command.values
+    const c1x = isRelative ? x1 + this.currentPoint.x : x1
+    const c1y = isRelative ? y1 + this.currentPoint.y : y1
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
 
-      let control1 = {
-        x: c1x - this.currentPoint.x + this.offsetCoords.x,
-        y: c1y - this.currentPoint.y + this.offsetCoords.y
-      }
-      let endpoint = {
-        x: endX - this.currentPoint.x + this.offsetCoords.x,
-        y: endY - this.currentPoint.y + this.offsetCoords.y
-      }
+    let control1 = {
+      x: c1x - this.currentPoint.x + this.offsetCoords.x,
+      y: c1y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
 
-      this.currentPoint = { x: endX, y: endY }
+    this.currentPoint = { x: endX, y: endY }
 
-      // Transform, invert, and write the command.
-      control1 = this.transformPoint(control1)
-      endpoint = this.transformPoint(endpoint)
+    // Transform, invert, and write the command.
+    control1 = this.transformPoint(control1)
+    endpoint = this.transformPoint(endpoint)
 
-      control1 = this.invertY(control1)
-      endpoint = this.invertY(endpoint)
+    control1 = this.invertY(control1)
+    endpoint = this.invertY(endpoint)
 
-      this.addCommand(`|> bezierCurve({
+    this.addCommand(`|> bezierCurve({
   control1 = [${control1.x}, ${control1.y}],
   control2 = [${control1.x}, ${control1.y}],
   to =  [${endpoint.x}, ${endpoint.y}]
 }, %)`)
-    } else if (command.values.length === 6) {
-      // Cubic bezier
-      const [x1, y1, x2, y2, x, y] = command.values
-      const c1x = isRelative ? x1 + this.currentPoint.x : x1
-      const c1y = isRelative ? y1 + this.currentPoint.y : y1
-      const c2x = isRelative ? x2 + this.currentPoint.x : x2
-      const c2y = isRelative ? y2 + this.currentPoint.y : y2
-      const endX = isRelative ? x + this.currentPoint.x : x
-      const endY = isRelative ? y + this.currentPoint.y : y
+  }
 
-      let control1 = {
-        x: c1x - this.currentPoint.x + this.offsetCoords.x,
-        y: c1y - this.currentPoint.y + this.offsetCoords.y
-      }
-      let control2 = {
-        x: c2x - this.currentPoint.x + this.offsetCoords.x,
-        y: c2y - this.currentPoint.y + this.offsetCoords.y
-      }
-      let endpoint = {
-        x: endX - this.currentPoint.x + this.offsetCoords.x,
-        y: endY - this.currentPoint.y + this.offsetCoords.y
-      }
+  private writeCubicBezierCurve(command: ParsedCommand): void {
+    const isRelative = command.type === CommandType.CubicBezierRelative
 
-      this.currentPoint = { x: endX, y: endY }
+    // Cubic bezier
+    const [x1, y1, x2, y2, x, y] = command.values
+    const c1x = isRelative ? x1 + this.currentPoint.x : x1
+    const c1y = isRelative ? y1 + this.currentPoint.y : y1
+    const c2x = isRelative ? x2 + this.currentPoint.x : x2
+    const c2y = isRelative ? y2 + this.currentPoint.y : y2
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
 
-      // Transform, invert, and write the command.
-      control1 = this.transformPoint(control1)
-      control2 = this.transformPoint(control2)
-      endpoint = this.transformPoint(endpoint)
+    let control1 = {
+      x: c1x - this.currentPoint.x + this.offsetCoords.x,
+      y: c1y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let control2 = {
+      x: c2x - this.currentPoint.x + this.offsetCoords.x,
+      y: c2y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
 
-      control1 = this.invertY(control1)
-      control2 = this.invertY(control2)
-      endpoint = this.invertY(endpoint)
+    this.currentPoint = { x: endX, y: endY }
 
-      this.addCommand(`|> bezierCurve({
+    // Transform, invert, and write the command.
+    control1 = this.transformPoint(control1)
+    control2 = this.transformPoint(control2)
+    endpoint = this.transformPoint(endpoint)
+
+    control1 = this.invertY(control1)
+    control2 = this.invertY(control2)
+    endpoint = this.invertY(endpoint)
+
+    this.addCommand(`|> bezierCurve({
   control1 = [${control1.x}, ${control1.y}],
   control2 = [${control2.x}, ${control2.y}],
   to = [${endpoint.x}, ${endpoint.y}]
 }, %)`)
-    }
   }
 
   public processPath(path: ParsedPath): void {
@@ -172,10 +172,13 @@ export class KCLWriter {
           break
         }
         case CommandType.QuadraticBezierAbsolute:
-        case CommandType.QuadraticBezierRelative:
+        case CommandType.QuadraticBezierRelative: {
+          this.writeQuadraticBezierCurve(command)
+          break
+        }
         case CommandType.CubicBezierAbsolute:
         case CommandType.CubicBezierRelative: {
-          this.writeBezierCurve(command)
+          this.writeCubicBezierCurve(command)
           break
         }
         case CommandType.StopAbsolute:
@@ -186,7 +189,7 @@ export class KCLWriter {
       }
     }
 
-    // Ensure path is closed
+    // Ensure path is closed.
     if (
       !path.commands.some(
         (cmd) => cmd.type === CommandType.StopAbsolute || cmd.type === CommandType.StopRelative

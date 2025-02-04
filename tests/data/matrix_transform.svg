@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="500" height="500" xmlns="http://www.w3.org/2000/svg">
+    <g transform="matrix(1,0.5,-0.5,1,100,50)">
+        <path d="M 10,10 L 30,10 L 30,30 L 10,30 Z" />
+        <g transform="matrix(2,0,0,2,-10,-10)">
+            <path d="M 40,40 L 60,40 L 60,60 L 40,60 Z" />
+        </g>
+    </g>
+</svg>

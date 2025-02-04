@@ -37,22 +37,20 @@ export class KCLWriter {
   }
 
   private transformPoint(point: Point, isRelative: boolean = false): Point {
-    if (isRelative) {
-      return {
-        x: point.x + this.offsetCoords.x,
-        y: -point.y + this.offsetCoords.y
-      }
-    }
+    // Point should already have SVG transforms applied
+    // Just need to handle KCL coordinate system (Y-flip)
     return {
-      x: point.x + this.offsetCoords.x,
-      y: -point.y + this.offsetCoords.y
+      x: point.x, // SVG transforms already applied
+      y: -point.y // Just flip Y for KCL
     }
   }
 
   private writeStartSketch(point: Point): void {
     this.currentPoint = point
     const transformed = this.transformPoint(point)
-    this.addCommand(`let ${this.generateVariableName()} = startSketchAt([${transformed.x}, ${transformed.y}])`)
+    this.addCommand(
+      `let ${this.generateVariableName()} = startSketchAt([${transformed.x}, ${transformed.y}])`
+    )
   }
 
   private writeLine(point: Point): void {
@@ -63,7 +61,8 @@ export class KCLWriter {
 
   private writeBezierCurve(command: ParsedCommand): void {
     const isRelative =
-      command.type === CommandType.CubicBezierRelative || command.type === CommandType.QuadraticBezierRelative
+      command.type === CommandType.CubicBezierRelative ||
+      command.type === CommandType.QuadraticBezierRelative
 
     if (command.values.length === 4) {
       // Quadratic bezier
@@ -163,7 +162,11 @@ export class KCLWriter {
     }
 
     // Ensure path is closed
-    if (!path.commands.some((cmd) => cmd.type === CommandType.StopAbsolute || cmd.type === CommandType.StopRelative)) {
+    if (
+      !path.commands.some(
+        (cmd) => cmd.type === CommandType.StopAbsolute || cmd.type === CommandType.StopRelative
+      )
+    ) {
       this.addCommand(`|> close(%)\n`)
     }
   }

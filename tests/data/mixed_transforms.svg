@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="500" height="500" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(100,100)">
+        <path d="M 10,10 L 30,10 L 30,30 L 10,30 Z"
+            transform="rotate(45)" />
+        <g transform="scale(2)">
+            <path d="M 40,40 L 60,40 L 60,60 L 40,60 Z"
+                transform="skewX(15)" />
+        </g>
+    </g>
+</svg>

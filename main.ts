@@ -34,6 +34,7 @@ async function convertSVGtoKCL(inputPath: string, outputPath: string): Promise<v
 }
 
 // Usage with hardcoded paths
+// const inputFile = './tests/data/basic_transform.svg'
 const inputFile = './project_payload.svg'
 const outputFile = './output.kcl'
 

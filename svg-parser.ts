@@ -1,4 +1,5 @@
 import { CommandType, SVGCommandMap, Point, PathState } from './types'
+import { Matrix } from './transform'
 
 export class SVGParseError extends Error {
   constructor(message: string) {
@@ -21,8 +22,11 @@ export interface ParsedPath {
 export class SVGPathParser {
   private state: PathState
   private path: ParsedPath
+  private transform: Matrix | null
 
   constructor() {
+    this.transform = null
+
     this.state = {
       command: CommandType.NotSet,
       values: [],
@@ -35,6 +39,15 @@ export class SVGPathParser {
     this.path = {
       commands: [],
       startPosition: { x: 0, y: 0 }
+    }
+  }
+
+  private applyTransform(point: Point): Point {
+    if (!this.transform) return point
+
+    return {
+      x: this.transform.a * point.x + this.transform.c * point.y + this.transform.e,
+      y: this.transform.b * point.x + this.transform.d * point.y + this.transform.f
     }
   }
 
@@ -91,12 +104,61 @@ export class SVGPathParser {
     this.state.valueBuffer = ''
   }
 
+  private transformChunk(chunk: number[], chunkSize: number): number[] {
+    // Don't transform if no transform matrix
+    if (!this.transform) return chunk
+
+    // Transform pairs of coordinates
+    const transformed: number[] = []
+    for (let i = 0; i < chunk.length; i += 2) {
+      if (i + 1 < chunk.length) {
+        // If we have a pair of coordinates, transform them
+        const point = this.applyTransform({ x: chunk[i], y: chunk[i + 1] })
+        transformed.push(point.x, point.y)
+      } else {
+        // For single values (like in H/V commands), pass through
+        transformed.push(chunk[i])
+      }
+    }
+    return transformed
+  }
+
   private processValues(chunk: number[]): void {
+    let transformedChunk = [...chunk]
+
+    // For absolute commands, transform the coordinates
+    switch (this.state.command) {
+      case CommandType.MoveAbsolute:
+      case CommandType.LineAbsolute:
+      case CommandType.CubicBezierAbsolute:
+      case CommandType.QuadraticBezierAbsolute: {
+        transformedChunk = this.transformChunk(chunk, 2)
+        break
+      }
+      case CommandType.HorizontalLineAbsolute: {
+        if (this.transform) {
+          // For H, we need to transform considering current Y
+          const point = this.applyTransform({ x: chunk[0], y: this.state.currentPoint.y })
+          transformedChunk = [point.x]
+        }
+        break
+      }
+      case CommandType.VerticalLineAbsolute: {
+        if (this.transform) {
+          // For V, we need to transform considering current X
+          const point = this.applyTransform({ x: this.state.currentPoint.x, y: chunk[0] })
+          transformedChunk = [point.y]
+        }
+        break
+      }
+    }
+
     switch (this.state.command) {
       case CommandType.MoveAbsolute: {
-        this.state.currentPoint = { x: chunk[0], y: chunk[1] }
+        const point = { x: transformedChunk[0], y: transformedChunk[1] }
+        this.state.currentPoint = point
         if (!this.path.commands.length) {
-          this.path.startPosition = { ...this.state.currentPoint }
+          this.path.startPosition = { ...point }
         }
         break
       }
@@ -109,7 +171,7 @@ export class SVGPathParser {
         break
       }
       case CommandType.LineAbsolute: {
-        this.state.currentPoint = { x: chunk[0], y: chunk[1] }
+        this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
         break
       }
       case CommandType.LineRelative: {
@@ -118,7 +180,7 @@ export class SVGPathParser {
         break
       }
       case CommandType.HorizontalLineAbsolute: {
-        this.state.currentPoint.x = chunk[0]
+        this.state.currentPoint.x = transformedChunk[0]
         break
       }
       case CommandType.HorizontalLineRelative: {
@@ -126,7 +188,7 @@ export class SVGPathParser {
         break
       }
       case CommandType.VerticalLineAbsolute: {
-        this.state.currentPoint.y = chunk[0]
+        this.state.currentPoint.y = transformedChunk[0]
         break
       }
       case CommandType.VerticalLineRelative: {
@@ -134,7 +196,7 @@ export class SVGPathParser {
         break
       }
       case CommandType.CubicBezierAbsolute: {
-        this.state.currentPoint = { x: chunk[4], y: chunk[5] }
+        this.state.currentPoint = { x: transformedChunk[4], y: transformedChunk[5] }
         break
       }
       case CommandType.CubicBezierRelative: {
@@ -143,7 +205,7 @@ export class SVGPathParser {
         break
       }
       case CommandType.QuadraticBezierAbsolute: {
-        this.state.currentPoint = { x: chunk[2], y: chunk[3] }
+        this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
         break
       }
       case CommandType.QuadraticBezierRelative: {
@@ -152,6 +214,13 @@ export class SVGPathParser {
         break
       }
     }
+
+    // Push the command with transformed values for absolute commands
+    this.path.commands.push({
+      type: this.state.command,
+      values: this.state.command.endsWith('a') ? transformedChunk : chunk,
+      position: { ...this.state.currentPoint }
+    })
   }
 
   private handleCommand(): void {
@@ -181,19 +250,14 @@ export class SVGPathParser {
     for (let i = 0; i < this.state.values.length; i += chunkSize) {
       const chunk = this.state.values.slice(i, i + chunkSize)
       if (chunk.length === chunkSize) {
-        // Only process complete chunks
         this.processValues(chunk)
-
-        this.path.commands.push({
-          type: this.state.command,
-          values: [...chunk],
-          position: { ...this.state.currentPoint }
-        })
       }
     }
   }
 
-  public parsePath(pathData: string): ParsedPath {
+  public parsePath(pathData: string, transform: Matrix | null = null): ParsedPath {
+    this.transform = transform
+
     this.path = {
       commands: [],
       startPosition: { x: 0, y: 0 }
@@ -212,12 +276,16 @@ export class SVGPathParser {
       this.handleChar(char)
     }
 
-    // Handle any remaining values and commands
     this.pushValue()
     this.handleCommand()
 
     return this.path
   }
+}
+
+export interface SVGPathInfo {
+  d: string
+  transform?: Matrix | null
 }
 
 export class SVGParser {
@@ -227,9 +295,9 @@ export class SVGParser {
     this.pathParser = new SVGPathParser()
   }
 
-  public parse(svgElement: { paths: Array<{ d: string }> }): ParsedPath[] {
+  public parse(svgElement: { paths: SVGPathInfo[] }): ParsedPath[] {
     try {
-      return svgElement.paths.map((path) => this.pathParser.parsePath(path.d))
+      return svgElement.paths.map((path) => this.pathParser.parsePath(path.d, path.transform))
     } catch (error) {
       throw new SVGParseError(
         `Failed to parse SVG paths: ${error instanceof Error ? error.message : 'Unknown error'}`

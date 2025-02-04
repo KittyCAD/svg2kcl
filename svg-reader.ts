@@ -1,12 +1,20 @@
-import { JSDOM } from 'jsdom'
+import { XMLParser } from 'fast-xml-parser'
 import { Point, ViewBox } from './types'
-import type { PathLike } from 'node:fs'
 import type { promises } from 'node:fs'
 
+const DEFAULT_HEIGHT = 1000
+const DEFAULT_WIDTH = 1000
+
 export class SVGReadError extends Error {
-  constructor(message: string) {
+  constructor(message: string = 'An error occurred while reading the SVG.') {
     super(message)
     this.name = 'SVGReadError'
+  }
+
+  public static buildErrorMessage(filepath: string, error: unknown): string {
+    return `Failed to read SVG ${filepath}: ${
+      error instanceof Error ? error.message : 'Unknown error'
+    }`
   }
 }
 
@@ -14,96 +22,80 @@ export interface SVGElement {
   paths: Array<{
     d: string
     fill?: string
-    transform?: DOMMatrix | null
+    style?: string
   }>
   viewBox: ViewBox
   translate: Point
 }
 
 export class SVGReader {
-  /**
-   * Parse SVG content from a string
-   * @param content SVG file content as string
-   * @returns Parsed SVG element data
-   * @throws SVGReadError if parsing fails
-   */
-  public static parseContent(content: string): SVGElement {
-    try {
-      const dom = new JSDOM(content)
-      const svg = dom.window.document.querySelector('svg')
+  private static parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: ''
+  })
 
-      if (!svg) {
-        throw new SVGReadError('No SVG element found in content')
-      }
-
-      // Initialize base translation
-      const translate: Point = { x: 0, y: 0 }
-
-      // Get viewBox dimensions
-      const width = svg.width?.baseVal.valueInSpecifiedUnits ?? 0
-      const height = svg.height?.baseVal.valueInSpecifiedUnits ?? 0
-      const viewBox: ViewBox = { width, height }
-
-      // Extract paths and their attributes
-      const paths: Array<{ d: string; fill?: string; transform?: DOMMatrix | null }> = []
-
-      function traverseElements(element: Element) {
-        for (const child of Array.from(element.children)) {
-          if (child.tagName === 'g') {
-            // Handle group transforms
-            const svgChild = child as SVGGraphicsElement
-            if (svgChild.transform?.baseVal.length > 0) {
-              translate.x += svgChild.transform.baseVal[0].matrix.e ?? 0
-              translate.y += svgChild.transform.baseVal[0].matrix.f ?? 0
-            }
-            traverseElements(child)
-          } else if (child.tagName === 'path') {
-            const svgPath = child as SVGPathElement
-            const pathData = svgPath.getAttribute('d')
-            if (pathData) {
-              paths.push({
-                d: pathData,
-                fill: svgPath.getAttribute('fill') ?? undefined,
-                transform: svgPath.transform?.baseVal[0]?.matrix ?? null
-              })
-            }
-          }
-        }
-      }
-
-      traverseElements(svg)
-
+  private static parseViewBox(svg: any): { viewBox: ViewBox; translate: Point } {
+    // Pull the viewBox from the SVG element.
+    if (svg.viewBox) {
+      const [x, y, width, height] = svg.viewBox.split(/[\s,]+/).map(Number)
       return {
-        paths,
-        viewBox,
-        translate
+        viewBox: { width, height },
+        translate: { x, y }
       }
-    } catch (error) {
-      if (error instanceof SVGReadError) {
-        throw error
-      }
-      throw new SVGReadError(`Failed to parse SVG content: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+
+    // Fallback to width/height.
+    const width = parseFloat(svg.width) || DEFAULT_WIDTH
+    const height = parseFloat(svg.height) || DEFAULT_HEIGHT
+    return {
+      viewBox: { width, height },
+      translate: { x: 0, y: 0 }
     }
   }
 
-  /**
-   * Read and parse an SVG file using the provided file system API
-   * @param fs File system API that provides readFile
-   * @param filepath Path to the SVG file
-   * @returns Parsed SVG element data
-   * @throws SVGReadError if reading or parsing fails
-   */
+  private static findPaths(g: any): Array<{ d: string; fill?: string; style?: string }> {
+    const paths: Array<{ d: string; fill?: string; style?: string }> = []
+
+    if (Array.isArray(g.path)) {
+      for (const path of g.path) {
+        // The `d` attribute defines a path to be drawn:
+        // https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d
+        if (path.d) {
+          paths.push({
+            d: path.d,
+            fill: path.fill || g.fill,
+            style: path.style
+          })
+        }
+      }
+    }
+
+    return paths
+  }
+
+  public static parseContent(content: string): SVGElement {
+    const parsed = this.parser.parse(content)
+
+    if (!parsed.svg) {
+      throw new SVGReadError('No SVG element found in file contents.')
+    }
+
+    const { viewBox, translate } = this.parseViewBox(parsed.svg)
+    const paths = this.findPaths(parsed.svg.g)
+
+    return {
+      paths,
+      viewBox,
+      translate
+    }
+  }
+
   public static async readFile(fs: typeof promises, filepath: string): Promise<SVGElement> {
     try {
       const content = await fs.readFile(filepath, { encoding: 'utf8' })
-      if (typeof content !== 'string') {
-        throw new SVGReadError('File content must be string')
-      }
       return this.parseContent(content)
     } catch (error) {
-      throw new SVGReadError(
-        `Failed to read SVG file ${filepath}: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
+      throw new SVGReadError(SVGReadError.buildErrorMessage(filepath, error))
     }
   }
 }

@@ -34,16 +34,24 @@ export class KCLWriter {
   }
 
   private transformPoint(point: Point, isRelative: boolean = false): Point {
-    // Point should already have SVG transforms applied, but we should invert Y.
+    // Point should already have SVG transforms applied.
     return {
       x: point.x - this.offsetCoords.x,
-      y: -(point.y - this.offsetCoords.y)
+      y: point.y - this.offsetCoords.y
+    }
+  }
+
+  private invertY(point: Point): Point {
+    // SVG is top-down, KCL is bottom-up.
+    return {
+      x: point.x,
+      y: -point.y
     }
   }
 
   private writeStartSketch(point: Point): void {
     this.currentPoint = point
-    const transformed = this.transformPoint(point)
+    const transformed = this.invertY(point)
     this.addCommand(
       `${this.generateVariableName()} = startSketchAt([${transformed.x}, ${transformed.y}])`
     )
@@ -51,7 +59,7 @@ export class KCLWriter {
 
   private writeLine(point: Point): void {
     this.currentPoint = point
-    const transformed = this.transformPoint(point)
+    const transformed = this.invertY(point)
     this.addCommand(`|> lineTo([${transformed.x}, ${transformed.y}], %)`)
   }
 
@@ -68,14 +76,17 @@ export class KCLWriter {
       const endX = isRelative ? x + this.currentPoint.x : x
       const endY = isRelative ? y + this.currentPoint.y : y
 
-      const control1 = {
+      let control1 = {
         x: c1x - this.currentPoint.x + this.offsetCoords.x,
-        y: -c1y + this.currentPoint.y + this.offsetCoords.y
+        y: c1y - this.currentPoint.y + this.offsetCoords.y
       }
-      const endpoint = {
+      let endpoint = {
         x: endX - this.currentPoint.x + this.offsetCoords.x,
-        y: -endY + this.currentPoint.y + this.offsetCoords.y
+        y: endY - this.currentPoint.y + this.offsetCoords.y
       }
+
+      control1 = this.invertY(control1)
+      endpoint = this.invertY(endpoint)
 
       this.addCommand(`|> bezierCurve({
   control1 = [${control1.x}, ${control1.y}],
@@ -94,18 +105,22 @@ export class KCLWriter {
       const endX = isRelative ? x + this.currentPoint.x : x
       const endY = isRelative ? y + this.currentPoint.y : y
 
-      const control1 = {
+      let control1 = {
         x: c1x - this.currentPoint.x + this.offsetCoords.x,
-        y: -c1y + this.currentPoint.y + this.offsetCoords.y
+        y: c1y - this.currentPoint.y + this.offsetCoords.y
       }
-      const control2 = {
+      let control2 = {
         x: c2x - this.currentPoint.x + this.offsetCoords.x,
-        y: -c2y + this.currentPoint.y + this.offsetCoords.y
+        y: c2y - this.currentPoint.y + this.offsetCoords.y
       }
-      const endpoint = {
+      let endpoint = {
         x: endX - this.currentPoint.x + this.offsetCoords.x,
-        y: -endY + this.currentPoint.y + this.offsetCoords.y
+        y: endY - this.currentPoint.y + this.offsetCoords.y
       }
+
+      control1 = this.invertY(control1)
+      control2 = this.invertY(control2)
+      endpoint = this.invertY(endpoint)
 
       this.addCommand(`|> bezierCurve({
   control1 = [${control1.x}, ${control1.y}],

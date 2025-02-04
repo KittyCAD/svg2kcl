@@ -63,6 +63,13 @@ export const SVGCommandMap: Record<string, CommandType> = {
   z: CommandType.StopRelative
 }
 
+export const CommandTypeToSVGMap: Record<CommandType, string> = Object.entries(
+  SVGCommandMap
+).reduce((acc, [key, value]) => {
+  acc[value] = key
+  return acc
+}, {} as Record<CommandType, string>)
+
 export const NumericVals: Array<string> = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.']
 
 export interface PathState {

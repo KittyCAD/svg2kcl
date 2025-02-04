@@ -303,6 +303,9 @@ export class KCLWriter {
           break
         }
 
+        // Elliptical arc commands.
+        // Uh-oh.
+
         // Close path commands.
         case CommandType.StopAbsolute:
         case CommandType.StopRelative: {

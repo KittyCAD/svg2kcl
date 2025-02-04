@@ -1,4 +1,4 @@
-import { CommandType, SVGCommandMap, Point, PathState } from './types'
+import { CommandType, SVGCommandMap, Point, PathState, CommandTypeToSVGMap } from './types'
 import { Matrix } from './transform'
 
 export class SVGParseError extends Error {
@@ -314,8 +314,29 @@ export class SVGParser {
     this.pathParser = new SVGPathParser()
   }
 
+  private validateSVGElement(svgElement: { paths: SVGPathInfo[] }): void {
+    // TODO: Add support for elliptical arcs... but or now, bark.
+    const unsupportedSvgCommands = [
+      CommandType.EllipticalArcAbsolute,
+      CommandType.EllipticalArcRelative
+    ]
+
+    const unsupportedSvgCommandsChars = unsupportedSvgCommands.map(
+      (command) => CommandTypeToSVGMap[command]
+    )
+
+    const hasUnsupportedCommands = svgElement.paths.some((path) =>
+      unsupportedSvgCommandsChars.some((char) => path.d.includes(char))
+    )
+
+    if (hasUnsupportedCommands) {
+      throw new SVGParseError('Unsupported SVG commands found in the input.')
+    }
+  }
+
   public parse(svgElement: { paths: SVGPathInfo[] }): ParsedPath[] {
     try {
+      this.validateSVGElement(svgElement)
       const output = svgElement.paths.map((path) =>
         this.pathParser.parsePath(path.d, path.transform)
       )

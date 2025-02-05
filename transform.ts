@@ -8,6 +8,10 @@ export enum TransformType {
 }
 
 export class Matrix {
+  // https://www.w3.org/TR/SVG11/coords.html
+  // [a, c, e]
+  // [b, d, f]
+  // [0, 0, 1]
   constructor(
     public a: number = 1,
     public b: number = 0,

@@ -132,31 +132,45 @@ export class SVGReader {
     }
   }
 
-  private static findPaths(g: ParsedGroup, inheritedTransform: Matrix | null = null): SVGPath[] {
+  private static processGroup(
+    group: ParsedGroup,
+    inheritedTransform: Matrix | null = null
+  ): SVGPath[] {
     const paths: SVGPath[] = []
 
-    // Compute the group's transform.
-    const groupTransform = this.parseTransform(g.transform)
+    // Compute this group's transform combined with inherited transform.
+    const groupTransform = this.parseTransform(group.transform)
     const combinedTransform = this.combineTransforms(inheritedTransform, groupTransform)
 
     // Process paths in this group.
-    if (g.path) {
-      const pathArray = Array.isArray(g.path) ? g.path : [g.path]
+    if (group.path) {
+      const pathArray = Array.isArray(group.path) ? group.path : [group.path]
       for (const path of pathArray) {
         const processedPath = this.processPath(path, combinedTransform)
         if (processedPath) paths.push(processedPath)
       }
     }
 
-    // Process nested groups.
-    if (g.g) {
-      const nestedGroups = Array.isArray(g.g) ? g.g : [g.g]
+    // Process nested groups
+    if (group.g) {
+      const nestedGroups = Array.isArray(group.g) ? group.g : [group.g]
       for (const nestedGroup of nestedGroups) {
-        paths.push(...this.findPaths(nestedGroup, combinedTransform))
+        paths.push(...this.processGroup(nestedGroup, combinedTransform))
       }
     }
 
     return paths
+  }
+
+  private static findPaths(
+    g: ParsedGroup | ParsedGroup[],
+    inheritedTransform: Matrix | null = null
+  ): SVGPath[] {
+    // Handle both single group and array of groups.
+    const groups = Array.isArray(g) ? g : [g]
+
+    // Process each group and combine results.
+    return groups.flatMap((group) => this.processGroup(group, inheritedTransform))
   }
 
   private static parseViewBox(viewBoxStr: string | undefined): ViewBox {

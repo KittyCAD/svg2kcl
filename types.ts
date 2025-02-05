@@ -10,6 +10,11 @@ export interface ViewBox {
   height: number
 }
 
+export enum FillRule {
+  NonZero = 'nonzero',
+  EvenOdd = 'evenodd'
+}
+
 export interface SVGFile {
   viewBox: ViewBox
   paths: string[]

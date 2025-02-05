@@ -1,4 +1,11 @@
-import { CommandType, SVGCommandMap, Point, PathState, CommandTypeToSVGMap } from './types'
+import {
+  CommandType,
+  SVGCommandMap,
+  Point,
+  PathState,
+  CommandTypeToSVGMap,
+  FillRule
+} from './types'
 import { Matrix } from './transform'
 
 export class SVGParseError extends Error {
@@ -17,6 +24,7 @@ export interface ParsedCommand {
 export interface ParsedPath {
   commands: ParsedCommand[]
   startPosition: Point
+  fillRule: FillRule
 }
 
 export class SVGPathParser {
@@ -38,7 +46,8 @@ export class SVGPathParser {
 
     this.path = {
       commands: [],
-      startPosition: { x: 0, y: 0 }
+      startPosition: { x: 0, y: 0 },
+      fillRule: FillRule.EvenOdd
     }
   }
 
@@ -294,7 +303,8 @@ export class SVGPathParser {
 
     this.path = {
       commands: [],
-      startPosition: { x: 0, y: 0 }
+      startPosition: { x: 0, y: 0 },
+      fillRule: FillRule.EvenOdd
     }
 
     this.state = {

@@ -1,5 +1,6 @@
 import { CommandType, Point, ViewBox } from './types'
 import { ParsedCommand, ParsedPath } from './svg-parser'
+
 export class KCLWriteError extends Error {
   constructor(message: string) {
     super(message)
@@ -9,6 +10,11 @@ export class KCLWriteError extends Error {
 
 export interface KCLOptions {
   centerOnViewBox?: boolean
+}
+
+interface PathInfo {
+  commands: ParsedCommand[]
+  isClockwise: boolean
 }
 
 export class KCLWriter {
@@ -53,6 +59,44 @@ export class KCLWriter {
     }
   }
 
+  private isClockwise(commands: ParsedCommand[]): boolean {
+    let sum = 0
+    for (let i = 0; i < commands.length - 1; i++) {
+      const curr = commands[i].position
+      const next = commands[i + 1].position
+      sum += (next.x - curr.x) * (next.y + curr.y)
+    }
+    return sum > 0
+  }
+
+  private separateSubpaths(path: ParsedPath): PathInfo[] {
+    const subpaths: PathInfo[] = []
+    let currentCommands: ParsedCommand[] = []
+
+    for (const command of path.commands) {
+      if (
+        (command.type === CommandType.MoveAbsolute || command.type === CommandType.MoveRelative) &&
+        currentCommands.length > 0
+      ) {
+        subpaths.push({
+          commands: currentCommands,
+          isClockwise: this.isClockwise(currentCommands)
+        })
+        currentCommands = []
+      }
+      currentCommands.push(command)
+    }
+
+    if (currentCommands.length > 0) {
+      subpaths.push({
+        commands: currentCommands,
+        isClockwise: this.isClockwise(currentCommands)
+      })
+    }
+
+    return subpaths
+  }
+
   private calculateReflectedControlPoint(): Point {
     if (!this.previousControlPoint) {
       // If no previous control point, use current point
@@ -66,15 +110,19 @@ export class KCLWriter {
     }
   }
 
-  private writeStartSketch(point: Point): void {
+  private writeStartSketch(point: Point, isHole: boolean = false): void {
     this.currentPoint = point
-
-    // Transform, invert, and write the command.
     let outPoint = this.transformPoint(point)
     outPoint = this.invertY(outPoint)
-    this.addCommand(
-      `${this.generateVariableName()} = startSketchAt([${outPoint.x}, ${outPoint.y}])`
-    )
+
+    if (isHole) {
+      // For holes, just output the startSketchAt without assignment
+      this.addCommand(`startSketchAt([${outPoint.x}, ${outPoint.y}])`)
+    } else {
+      this.addCommand(
+        `${this.generateVariableName()} = startSketchAt([${outPoint.x}, ${outPoint.y}])`
+      )
+    }
   }
 
   private writeLine(point: Point): void {
@@ -120,7 +168,7 @@ export class KCLWriter {
     this.addCommand(`|> bezierCurve({
   control1 = [${control1.x}, ${control1.y}],
   control2 = [${control1.x}, ${control1.y}],
-  to =  [${endpoint.x}, ${endpoint.y}]
+  to = [${endpoint.x}, ${endpoint.y}]
 }, %)`)
   }
 
@@ -245,10 +293,14 @@ export class KCLWriter {
   }, %)`)
   }
 
-  public processPath(path: ParsedPath): void {
+  private writeSubpath(commands: ParsedCommand[], isHole: boolean = false): void {
     let isFirstCommand = true
 
-    for (const command of path.commands) {
+    if (isHole) {
+      this.addCommand('|> hole(')
+    }
+
+    for (const command of commands) {
       switch (command.type) {
         // Several of the SVG commands can be represented/recreated with the same KCL
         // commands, so we end up grouping these together. Ideally, we'd have a 1:1
@@ -260,8 +312,9 @@ export class KCLWriter {
         case CommandType.MoveRelative: {
           if (isFirstCommand) {
             isFirstCommand = false
+            // this.currentPoint = command.position
           }
-          this.writeStartSketch(command.position)
+          this.writeStartSketch(command.position, isHole)
           break
         }
 
@@ -282,6 +335,7 @@ export class KCLWriter {
           this.writeQuadraticBezierCurve(command)
           break
         }
+
         case CommandType.CubicBezierAbsolute:
         case CommandType.CubicBezierRelative: {
           this.writeCubicBezierCurve(command)
@@ -294,6 +348,7 @@ export class KCLWriter {
           this.writeSmoothQuadraticBezierCurve(command)
           break
         }
+
         case CommandType.CubicBezierSmoothAbsolute:
         case CommandType.CubicBezierSmoothRelative: {
           this.writeSmoothCubicBezierCurve(command)
@@ -305,10 +360,12 @@ export class KCLWriter {
 
         // Close path commands.
         case CommandType.StopAbsolute:
-          this.addCommand(`|> close(%)\n`)
-          break
         case CommandType.StopRelative: {
-          this.addCommand(`|> close(%)\n`)
+          if (isHole) {
+            this.addCommand('|> close(%), %)')
+          } else {
+            this.addCommand('|> close(%)\n')
+          }
           break
         }
       }
@@ -316,11 +373,49 @@ export class KCLWriter {
 
     // Ensure path is closed.
     if (
-      !path.commands.some(
+      !commands.some(
         (cmd) => cmd.type === CommandType.StopAbsolute || cmd.type === CommandType.StopRelative
       )
     ) {
-      this.addCommand(`|> close(%)\n`)
+      if (isHole) {
+        this.addCommand('  |> close(%), %)')
+      } else {
+        this.addCommand('|> close(%)\n')
+      }
+    }
+  }
+
+  public processPath(path: ParsedPath): void {
+    if (path.fillRule === 'evenodd') {
+      const subpaths = this.separateSubpaths(path)
+      const [outer, ...inner] = subpaths
+
+      // Write outer path.
+      this.writeSubpath(outer.commands)
+
+      // Write inner paths as holes.
+      for (const innerPath of inner) {
+        this.writeSubpath(innerPath.commands, true)
+      }
+    } else {
+      // For nonzero, check winding directions.
+      const subpaths = this.separateSubpaths(path)
+      const [outer, ...inner] = subpaths
+
+      // Separate inner paths by winding direction.
+      const holes = inner.filter((p) => p.isClockwise !== outer.isClockwise)
+      const separate = inner.filter((p) => p.isClockwise === outer.isClockwise)
+
+      // Write outer path with holes.
+      this.writeSubpath(outer.commands)
+      for (const hole of holes) {
+        this.writeSubpath(hole.commands, true)
+      }
+
+      // Write separate shapes.
+      for (const path of separate) {
+        this.writeSubpath(path.commands)
+      }
     }
   }
 

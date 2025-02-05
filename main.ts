@@ -33,7 +33,7 @@ export async function convertSVGtoKCL(
 }
 
 // Usage with hardcoded paths
-const inputFile = './tests/data/project_payload.svg'
+const inputFile = './tests/data/fill_rule_nonzero.svg'
 const outputFile = './output.kcl'
 
-convertSVGtoKCL(inputFile, outputFile)
+convertSVGtoKCL(inputFile, outputFile, true)

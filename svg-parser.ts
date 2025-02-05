@@ -8,6 +8,8 @@ import {
 } from './types'
 import { Matrix } from './transform'
 
+const DEFAULT_FILL_RULE = FillRule.EvenOdd
+
 export class SVGParseError extends Error {
   constructor(message: string) {
     super(message)
@@ -29,12 +31,11 @@ export interface ParsedPath {
 
 export class SVGPathParser {
   private state: PathState
-  private path: ParsedPath
+  private path!: ParsedPath
   private transform: Matrix | null
 
   constructor() {
     this.transform = null
-
     this.state = {
       command: CommandType.NotSet,
       values: [],
@@ -43,11 +44,16 @@ export class SVGPathParser {
       isPathOpen: false,
       isValuePushed: true
     }
+  }
 
-    this.path = {
-      commands: [],
-      startPosition: { x: 0, y: 0 },
-      fillRule: FillRule.EvenOdd
+  private resetState(): void {
+    this.state = {
+      command: CommandType.NotSet,
+      values: [],
+      valueBuffer: '',
+      currentPoint: { x: 0, y: 0 },
+      isPathOpen: false,
+      isValuePushed: true
     }
   }
 
@@ -298,24 +304,22 @@ export class SVGPathParser {
     }
   }
 
-  public parsePath(pathData: string, transform: Matrix | null = null): ParsedPath {
+  public parsePath(
+    pathData: string,
+    transform: Matrix | null = null,
+    inheritedFillRule?: FillRule
+  ): ParsedPath {
+    // Reset.
     this.transform = transform
+    this.resetState()
 
     this.path = {
       commands: [],
       startPosition: { x: 0, y: 0 },
-      fillRule: FillRule.EvenOdd
+      fillRule: inheritedFillRule || DEFAULT_FILL_RULE
     }
 
-    this.state = {
-      command: CommandType.NotSet,
-      values: [],
-      valueBuffer: '',
-      currentPoint: { x: 0, y: 0 },
-      isPathOpen: false,
-      isValuePushed: true
-    }
-
+    // Read.
     for (const char of pathData) {
       this.handleChar(char)
     }
@@ -330,6 +334,7 @@ export class SVGPathParser {
 export interface SVGPathInfo {
   d: string
   transform?: Matrix | null
+  fillRule?: FillRule
 }
 
 export class SVGParser {
@@ -359,11 +364,11 @@ export class SVGParser {
     }
   }
 
-  public parse(svgElement: { paths: SVGPathInfo[] }): ParsedPath[] {
+  public parse(svgElement: { paths: SVGPathInfo[]; fillRule?: FillRule }): ParsedPath[] {
     try {
       this.validateSVGElement(svgElement)
       const output = svgElement.paths.map((path) =>
-        this.pathParser.parsePath(path.d, path.transform)
+        this.pathParser.parsePath(path.d, path.transform, path.fillRule || svgElement.fillRule)
       )
       return output
     } catch (error) {

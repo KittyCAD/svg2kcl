@@ -1,4 +1,4 @@
-import { CommandType, Point, ViewBox } from './types'
+import { CommandType, FillRule, Point, ViewBox } from './types'
 import { ParsedCommand, ParsedPath } from './svg-parser'
 
 export class KCLWriteError extends Error {
@@ -110,6 +110,10 @@ export class KCLWriter {
     }
   }
 
+  private writeNewLine(): void {
+    this.addCommand('\n')
+  }
+
   private writeStartSketch(point: Point, isHole: boolean = false): void {
     this.currentPoint = point
     let outPoint = this.transformPoint(point)
@@ -120,7 +124,7 @@ export class KCLWriter {
       this.addCommand(`startSketchAt([${outPoint.x}, ${outPoint.y}])`)
     } else {
       this.addCommand(
-        `${this.generateVariableName()} = startSketchAt([${outPoint.x}, ${outPoint.y}])`
+        `\n${this.generateVariableName()} = startSketchAt([${outPoint.x}, ${outPoint.y}])`
       )
     }
   }
@@ -312,7 +316,7 @@ export class KCLWriter {
         case CommandType.MoveRelative: {
           if (isFirstCommand) {
             isFirstCommand = false
-            // this.currentPoint = command.position
+            this.currentPoint = command.position
           }
           this.writeStartSketch(command.position, isHole)
           break
@@ -364,7 +368,7 @@ export class KCLWriter {
           if (isHole) {
             this.addCommand('|> close(%), %)')
           } else {
-            this.addCommand('|> close(%)\n')
+            this.addCommand('|> close(%)')
           }
           break
         }
@@ -380,13 +384,14 @@ export class KCLWriter {
       if (isHole) {
         this.addCommand('  |> close(%), %)')
       } else {
-        this.addCommand('|> close(%)\n')
+        this.addCommand('|> close(%)')
       }
     }
   }
 
   public processPath(path: ParsedPath): void {
-    if (path.fillRule === 'evenodd') {
+    if (path.fillRule === FillRule.EvenOdd) {
+      // Even-odd fill rule.
       const subpaths = this.separateSubpaths(path)
       const [outer, ...inner] = subpaths
 
@@ -398,6 +403,7 @@ export class KCLWriter {
         this.writeSubpath(innerPath.commands, true)
       }
     } else {
+      // Nonzero fill rule.
       // For nonzero, check winding directions.
       const subpaths = this.separateSubpaths(path)
       const [outer, ...inner] = subpaths

@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser'
-import { ViewBox } from './types'
+import { ViewBox, FillRule } from './types'
 import type { promises } from 'node:fs'
 import { Matrix, TransformType } from './transform'
 
@@ -18,20 +18,19 @@ export class SVGReadError extends Error {
 
 export interface SVGPath {
   d: string
-  fill?: string
-  style?: string
+  fillRule?: FillRule
   transform?: Matrix | null
 }
 
 export interface SVGContents {
   paths: SVGPath[]
   viewBox: ViewBox
+  defaultFillRule?: FillRule
 }
 
 interface ParsedPath {
   d?: string
-  fill?: string
-  style?: string
+  fillRule?: FillRule
   transform?: string
 }
 
@@ -39,6 +38,7 @@ interface ParsedGroup {
   path?: ParsedPath | ParsedPath[]
   g?: ParsedGroup | ParsedGroup[]
   transform?: string
+  fillRule?: FillRule
 }
 
 interface ParsedSVG {
@@ -47,6 +47,7 @@ interface ParsedSVG {
     width?: string | number
     height?: string | number
     g?: ParsedGroup
+    style?: string
   }
 }
 
@@ -56,11 +57,33 @@ export class SVGReader {
     attributeNamePrefix: ''
   })
 
-  private static parseTransform(transformStr: string | undefined): Matrix | null {
-    // Reads an SVG transform string and returns a matrix object that describes
-    // the transformation.
+  private static parseViewBox(viewBoxStr: string | undefined): ViewBox {
+    const defaultViewBox = { xMin: 0, yMin: 0, width: 0, height: 0 }
+    if (!viewBoxStr) return defaultViewBox
 
-    // Early out.
+    const values = viewBoxStr.split(/\s+/).map(Number)
+    if (values.length !== 4 || values.some(isNaN)) {
+      return defaultViewBox
+    }
+
+    const [xMin, yMin, width, height] = values
+    return { xMin, yMin, width, height }
+  }
+
+  private static extractFillRule(cssContent: string): FillRule {
+    const fillRuleMatch = /\bpath\s*{[^}]*fill-rule\s*:\s*([^;\s}]+)[^}]*}/i.exec(cssContent)
+    const extractedValue = fillRuleMatch?.[1]?.toLowerCase()
+
+    // Validate the extracted value matches our enum.
+    if (extractedValue === FillRule.NonZero || extractedValue === FillRule.EvenOdd) {
+      return extractedValue
+    }
+
+    // Default to evenodd if no valid fill-rule is found.
+    return FillRule.EvenOdd
+  }
+
+  private static parseTransform(transformStr: string | undefined): Matrix | null {
     if (!transformStr) return null
 
     let matrix = new Matrix()
@@ -109,12 +132,22 @@ export class SVGReader {
     return matrix
   }
 
-  private static combineTransforms(parent: Matrix | null, child: Matrix | null): Matrix | null {
-    if (parent && child) return parent.multiply(child)
-    return parent || child || null
+  private static findPaths(
+    g: ParsedGroup | ParsedGroup[],
+    inheritedFillRule?: FillRule,
+    inheritedTransform: Matrix | null = null
+  ): SVGPath[] {
+    const groups = Array.isArray(g) ? g : [g]
+    return groups.flatMap((group) =>
+      this.processGroup(group, inheritedFillRule, inheritedTransform)
+    )
   }
 
-  private static processPath(p: ParsedPath, groupTransform: Matrix | null): SVGPath | null {
+  private static processPath(
+    p: ParsedPath,
+    groupTransform: Matrix | null,
+    fillRule?: FillRule
+  ): SVGPath | null {
     if (!p.d) return null
 
     const pathTransform = this.parseTransform(p.transform)
@@ -126,17 +159,23 @@ export class SVGReader {
 
     return {
       d: p.d,
-      fill: p.fill,
-      style: p.style,
+      fillRule: p.fillRule || fillRule,
       transform: finalTransform
     }
   }
 
+  private static combineTransforms(parent: Matrix | null, child: Matrix | null): Matrix | null {
+    if (parent && child) return parent.multiply(child)
+    return parent || child || null
+  }
+
   private static processGroup(
     group: ParsedGroup,
+    inheritedFillRule?: FillRule,
     inheritedTransform: Matrix | null = null
   ): SVGPath[] {
     const paths: SVGPath[] = []
+    const groupFillRule = group.fillRule || inheritedFillRule
 
     // Compute this group's transform combined with inherited transform.
     const groupTransform = this.parseTransform(group.transform)
@@ -146,7 +185,7 @@ export class SVGReader {
     if (group.path) {
       const pathArray = Array.isArray(group.path) ? group.path : [group.path]
       for (const path of pathArray) {
-        const processedPath = this.processPath(path, combinedTransform)
+        const processedPath = this.processPath(path, combinedTransform, groupFillRule)
         if (processedPath) paths.push(processedPath)
       }
     }
@@ -155,37 +194,11 @@ export class SVGReader {
     if (group.g) {
       const nestedGroups = Array.isArray(group.g) ? group.g : [group.g]
       for (const nestedGroup of nestedGroups) {
-        paths.push(...this.processGroup(nestedGroup, combinedTransform))
+        paths.push(...this.processGroup(nestedGroup, groupFillRule, combinedTransform))
       }
     }
 
     return paths
-  }
-
-  private static findPaths(
-    g: ParsedGroup | ParsedGroup[],
-    inheritedTransform: Matrix | null = null
-  ): SVGPath[] {
-    // Handle both single group and array of groups.
-    const groups = Array.isArray(g) ? g : [g]
-
-    // Process each group and combine results.
-    return groups.flatMap((group) => this.processGroup(group, inheritedTransform))
-  }
-
-  private static parseViewBox(viewBoxStr: string | undefined): ViewBox {
-    // Early default.
-    const defaultViewBox = { xMin: 0, yMin: 0, width: 0, height: 0 }
-    if (!viewBoxStr) return defaultViewBox
-
-    const values = viewBoxStr.split(/\s+/).map(Number)
-    if (values.length !== 4 || values.some(isNaN)) {
-      // Handle error case.
-      return defaultViewBox
-    }
-
-    const [xMin, yMin, width, height] = values
-    return { xMin, yMin, width, height }
   }
 
   public static parseContent(content: string): SVGContents {
@@ -195,13 +208,16 @@ export class SVGReader {
       throw new SVGReadError('No SVG element found in file contents.')
     }
 
-    // Extract viewBox, paths.
     const viewBox = this.parseViewBox(parsed.svg.viewBox)
-    const paths = parsed.svg.g ? this.findPaths(parsed.svg.g) : []
+    const defaultFillRule = parsed.svg.style
+      ? this.extractFillRule(parsed.svg.style)
+      : FillRule.EvenOdd
+    const paths = parsed.svg.g ? this.findPaths(parsed.svg.g, defaultFillRule) : []
 
     return {
       paths,
-      viewBox: viewBox
+      viewBox,
+      defaultFillRule
     }
   }
 

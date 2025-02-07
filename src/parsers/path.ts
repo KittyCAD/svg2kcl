@@ -1,6 +1,5 @@
+import { FillRule, PathCommandType, Point } from '../types/geometric'
 import { SVGPathCommandMap } from '../types/svg'
-import { PathCommand, PathCommandType, Point, FillRule } from '../types/geometric'
-import { ParseError } from './exceptions'
 import { Matrix } from '../utils/matrix'
 
 const DEFAULT_FILL_RULE = FillRule.EvenOdd

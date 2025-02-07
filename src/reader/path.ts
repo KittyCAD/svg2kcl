@@ -1,7 +1,7 @@
-import { RawSVGElement } from '../types/svg'
-import { GeometricElementType, Path, FillRule } from '../types/geometric'
 import { SVGPathParser } from '../parsers/path'
 import { parseTransform } from '../parsers/transform'
+import { FillRule, GeometricElementType, Path } from '../types/geometric'
+import { RawSVGElement } from '../types/svg'
 
 export class PathReadError extends Error {
   constructor(message: string) {

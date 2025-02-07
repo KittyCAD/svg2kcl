@@ -1,16 +1,16 @@
-import { RawSVGElement } from '../types/svg'
 import {
-  GeometricElementType,
-  Rectangle,
   Circle,
+  GeometricElementType,
+  GeometricShape,
   Line,
-  Polyline,
   Polygon,
-  GeometricShape
+  Polyline,
+  Rectangle
 } from '../types/geometric'
+import { RawSVGElement } from '../types/svg'
 
-import { parseNumber, parsePoints } from '../parsers/values'
 import { parseTransform } from '../parsers/transform'
+import { parseNumber, parsePoints } from '../parsers/values'
 
 export class ShapeReadError extends Error {
   constructor(message: string) {

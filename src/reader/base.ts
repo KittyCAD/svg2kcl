@@ -1,11 +1,9 @@
 import { XMLParser } from 'fast-xml-parser'
-import { RawSVGElement } from '../types/svg'
-import { GeometricShape } from '../types/geometric'
-import { ShapeReader } from './shape'
-import { PathReader } from './path'
-import { SVG, CollectionType } from '../types/svg'
-import { GeometricElementType } from '../types/geometric'
 import { promises as fs } from 'node:fs'
+import { GeometricElementType, GeometricShape } from '../types/geometric'
+import { CollectionType, RawSVGElement, SVG } from '../types/svg'
+import { PathReader } from './path'
+import { ShapeReader } from './shape'
 
 export class SVGReadError extends Error {
   constructor(message: string) {

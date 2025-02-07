@@ -1,5 +1,4 @@
-import { ViewBox, GeometricShape } from './geometric'
-import { PathCommandType } from './geometric'
+import { GeometricShape, PathCommandType, ViewBox } from './geometric'
 
 // Representation of an SVG doc and its elements.
 export interface SVG {

@@ -27,9 +27,7 @@ export class Converter {
 
   constructor(private options: KCLOptions = {}) {
     // For now, no centering.
-    const x = 0
-    const y = 0
-    this.offsetCoords = { x, y }
+    this.offsetCoords = { x: 0, y: 0 }
   }
 
   private transformPoint(point: Point): Point {
@@ -252,9 +250,8 @@ export class Converter {
     this.currentPoint = { x: 0, y: 0 }
 
     commands.forEach((command, index) => {
-      this.currentPoint = command.position
-
       if (index === 0) {
+        this.currentPoint = command.position
         operations.push({
           type: KCLOperationType.StartSketch,
           params: { point: [this.currentPoint.x, this.currentPoint.y] }
@@ -444,6 +441,7 @@ export class Converter {
   }
 
   private lineToOperations(line: Line): KCLOperation[] {
+    this.currentPoint = line.end
     return [
       {
         type: KCLOperationType.StartSketch,

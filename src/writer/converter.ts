@@ -378,7 +378,7 @@ export class Converter {
         [x + width, y],
         [x + width, y + height],
         [x, y + height]
-      ].map(([x, y]) => [x, -y])
+      ]
 
       operations.push(
         { type: KCLOperationType.StartSketch, params: { point: points[0] } },

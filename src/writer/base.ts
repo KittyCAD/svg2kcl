@@ -1,0 +1,53 @@
+import { SVG } from '../types/svg'
+import { KCLOperation, KCLOptions, KCLOutput, KCLShape } from '../types/kcl'
+import { Converter } from './converter'
+import { Formatter } from './formatter'
+
+export class KCLWriteError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'KCLWriteError'
+  }
+}
+
+export class BaseWriter {
+  private variableCounter: number = 1
+  private converter: Converter
+  private formatter: Formatter
+
+  constructor(private svg: SVG, private options: KCLOptions = {}) {
+    this.converter = new Converter(options)
+    this.formatter = new Formatter()
+  }
+
+  private generateVariableName(): string {
+    return `sketch${String(this.variableCounter++).padStart(3, '0')}`
+  }
+
+  public write(): string {
+    try {
+      const output: KCLOutput = {
+        shapes: []
+      }
+
+      // Convert each geometric element to KCL operations
+      for (const element of this.svg.elements) {
+        const operations = this.converter.convertElement(element)
+        if (operations.length > 0) {
+          const shape: KCLShape = {
+            operations,
+            variable: this.generateVariableName()
+          }
+          output.shapes.push(shape)
+        }
+      }
+
+      // Format the output into KCL code
+      return this.formatter.format(output)
+    } catch (error) {
+      throw new KCLWriteError(
+        `Failed to write KCL: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+}

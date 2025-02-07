@@ -6,8 +6,8 @@ export function parseTransform(transformStr: string | undefined): Transform | un
     return undefined
   }
 
-  let matrix = new Matrix()
   const transformRegex = /(translate|scale|rotate|matrix|skewX|skewY)\s*\(([-\d\s,.e]+)\)/g
+  let matrix = new Matrix()
   let match
 
   while ((match = transformRegex.exec(transformStr)) !== null) {

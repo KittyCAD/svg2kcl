@@ -96,8 +96,7 @@ export class Formatter {
           .map((op) => this.formatOperation(op))
           .join('\n    ')
         return `|> hole(
-      ${holeOps}
-      , %)`
+        ${holeOps}, %)`
       }
 
       case KCLOperationType.Arc: {

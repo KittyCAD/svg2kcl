@@ -1,18 +1,18 @@
 import {
+  Circle,
+  FillRule,
   GeometricElementType,
   GeometricShape,
-  Path,
-  Rectangle,
-  Circle,
   Line,
+  Path,
+  PathCommand,
+  PathCommandType,
+  Point,
   Polygon,
   Polyline,
-  Point,
-  FillRule,
-  PathCommandType
+  Rectangle
 } from '../types/geometric'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
-import { PathCommand } from '../types/geometric'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -69,7 +69,7 @@ export class Converter {
     }
   }
 
-  private handleQuadraticBezier(command: PathCommand, isRelative: boolean): KCLOperation {
+  private createQuadraticBezierOp(command: PathCommand, isRelative: boolean): KCLOperation {
     // Quadratic bezier.
     const [x1, y1, x, y] = command.parameters
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
@@ -104,7 +104,7 @@ export class Converter {
     }
   }
 
-  private handleSmoothQuadraticBezier(command: PathCommand, isRelative: boolean): KCLOperation {
+  private createQuadraticBezierSmoothOp(command: PathCommand, isRelative: boolean): KCLOperation {
     // Get reflected control point.
     const control = this.calculateReflectedControlPoint()
 
@@ -136,7 +136,7 @@ export class Converter {
     }
   }
 
-  private handleCubicBezier(command: PathCommand, isRelative: boolean): KCLOperation {
+  private createCubicBezierOp(command: PathCommand, isRelative: boolean): KCLOperation {
     // Cubic bezier.
     const [x1, y1, x2, y2, x, y] = command.parameters
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
@@ -178,7 +178,7 @@ export class Converter {
     }
   }
 
-  private handleSmoothCubicBezier(command: PathCommand, isRelative: boolean): KCLOperation {
+  private createCubicBezierSmoothOp(command: PathCommand, isRelative: boolean): KCLOperation {
     const [x2, y2, x, y] = command.parameters
 
     // Get reflected control point.
@@ -278,30 +278,30 @@ export class Converter {
 
         // Quadratic beziers.
         case PathCommandType.QuadraticBezierAbsolute:
-          operations.push(this.handleQuadraticBezier(command, false))
+          operations.push(this.createQuadraticBezierOp(command, false))
           break
         case PathCommandType.QuadraticBezierRelative:
-          operations.push(this.handleQuadraticBezier(command, true))
+          operations.push(this.createQuadraticBezierOp(command, true))
           break
         case PathCommandType.QuadraticBezierSmoothAbsolute:
-          operations.push(this.handleSmoothQuadraticBezier(command, false))
+          operations.push(this.createQuadraticBezierSmoothOp(command, false))
           break
         case PathCommandType.QuadraticBezierSmoothRelative:
-          operations.push(this.handleSmoothQuadraticBezier(command, true))
+          operations.push(this.createQuadraticBezierSmoothOp(command, true))
           break
 
         // Cubic beziers.
         case PathCommandType.CubicBezierAbsolute:
-          operations.push(this.handleCubicBezier(command, false))
+          operations.push(this.createCubicBezierOp(command, false))
           break
         case PathCommandType.CubicBezierRelative:
-          operations.push(this.handleCubicBezier(command, true))
+          operations.push(this.createCubicBezierOp(command, true))
           break
         case PathCommandType.CubicBezierSmoothAbsolute:
-          operations.push(this.handleSmoothCubicBezier(command, false))
+          operations.push(this.createCubicBezierSmoothOp(command, false))
           break
         case PathCommandType.CubicBezierSmoothRelative:
-          operations.push(this.handleSmoothCubicBezier(command, true))
+          operations.push(this.createCubicBezierSmoothOp(command, true))
           break
 
         // Stops.
@@ -331,14 +331,14 @@ export class Converter {
       operations.push(...this.convertPathCommands(outline.commands))
 
       // Convert holes.
-      //   holes.forEach((hole) => {
-      //     operations.push({
-      //       type: KCLOperationType.Hole,
-      //       params: {
-      //         operations: this.convertPathCommands(hole.commands)
-      //       }
-      //     })
-      //   })
+      holes.forEach((hole) => {
+        operations.push({
+          type: KCLOperationType.Hole,
+          params: {
+            operations: this.convertPathCommands(hole.commands)
+          }
+        })
+      })
     } else {
       // Nonzero fill rule - use winding direction.
       const subpaths = this.separateSubpaths(path)

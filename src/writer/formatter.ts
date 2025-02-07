@@ -17,8 +17,13 @@ export class FormatterError extends Error {
   }
 }
 
+const INVERT_Y = true
+
 export class Formatter {
   private formatPoint(point: [number, number]): string {
+    if (INVERT_Y) {
+      return `[${point[0]}, -${point[1]}]`
+    }
     return `[${point[0]}, ${point[1]}]`
   }
 
@@ -92,7 +97,7 @@ export class Formatter {
           .join('\n    ')
         return `|> hole(
       ${holeOps}
-    )`
+      , %)`
       }
 
       case KCLOperationType.Arc: {

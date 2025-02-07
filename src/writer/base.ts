@@ -16,7 +16,7 @@ export class BaseWriter {
   private formatter: Formatter
 
   constructor(private svg: SVG, private options: KCLOptions = {}) {
-    this.converter = new Converter(options)
+    this.converter = new Converter(options, svg.viewBox)
     this.formatter = new Formatter()
   }
 

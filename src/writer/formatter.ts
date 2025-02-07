@@ -21,10 +21,8 @@ const INVERT_Y = true
 
 export class Formatter {
   private formatPoint(point: [number, number]): string {
-    if (INVERT_Y) {
-      return `[${point[0]}, -${point[1]}]`
-    }
-    return `[${point[0]}, ${point[1]}]`
+    const scalar = INVERT_Y ? -1 : 1
+    return `[${point[0]}, ${scalar * point[1]}]`
   }
 
   private isStartSketchParams(params: any): params is StartSketchParams {

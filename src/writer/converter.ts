@@ -10,7 +10,8 @@ import {
   Point,
   Polygon,
   Polyline,
-  Rectangle
+  Rectangle,
+  ViewBox
 } from '../types/geometric'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
 
@@ -26,12 +27,14 @@ export class Converter {
   private currentPoint: Point = { x: 0, y: 0 }
   private readonly offsetCoords: Point
 
-  constructor(private options: KCLOptions = {}) {
-    // For now, no centering.
-    this.offsetCoords = { x: 0, y: 0 }
+  constructor(private options: KCLOptions = {}, viewBox: ViewBox) {
+    // Calculate offset coordinates for centering if requested.
+    const x = options.centerOnViewBox ? viewBox.xMin + viewBox.width / 2 : 0
+    const y = options.centerOnViewBox ? viewBox.yMin + viewBox.height / 2 : 0
+    this.offsetCoords = { x, y }
   }
 
-  private transformPoint(point: Point): Point {
+  private centerPoint(point: Point): Point {
     return {
       x: point.x - this.offsetCoords.x,
       y: point.y - this.offsetCoords.y
@@ -61,11 +64,16 @@ export class Converter {
     }
   }
 
-  private generateNewSketch(command: PathCommand): KCLOperation {
+  private createNewSketchOp(command: PathCommand): KCLOperation {
+    // Set the 'currentPoint' to be the position of the first point. Relative
+    // commands will add to this point.
     this.currentPoint = command.position
+
+    // Offset, if centering, and write.
+    let outPoint = this.centerPoint(this.currentPoint)
     return {
       type: KCLOperationType.StartSketch,
-      params: { point: [this.currentPoint.x, this.currentPoint.y] }
+      params: { point: [outPoint.x, outPoint.y] }
     }
   }
 
@@ -90,16 +98,16 @@ export class Converter {
     this.currentPoint = { x: endX, y: endY }
     this.previousControlPoint = { x: c1x, y: c1y }
 
-    // Transform for writing out.
-    const transformedControl = this.transformPoint(control1)
-    const transformedEndpoint = this.transformPoint(endpoint)
+    // Center for writing out.
+    const centeredControl = this.centerPoint(control1)
+    const centeredEndpoint = this.centerPoint(endpoint)
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [transformedControl.x, transformedControl.y],
-        control2: [transformedControl.x, transformedControl.y],
-        to: [transformedEndpoint.x, transformedEndpoint.y]
+        control1: [centeredControl.x, centeredControl.y],
+        control2: [centeredControl.x, centeredControl.y],
+        to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }
   }
@@ -122,16 +130,16 @@ export class Converter {
     this.previousControlPoint = control
     this.currentPoint = { x: endX, y: endY }
 
-    // Transform and invert points.
-    const transformedControl = this.transformPoint(control)
-    const transformedEndpoint = this.transformPoint(endpoint)
+    // Center and invert points.
+    const centeredControl = this.centerPoint(control)
+    const centeredEndpoint = this.centerPoint(endpoint)
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [transformedControl.x, transformedControl.y],
-        control2: [transformedControl.x, transformedControl.y],
-        to: [transformedEndpoint.x, transformedEndpoint.y]
+        control1: [centeredControl.x, centeredControl.y],
+        control2: [centeredControl.x, centeredControl.y],
+        to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }
   }
@@ -163,17 +171,17 @@ export class Converter {
     this.previousControlPoint = { x: c2x, y: c2y }
     this.currentPoint = { x: endX, y: endY }
 
-    // Transform and invert points for writing out.
-    const transformedControl1 = this.transformPoint(control1)
-    const transformedControl2 = this.transformPoint(control2)
-    const transformedEndpoint = this.transformPoint(endpoint)
+    // Center and invert points for writing out.
+    const centeredControl1 = this.centerPoint(control1)
+    const centeredControl2 = this.centerPoint(control2)
+    const centeredEndpoint = this.centerPoint(endpoint)
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [transformedControl1.x, transformedControl1.y],
-        control2: [transformedControl2.x, transformedControl2.y],
-        to: [transformedEndpoint.x, transformedEndpoint.y]
+        control1: [centeredControl1.x, centeredControl1.y],
+        control2: [centeredControl2.x, centeredControl2.y],
+        to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }
   }
@@ -203,23 +211,23 @@ export class Converter {
     this.previousControlPoint = { x: c2x, y: c2y }
     this.currentPoint = { x: endX, y: endY }
 
-    // Transform and invert points for writing out.
-    const transformedControl1 = this.transformPoint(control1)
-    const transformedControl2 = this.transformPoint(control2)
-    const transformedEndpoint = this.transformPoint(endpoint)
+    // Center and invert points for writing out.
+    const centeredControl1 = this.centerPoint(control1)
+    const centeredControl2 = this.centerPoint(control2)
+    const centeredEndpoint = this.centerPoint(endpoint)
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [transformedControl1.x, transformedControl1.y],
-        control2: [transformedControl2.x, transformedControl2.y],
-        to: [transformedEndpoint.x, transformedEndpoint.y]
+        control1: [centeredControl1.x, centeredControl1.y],
+        control2: [centeredControl2.x, centeredControl2.y],
+        to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }
   }
 
   private separateSubpaths(path: Path): {
-    commands: Path['commands']
+    commands: PathCommand[]
     isClockwise: boolean
   }[] {
     const subpaths: { commands: Path['commands']; isClockwise: boolean }[] = []
@@ -250,7 +258,7 @@ export class Converter {
     return subpaths
   }
 
-  private convertPathCommands(commands: PathCommand[]): KCLOperation[] {
+  private convertPathCommandsToKclOps(commands: PathCommand[]): KCLOperation[] {
     const operations: KCLOperation[] = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
@@ -258,7 +266,7 @@ export class Converter {
     commands.forEach((command, index) => {
       // Handle first command: start sketch.
       if (index === 0) {
-        operations.push(this.generateNewSketch(command))
+        operations.push(this.createNewSketchOp(command))
       }
 
       // Otherwise, command type determines operation.
@@ -319,7 +327,7 @@ export class Converter {
     return operations
   }
 
-  private pathToOperations(path: Path): KCLOperation[] {
+  private convertPathToKclOps(path: Path): KCLOperation[] {
     const operations: KCLOperation[] = []
 
     if (path.fillRule === FillRule.EvenOdd) {
@@ -328,14 +336,14 @@ export class Converter {
       const [outline, ...holes] = subpaths
 
       // Convert outline.
-      operations.push(...this.convertPathCommands(outline.commands))
+      operations.push(...this.convertPathCommandsToKclOps(outline.commands))
 
       // Convert holes.
       holes.forEach((hole) => {
         operations.push({
           type: KCLOperationType.Hole,
           params: {
-            operations: this.convertPathCommands(hole.commands)
+            operations: this.convertPathCommandsToKclOps(hole.commands)
           }
         })
       })
@@ -346,11 +354,11 @@ export class Converter {
       const baseClockwise = first.isClockwise
 
       // Convert first path.
-      operations.push(...this.convertPathCommands(first.commands))
+      operations.push(...this.convertPathCommandsToKclOps(first.commands))
 
       // Rest are holes if opposite winding, separate shapes if same.
       rest.forEach((subpath) => {
-        const subpathOps = this.convertPathCommands(subpath.commands)
+        const subpathOps = this.convertPathCommandsToKclOps(subpath.commands)
         if (subpath.isClockwise === baseClockwise) {
           // Same winding - separate shape.
           operations.push(...subpathOps)
@@ -367,7 +375,7 @@ export class Converter {
     return operations
   }
 
-  private rectangleToOperations(rect: Rectangle): KCLOperation[] {
+  private convertRectangleToKclOps(rect: Rectangle): KCLOperation[] {
     const operations: KCLOperation[] = []
     const { x, y, width, height, rx, ry } = rect
 
@@ -428,7 +436,7 @@ export class Converter {
     return operations
   }
 
-  private circleToOperations(circle: Circle): KCLOperation[] {
+  private convertCircleToKclOps(circle: Circle): KCLOperation[] {
     const { center, radius } = circle
 
     return [
@@ -443,7 +451,7 @@ export class Converter {
     ]
   }
 
-  private lineToOperations(line: Line): KCLOperation[] {
+  private convertLineToKclOps(line: Line): KCLOperation[] {
     this.currentPoint = line.end
     return [
       {
@@ -457,7 +465,7 @@ export class Converter {
     ]
   }
 
-  private polylineToOperations(polyline: Polyline): KCLOperation[] {
+  private convertPolylineToKclOps(polyline: Polyline): KCLOperation[] {
     if (polyline.points.length < 2) {
       throw new ConverterError('Polyline must have at least 2 points')
     }
@@ -480,7 +488,7 @@ export class Converter {
     return operations
   }
 
-  private polygonToOperations(polygon: Polygon): KCLOperation[] {
+  private convertPolygonToKclOps(polygon: Polygon): KCLOperation[] {
     if (polygon.points.length < 3) {
       throw new ConverterError('Polygon must have at least 3 points')
     }
@@ -507,17 +515,17 @@ export class Converter {
   public convertElement(element: GeometricShape): KCLOperation[] {
     switch (element.type) {
       case GeometricElementType.Path:
-        return this.pathToOperations(element as Path)
+        return this.convertPathToKclOps(element as Path)
       case GeometricElementType.Rectangle:
-        return this.rectangleToOperations(element as Rectangle)
+        return this.convertRectangleToKclOps(element as Rectangle)
       case GeometricElementType.Circle:
-        return this.circleToOperations(element as Circle)
+        return this.convertCircleToKclOps(element as Circle)
       case GeometricElementType.Line:
-        return this.lineToOperations(element as Line)
+        return this.convertLineToKclOps(element as Line)
       case GeometricElementType.Polyline:
-        return this.polylineToOperations(element as Polyline)
+        return this.convertPolylineToKclOps(element as Polyline)
       case GeometricElementType.Polygon:
-        return this.polygonToOperations(element as Polygon)
+        return this.convertPolygonToKclOps(element as Polygon)
       default: {
         const exhaustiveCheck: never = element
         throw new ConverterError(`Unsupported element type: ${(element as any).type}`)

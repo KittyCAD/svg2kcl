@@ -12,6 +12,7 @@ import {
   PathCommandType
 } from '../types/geometric'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
+import { PathCommand } from '../types/geometric'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -60,7 +61,15 @@ export class Converter {
     }
   }
 
-  private handleQuadraticBezier(command: Path['commands'][0], isRelative: boolean): KCLOperation {
+  private generateNewSketch(command: PathCommand): KCLOperation {
+    this.currentPoint = command.position
+    return {
+      type: KCLOperationType.StartSketch,
+      params: { point: [this.currentPoint.x, this.currentPoint.y] }
+    }
+  }
+
+  private handleQuadraticBezier(command: PathCommand, isRelative: boolean): KCLOperation {
     // Quadratic bezier.
     const [x1, y1, x, y] = command.parameters
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
@@ -95,10 +104,7 @@ export class Converter {
     }
   }
 
-  private handleSmoothQuadraticBezier(
-    command: Path['commands'][0],
-    isRelative: boolean
-  ): KCLOperation {
+  private handleSmoothQuadraticBezier(command: PathCommand, isRelative: boolean): KCLOperation {
     // Get reflected control point.
     const control = this.calculateReflectedControlPoint()
 
@@ -130,7 +136,7 @@ export class Converter {
     }
   }
 
-  private handleCubicBezier(command: Path['commands'][0], isRelative: boolean): KCLOperation {
+  private handleCubicBezier(command: PathCommand, isRelative: boolean): KCLOperation {
     // Cubic bezier.
     const [x1, y1, x2, y2, x, y] = command.parameters
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
@@ -172,7 +178,7 @@ export class Converter {
     }
   }
 
-  private handleSmoothCubicBezier(command: Path['commands'][0], isRelative: boolean): KCLOperation {
+  private handleSmoothCubicBezier(command: PathCommand, isRelative: boolean): KCLOperation {
     const [x2, y2, x, y] = command.parameters
 
     // Get reflected control point.
@@ -244,21 +250,18 @@ export class Converter {
     return subpaths
   }
 
-  private convertPathCommands(commands: Path['commands']): KCLOperation[] {
+  private convertPathCommands(commands: PathCommand[]): KCLOperation[] {
     const operations: KCLOperation[] = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
 
     commands.forEach((command, index) => {
+      // Handle first command: start sketch.
       if (index === 0) {
-        this.currentPoint = command.position
-        operations.push({
-          type: KCLOperationType.StartSketch,
-          params: { point: [this.currentPoint.x, this.currentPoint.y] }
-        })
-        return
+        operations.push(this.generateNewSketch(command))
       }
 
+      // Otherwise, command type determines operation.
       switch (command.type) {
         // Lines.
         case PathCommandType.LineAbsolute:

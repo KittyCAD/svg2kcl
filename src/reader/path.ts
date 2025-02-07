@@ -1,5 +1,7 @@
 import { RawSVGElement } from '../types/svg'
 import { GeometricElementType, Path, FillRule } from '../types/geometric'
+import { SVGPathParser } from '../parsers/path'
+import { parseTransform } from '../parsers/transform'
 
 export class PathReadError extends Error {
   constructor(message: string) {
@@ -15,8 +17,14 @@ export interface RawPathData {
 }
 
 export class PathReader {
+  private pathParser: SVGPathParser
+
+  constructor() {
+    this.pathParser = new SVGPathParser()
+  }
+
   public readAttributes(element: RawSVGElement): RawPathData {
-    if (element.type !== 'path') {
+    if (element.type !== GeometricElementType.Path) {
       throw new PathReadError('Element is not a path')
     }
 
@@ -71,14 +79,6 @@ export class PathReader {
     return result
   }
 
-  public createInitialPath(rawData: RawPathData): Path {
-    return {
-      type: GeometricElementType.Path,
-      commands: [],
-      fillRule: rawData.fillRule
-    }
-  }
-
   public read(element: RawSVGElement): Path {
     const rawData = this.readAttributes(element)
     const styleData = this.readStyleAttributes(element)
@@ -87,6 +87,18 @@ export class PathReader {
       ...styleData
     }
 
-    return this.createInitialPath(mergedData)
+    // Parse the transform if present.
+    const transformResult = parseTransform(mergedData.transform)
+    const transform = transformResult ? transformResult.matrix : null
+
+    // Parse the path data using our parser.
+    const parsedPath = this.pathParser.parsePath(mergedData.d, transform, mergedData.fillRule)
+
+    return {
+      type: GeometricElementType.Path,
+      commands: parsedPath.commands,
+      fillRule: parsedPath.fillRule,
+      transform: transform ? { matrix: transform } : undefined
+    }
   }
 }

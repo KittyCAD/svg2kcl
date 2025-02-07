@@ -4,9 +4,9 @@ async function main() {
   const inputFile = './tests/data/project_payload.svg'
 
   const baseReader = new BaseReader()
-  const rawSvg = await baseReader.readFile(inputFile)
+  const svg = await baseReader.readFile(inputFile)
 
-  console.log('Raw SVG:', rawSvg)
+  console.log('Read SVG:', svg)
 }
 
 main().catch(console.error)

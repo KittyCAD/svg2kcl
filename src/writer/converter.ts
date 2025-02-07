@@ -14,6 +14,7 @@ import {
   ViewBox
 } from '../types/geometric'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
+import { separateSubpaths } from '../utils/geometry'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -34,21 +35,13 @@ export class Converter {
     this.offsetCoords = { x, y }
   }
 
+  // Utilities used in conversion.
+  // --------------------------------------------------
   private centerPoint(point: Point): Point {
     return {
       x: point.x - this.offsetCoords.x,
       y: point.y - this.offsetCoords.y
     }
-  }
-
-  private isClockwise(points: Point[]): boolean {
-    let sum = 0
-    for (let i = 0; i < points.length - 1; i++) {
-      const curr = points[i]
-      const next = points[i + 1]
-      sum += (next.x - curr.x) * (next.y + curr.y)
-    }
-    return sum > 0
   }
 
   private calculateReflectedControlPoint(): Point {
@@ -64,6 +57,8 @@ export class Converter {
     }
   }
 
+  // Operation creation methods.
+  // --------------------------------------------------
   private createNewSketchOp(command: PathCommand): KCLOperation {
     // Set the 'currentPoint' to be the position of the first point. Relative
     // commands will add to this point.
@@ -226,38 +221,8 @@ export class Converter {
     }
   }
 
-  private separateSubpaths(path: Path): {
-    commands: PathCommand[]
-    isClockwise: boolean
-  }[] {
-    const subpaths: { commands: Path['commands']; isClockwise: boolean }[] = []
-    let currentCommands: Path['commands'] = []
-
-    path.commands.forEach((command) => {
-      if (
-        currentCommands.length > 0 &&
-        (command.type === PathCommandType.MoveAbsolute ||
-          command.type === PathCommandType.MoveRelative)
-      ) {
-        subpaths.push({
-          commands: currentCommands,
-          isClockwise: this.isClockwise(currentCommands.map((c) => c.position))
-        })
-        currentCommands = []
-      }
-      currentCommands.push(command)
-    })
-
-    if (currentCommands.length > 0) {
-      subpaths.push({
-        commands: currentCommands,
-        isClockwise: this.isClockwise(currentCommands.map((c) => c.position))
-      })
-    }
-
-    return subpaths
-  }
-
+  // Command conversion methods.
+  // --------------------------------------------------
   private convertPathCommandsToKclOps(commands: PathCommand[]): KCLOperation[] {
     const operations: KCLOperation[] = []
     this.previousControlPoint = null
@@ -332,7 +297,7 @@ export class Converter {
 
     if (path.fillRule === FillRule.EvenOdd) {
       // Even-odd fill rule - first subpath is outline, rest are holes.
-      const subpaths = this.separateSubpaths(path)
+      const subpaths = separateSubpaths(path)
       const [outline, ...holes] = subpaths
 
       // Convert outline.
@@ -349,7 +314,7 @@ export class Converter {
       })
     } else {
       // Nonzero fill rule - use winding direction.
-      const subpaths = this.separateSubpaths(path)
+      const subpaths = separateSubpaths(path)
       const [first, ...rest] = subpaths
       const baseClockwise = first.isClockwise
 

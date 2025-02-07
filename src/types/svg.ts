@@ -52,3 +52,8 @@ export const PathCommandTypeToSVGPathCommandMap: Record<PathCommandType, string>
   acc[value] = key
   return acc
 }, {} as Record<PathCommandType, string>)
+
+// Collection type.
+export enum CollectionType {
+  Group = 'g'
+}

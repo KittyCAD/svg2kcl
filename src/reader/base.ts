@@ -3,7 +3,7 @@ import { RawSVGElement } from '../types/svg'
 import { GeometricShape } from '../types/geometric'
 import { ShapeReader } from './shape'
 import { PathReader } from './path'
-import { SVG } from '../types/svg'
+import { SVG, CollectionType } from '../types/svg'
 import { GeometricElementType } from '../types/geometric'
 import { promises as fs } from 'node:fs'
 
@@ -28,7 +28,7 @@ export class BaseReader {
   }
 
   private isGroupElement(type: string): boolean {
-    return type === 'g'
+    return type === CollectionType.Group
   }
 
   private processElement(element: any, type: string): RawSVGElement[] {
@@ -85,7 +85,7 @@ export class BaseReader {
   }
 
   private readElement(element: RawSVGElement): GeometricShape {
-    if (element.type === 'path') {
+    if (element.type === GeometricElementType.Path) {
       return this.pathReader.read(element)
     }
     return this.shapeReader.read(element)

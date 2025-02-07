@@ -1,9 +1,8 @@
 import {
-  CommandType,
-  SVGCommandMap,
+  PathCommandType,
+  SVGPathCommandMap,
   Point,
-  PathState,
-  CommandTypeToSVGMap,
+  PathCommandTypeToSVGPathCommandMap,
   FillRule
 } from './types'
 import { Matrix } from './transform'
@@ -18,7 +17,7 @@ export class SVGParseError extends Error {
 }
 
 export interface ParsedCommand {
-  type: CommandType
+  type: PathCommandType
   parameters: number[]
   position: Point
 }
@@ -29,6 +28,15 @@ export interface ParsedPath {
   fillRule: FillRule
 }
 
+interface PathState {
+  command: PathCommandType
+  values: number[]
+  valueBuffer: string
+  currentPoint: Point
+  isPathOpen: boolean
+  isValuePushed: boolean
+}
+
 export class SVGPathParser {
   private state: PathState
   private path!: ParsedPath
@@ -37,7 +45,7 @@ export class SVGPathParser {
   constructor() {
     this.transform = null
     this.state = {
-      command: CommandType.NotSet,
+      command: PathCommandType.NotSet,
       values: [],
       valueBuffer: '',
       currentPoint: { x: 0, y: 0 },
@@ -48,7 +56,7 @@ export class SVGPathParser {
 
   private resetState(): void {
     this.state = {
-      command: CommandType.NotSet,
+      command: PathCommandType.NotSet,
       values: [],
       valueBuffer: '',
       currentPoint: { x: 0, y: 0 },
@@ -83,18 +91,18 @@ export class SVGPathParser {
   private handleCommandChar(char: string): void {
     this.pushValue() // 1. Push any pending value from previous command
 
-    if (this.state.command !== CommandType.NotSet) {
+    if (this.state.command !== PathCommandType.NotSet) {
       this.handleCommand() // 2. Process previous command if there was one
     }
 
-    this.state.command = SVGCommandMap[char] // 3. Set new command
+    this.state.command = SVGPathCommandMap[char] // 3. Set new command
     this.state.values = [] // 4. Clear values for new command
     this.state.isValuePushed = false
 
     // 5. For commands that don't need values (like z/Z), process them immediately
     if (
-      this.state.command === CommandType.StopAbsolute ||
-      this.state.command === CommandType.StopRelative
+      this.state.command === PathCommandType.StopAbsolute ||
+      this.state.command === PathCommandType.StopRelative
     ) {
       this.processValues([]) // They can be processed with empty parameters array
     }
@@ -108,7 +116,7 @@ export class SVGPathParser {
   }
 
   private handleChar(char: string): void {
-    if (char in SVGCommandMap) {
+    if (char in SVGPathCommandMap) {
       this.handleCommandChar(char)
     } else if (char === '-') {
       this.handleNegative()
@@ -155,14 +163,14 @@ export class SVGPathParser {
 
     // Transform absolute coordinates.
     switch (this.state.command) {
-      case CommandType.MoveAbsolute:
-      case CommandType.LineAbsolute:
-      case CommandType.CubicBezierAbsolute:
-      case CommandType.QuadraticBezierAbsolute:
-      case CommandType.EllipticalArcAbsolute:
+      case PathCommandType.MoveAbsolute:
+      case PathCommandType.LineAbsolute:
+      case PathCommandType.CubicBezierAbsolute:
+      case PathCommandType.QuadraticBezierAbsolute:
+      case PathCommandType.EllipticalArcAbsolute:
         transformedChunk = this.transformChunk(parameters, 2)
         break
-      case CommandType.HorizontalLineAbsolute:
+      case PathCommandType.HorizontalLineAbsolute:
         if (this.transform) {
           // For H, transform considering current X.
           transformedChunk = [
@@ -170,7 +178,7 @@ export class SVGPathParser {
           ]
         }
         break
-      case CommandType.VerticalLineAbsolute:
+      case PathCommandType.VerticalLineAbsolute:
         if (this.transform) {
           // For V, transform considering current Y.
           transformedChunk = [
@@ -182,74 +190,74 @@ export class SVGPathParser {
 
     // Update currentPoint for absolute commands.
     switch (this.state.command) {
-      case CommandType.MoveAbsolute:
-      case CommandType.LineAbsolute:
+      case PathCommandType.MoveAbsolute:
+      case PathCommandType.LineAbsolute:
         this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
-        if (this.state.command === CommandType.MoveAbsolute && !this.path.commands.length) {
+        if (this.state.command === PathCommandType.MoveAbsolute && !this.path.commands.length) {
           this.path.startPosition = { ...this.state.currentPoint }
         }
         break
-      case CommandType.HorizontalLineAbsolute:
+      case PathCommandType.HorizontalLineAbsolute:
         this.state.currentPoint.x = transformedChunk[0]
         break
-      case CommandType.VerticalLineAbsolute:
+      case PathCommandType.VerticalLineAbsolute:
         this.state.currentPoint.y = transformedChunk[0]
         break
-      case CommandType.CubicBezierAbsolute:
+      case PathCommandType.CubicBezierAbsolute:
         this.state.currentPoint = { x: transformedChunk[4], y: transformedChunk[5] }
         break
-      case CommandType.QuadraticBezierAbsolute:
+      case PathCommandType.QuadraticBezierAbsolute:
         this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
         break
-      case CommandType.CubicBezierSmoothAbsolute:
+      case PathCommandType.CubicBezierSmoothAbsolute:
         this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
         break
-      case CommandType.QuadraticBezierSmoothAbsolute:
+      case PathCommandType.QuadraticBezierSmoothAbsolute:
         this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
         break
-      case CommandType.EllipticalArcAbsolute:
+      case PathCommandType.EllipticalArcAbsolute:
         this.state.currentPoint = { x: transformedChunk[5], y: transformedChunk[6] }
         break
     }
 
     // Update currentPoint for relative commands.
     switch (this.state.command) {
-      case CommandType.MoveRelative:
-      case CommandType.LineRelative:
+      case PathCommandType.MoveRelative:
+      case PathCommandType.LineRelative:
         this.state.currentPoint.x += parameters[0]
         this.state.currentPoint.y += parameters[1]
-        if (this.state.command === CommandType.MoveRelative && !this.path.commands.length) {
+        if (this.state.command === PathCommandType.MoveRelative && !this.path.commands.length) {
           this.path.startPosition = { ...this.state.currentPoint }
         }
         break
-      case CommandType.HorizontalLineRelative:
+      case PathCommandType.HorizontalLineRelative:
         this.state.currentPoint.x += parameters[0]
         break
-      case CommandType.VerticalLineRelative:
+      case PathCommandType.VerticalLineRelative:
         this.state.currentPoint.y += parameters[0]
         break
-      case CommandType.CubicBezierRelative:
+      case PathCommandType.CubicBezierRelative:
         this.state.currentPoint.x += parameters[4]
         this.state.currentPoint.y += parameters[5]
         break
-      case CommandType.QuadraticBezierRelative:
+      case PathCommandType.QuadraticBezierRelative:
         this.state.currentPoint.x += parameters[2]
         this.state.currentPoint.y += parameters[3]
         break
-      case CommandType.CubicBezierSmoothRelative:
+      case PathCommandType.CubicBezierSmoothRelative:
         this.state.currentPoint.x += parameters[2]
         this.state.currentPoint.y += parameters[3]
         break
-      case CommandType.QuadraticBezierSmoothRelative:
+      case PathCommandType.QuadraticBezierSmoothRelative:
         this.state.currentPoint.x += parameters[0]
         this.state.currentPoint.y += parameters[1]
         break
-      case CommandType.EllipticalArcRelative:
+      case PathCommandType.EllipticalArcRelative:
         this.state.currentPoint.x += parameters[5]
         this.state.currentPoint.y += parameters[6]
         break
-      case CommandType.StopAbsolute:
-      case CommandType.StopRelative:
+      case PathCommandType.StopAbsolute:
+      case PathCommandType.StopRelative:
         this.state.currentPoint = { ...this.path.startPosition }
         break
     }
@@ -264,30 +272,30 @@ export class SVGPathParser {
 
   private handleCommand(): void {
     const chunkSizeMap = {
-      [CommandType.MoveAbsolute]: 2,
-      [CommandType.MoveRelative]: 2,
-      [CommandType.LineAbsolute]: 2,
-      [CommandType.LineRelative]: 2,
-      [CommandType.HorizontalLineAbsolute]: 1,
-      [CommandType.HorizontalLineRelative]: 1,
-      [CommandType.VerticalLineAbsolute]: 1,
-      [CommandType.VerticalLineRelative]: 1,
-      [CommandType.CubicBezierAbsolute]: 6,
-      [CommandType.CubicBezierRelative]: 6,
-      [CommandType.CubicBezierSmoothAbsolute]: 4,
-      [CommandType.CubicBezierSmoothRelative]: 4,
-      [CommandType.QuadraticBezierAbsolute]: 4,
-      [CommandType.QuadraticBezierRelative]: 4,
-      [CommandType.QuadraticBezierSmoothAbsolute]: 2,
-      [CommandType.QuadraticBezierSmoothRelative]: 2,
-      [CommandType.EllipticalArcAbsolute]: 7,
-      [CommandType.EllipticalArcRelative]: 7,
-      [CommandType.StopAbsolute]: 0,
-      [CommandType.StopRelative]: 0
+      [PathCommandType.MoveAbsolute]: 2,
+      [PathCommandType.MoveRelative]: 2,
+      [PathCommandType.LineAbsolute]: 2,
+      [PathCommandType.LineRelative]: 2,
+      [PathCommandType.HorizontalLineAbsolute]: 1,
+      [PathCommandType.HorizontalLineRelative]: 1,
+      [PathCommandType.VerticalLineAbsolute]: 1,
+      [PathCommandType.VerticalLineRelative]: 1,
+      [PathCommandType.CubicBezierAbsolute]: 6,
+      [PathCommandType.CubicBezierRelative]: 6,
+      [PathCommandType.CubicBezierSmoothAbsolute]: 4,
+      [PathCommandType.CubicBezierSmoothRelative]: 4,
+      [PathCommandType.QuadraticBezierAbsolute]: 4,
+      [PathCommandType.QuadraticBezierRelative]: 4,
+      [PathCommandType.QuadraticBezierSmoothAbsolute]: 2,
+      [PathCommandType.QuadraticBezierSmoothRelative]: 2,
+      [PathCommandType.EllipticalArcAbsolute]: 7,
+      [PathCommandType.EllipticalArcRelative]: 7,
+      [PathCommandType.StopAbsolute]: 0,
+      [PathCommandType.StopRelative]: 0
     }
 
     if (
-      this.state.command === CommandType.NotSet ||
+      this.state.command === PathCommandType.NotSet ||
       (this.state.values.length === 0 && chunkSizeMap[this.state.command] > 0)
     ) {
       return
@@ -347,12 +355,12 @@ export class SVGParser {
   private validateSVGElement(svgElement: { paths: SVGPathInfo[] }): void {
     // TODO: Add support for elliptical arcs... but or now, bark.
     const unsupportedSvgCommands = [
-      CommandType.EllipticalArcAbsolute,
-      CommandType.EllipticalArcRelative
+      PathCommandType.EllipticalArcAbsolute,
+      PathCommandType.EllipticalArcRelative
     ]
 
     const unsupportedSvgCommandsChars = unsupportedSvgCommands.map(
-      (command) => CommandTypeToSVGMap[command]
+      (command) => PathCommandTypeToSVGPathCommandMap[command]
     )
 
     const hasUnsupportedCommands = svgElement.paths.some((path) =>

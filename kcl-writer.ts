@@ -1,4 +1,4 @@
-import { CommandType, FillRule, Point, ViewBox } from './types'
+import { PathCommandType, FillRule, Point, ViewBox } from './types'
 import { ParsedCommand, ParsedPath } from './svg-parser'
 
 export class KCLWriteError extends Error {
@@ -75,7 +75,8 @@ export class KCLWriter {
 
     for (const command of path.commands) {
       if (
-        (command.type === CommandType.MoveAbsolute || command.type === CommandType.MoveRelative) &&
+        (command.type === PathCommandType.MoveAbsolute ||
+          command.type === PathCommandType.MoveRelative) &&
         currentCommands.length > 0
       ) {
         subpaths.push({
@@ -139,7 +140,7 @@ export class KCLWriter {
   }
 
   private writeQuadraticBezierCurve(command: ParsedCommand): void {
-    const isRelative = command.type === CommandType.QuadraticBezierRelative
+    const isRelative = command.type === PathCommandType.QuadraticBezierRelative
 
     // Quadratic bezier.
     const [x1, y1, x, y] = command.parameters
@@ -177,7 +178,7 @@ export class KCLWriter {
   }
 
   private writeSmoothQuadraticBezierCurve(command: ParsedCommand): void {
-    const isRelative = command.type === CommandType.QuadraticBezierSmoothRelative
+    const isRelative = command.type === PathCommandType.QuadraticBezierSmoothRelative
 
     // Get reflected control point.
     const control = this.calculateReflectedControlPoint()
@@ -210,9 +211,9 @@ export class KCLWriter {
   }
 
   private writeCubicBezierCurve(command: ParsedCommand): void {
-    const isRelative = command.type === CommandType.CubicBezierRelative
+    const isRelative = command.type === PathCommandType.CubicBezierRelative
 
-    // Cubic bezier
+    // Cubic bezier.
     const [x1, y1, x2, y2, x, y] = command.parameters
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
     const c1y = isRelative ? y1 + this.currentPoint.y : y1
@@ -256,7 +257,7 @@ export class KCLWriter {
   }
 
   private writeSmoothCubicBezierCurve(command: ParsedCommand): void {
-    const isRelative = command.type === CommandType.CubicBezierSmoothRelative
+    const isRelative = command.type === PathCommandType.CubicBezierSmoothRelative
 
     // Get reflected control point.
     const control1 = this.calculateReflectedControlPoint()
@@ -312,8 +313,8 @@ export class KCLWriter {
         // what can you do?
 
         // Start sketch command.
-        case CommandType.MoveAbsolute:
-        case CommandType.MoveRelative: {
+        case PathCommandType.MoveAbsolute:
+        case PathCommandType.MoveRelative: {
           if (isFirstCommand) {
             isFirstCommand = false
             this.currentPoint = command.position
@@ -323,38 +324,38 @@ export class KCLWriter {
         }
 
         // Line command.
-        case CommandType.LineAbsolute:
-        case CommandType.LineRelative:
-        case CommandType.HorizontalLineAbsolute:
-        case CommandType.HorizontalLineRelative:
-        case CommandType.VerticalLineAbsolute:
-        case CommandType.VerticalLineRelative: {
+        case PathCommandType.LineAbsolute:
+        case PathCommandType.LineRelative:
+        case PathCommandType.HorizontalLineAbsolute:
+        case PathCommandType.HorizontalLineRelative:
+        case PathCommandType.VerticalLineAbsolute:
+        case PathCommandType.VerticalLineRelative: {
           this.writeLine(command.position)
           break
         }
 
         // Bezier curve commands - 'normal'.
-        case CommandType.QuadraticBezierAbsolute:
-        case CommandType.QuadraticBezierRelative: {
+        case PathCommandType.QuadraticBezierAbsolute:
+        case PathCommandType.QuadraticBezierRelative: {
           this.writeQuadraticBezierCurve(command)
           break
         }
 
-        case CommandType.CubicBezierAbsolute:
-        case CommandType.CubicBezierRelative: {
+        case PathCommandType.CubicBezierAbsolute:
+        case PathCommandType.CubicBezierRelative: {
           this.writeCubicBezierCurve(command)
           break
         }
 
         // Bezier curve commands - 'smooth'; these use the previous control point.
-        case CommandType.QuadraticBezierSmoothAbsolute:
-        case CommandType.QuadraticBezierSmoothRelative: {
+        case PathCommandType.QuadraticBezierSmoothAbsolute:
+        case PathCommandType.QuadraticBezierSmoothRelative: {
           this.writeSmoothQuadraticBezierCurve(command)
           break
         }
 
-        case CommandType.CubicBezierSmoothAbsolute:
-        case CommandType.CubicBezierSmoothRelative: {
+        case PathCommandType.CubicBezierSmoothAbsolute:
+        case PathCommandType.CubicBezierSmoothRelative: {
           this.writeSmoothCubicBezierCurve(command)
           break
         }
@@ -363,8 +364,8 @@ export class KCLWriter {
         // Uh-oh.
 
         // Close path commands.
-        case CommandType.StopAbsolute:
-        case CommandType.StopRelative: {
+        case PathCommandType.StopAbsolute:
+        case PathCommandType.StopRelative: {
           if (isHole) {
             this.addCommand('|> close(%), %)')
           } else {
@@ -378,7 +379,8 @@ export class KCLWriter {
     // Ensure path is closed.
     if (
       !commands.some(
-        (cmd) => cmd.type === CommandType.StopAbsolute || cmd.type === CommandType.StopRelative
+        (cmd) =>
+          cmd.type === PathCommandType.StopAbsolute || cmd.type === PathCommandType.StopRelative
       )
     ) {
       if (isHole) {

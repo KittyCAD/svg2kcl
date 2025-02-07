@@ -1,5 +1,5 @@
 import { SVG } from '../types/svg'
-import { KCLOperation, KCLOptions, KCLOutput, KCLShape } from '../types/kcl'
+import { KCLOptions, KCLOutput, KCLShape } from '../types/kcl'
 import { Converter } from './converter'
 import { Formatter } from './formatter'
 
@@ -30,7 +30,7 @@ export class BaseWriter {
         shapes: []
       }
 
-      // Convert each geometric element to KCL operations
+      // Convert each geometric element to KCL operation.
       for (const element of this.svg.elements) {
         const operations = this.converter.convertElement(element)
         if (operations.length > 0) {

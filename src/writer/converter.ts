@@ -21,14 +21,22 @@ export class ConverterError extends Error {
 }
 
 export class Converter {
-  // Track previous control point (required smooth curves).
   private previousControlPoint: Point | null = null
-  private currentPoint: Point | null = null
+  private currentPoint: Point = { x: 0, y: 0 }
+  private readonly offsetCoords: Point
 
-  constructor(private options: KCLOptions = {}) {}
+  constructor(private options: KCLOptions = {}) {
+    // For now, no centering.
+    const x = 0
+    const y = 0
+    this.offsetCoords = { x, y }
+  }
 
-  private invertY(point: Point): Point {
-    return { x: point.x, y: -point.y }
+  private transformPoint(point: Point): Point {
+    return {
+      x: point.x - this.offsetCoords.x,
+      y: point.y - this.offsetCoords.y
+    }
   }
 
   private isClockwise(points: Point[]): boolean {
@@ -42,14 +50,167 @@ export class Converter {
   }
 
   private calculateReflectedControlPoint(): Point {
-    if (!this.previousControlPoint || !this.currentPoint) {
-      return this.currentPoint || { x: 0, y: 0 }
+    if (!this.previousControlPoint) {
+      // If no previous control point, use current point.
+      return this.currentPoint
     }
 
-    // Reflect previous control point about current point.
+    // Reflect the previous control point about current point.
     return {
       x: 2 * this.currentPoint.x - this.previousControlPoint.x,
       y: 2 * this.currentPoint.y - this.previousControlPoint.y
+    }
+  }
+
+  private handleQuadraticBezier(command: Path['commands'][0], isRelative: boolean): KCLOperation {
+    // Quadratic bezier.
+    const [x1, y1, x, y] = command.parameters
+    const c1x = isRelative ? x1 + this.currentPoint.x : x1
+    const c1y = isRelative ? y1 + this.currentPoint.y : y1
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
+
+    let control1 = {
+      x: c1x - this.currentPoint.x + this.offsetCoords.x,
+      y: c1y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
+
+    // Set current point to endpoint and save control point.
+    this.currentPoint = { x: endX, y: endY }
+    this.previousControlPoint = { x: c1x, y: c1y }
+
+    // Transform for writing out.
+    const transformedControl = this.transformPoint(control1)
+    const transformedEndpoint = this.transformPoint(endpoint)
+
+    return {
+      type: KCLOperationType.BezierCurve,
+      params: {
+        control1: [transformedControl.x, transformedControl.y],
+        control2: [transformedControl.x, transformedControl.y],
+        to: [transformedEndpoint.x, transformedEndpoint.y]
+      }
+    }
+  }
+
+  private handleSmoothQuadraticBezier(
+    command: Path['commands'][0],
+    isRelative: boolean
+  ): KCLOperation {
+    // Get reflected control point.
+    const control = this.calculateReflectedControlPoint()
+
+    // Get endpoint from command.
+    const [x, y] = command.parameters
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
+
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
+
+    // Set current point to endpoint and save control point.
+    this.previousControlPoint = control
+    this.currentPoint = { x: endX, y: endY }
+
+    // Transform and invert points.
+    const transformedControl = this.transformPoint(control)
+    const transformedEndpoint = this.transformPoint(endpoint)
+
+    return {
+      type: KCLOperationType.BezierCurve,
+      params: {
+        control1: [transformedControl.x, transformedControl.y],
+        control2: [transformedControl.x, transformedControl.y],
+        to: [transformedEndpoint.x, transformedEndpoint.y]
+      }
+    }
+  }
+
+  private handleCubicBezier(command: Path['commands'][0], isRelative: boolean): KCLOperation {
+    // Cubic bezier.
+    const [x1, y1, x2, y2, x, y] = command.parameters
+    const c1x = isRelative ? x1 + this.currentPoint.x : x1
+    const c1y = isRelative ? y1 + this.currentPoint.y : y1
+    const c2x = isRelative ? x2 + this.currentPoint.x : x2
+    const c2y = isRelative ? y2 + this.currentPoint.y : y2
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
+
+    let control1 = {
+      x: c1x - this.currentPoint.x + this.offsetCoords.x,
+      y: c1y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let control2 = {
+      x: c2x - this.currentPoint.x + this.offsetCoords.x,
+      y: c2y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
+
+    // Set current point to endpoint and save control point.
+    this.previousControlPoint = { x: c2x, y: c2y }
+    this.currentPoint = { x: endX, y: endY }
+
+    // Transform and invert points for writing out.
+    const transformedControl1 = this.transformPoint(control1)
+    const transformedControl2 = this.transformPoint(control2)
+    const transformedEndpoint = this.transformPoint(endpoint)
+
+    return {
+      type: KCLOperationType.BezierCurve,
+      params: {
+        control1: [transformedControl1.x, transformedControl1.y],
+        control2: [transformedControl2.x, transformedControl2.y],
+        to: [transformedEndpoint.x, transformedEndpoint.y]
+      }
+    }
+  }
+
+  private handleSmoothCubicBezier(command: Path['commands'][0], isRelative: boolean): KCLOperation {
+    const [x2, y2, x, y] = command.parameters
+
+    // Get reflected control point.
+    const control1 = this.calculateReflectedControlPoint()
+
+    // Second control point and endpoint from command.
+    const c2x = isRelative ? x2 + this.currentPoint.x : x2
+    const c2y = isRelative ? y2 + this.currentPoint.y : y2
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
+
+    let control2 = {
+      x: c2x - this.currentPoint.x + this.offsetCoords.x,
+      y: c2y - this.currentPoint.y + this.offsetCoords.y
+    }
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
+
+    // Set current point to endpoint and save control point.
+    this.previousControlPoint = { x: c2x, y: c2y }
+    this.currentPoint = { x: endX, y: endY }
+
+    // Transform and invert points for writing out.
+    const transformedControl1 = this.transformPoint(control1)
+    const transformedControl2 = this.transformPoint(control2)
+    const transformedEndpoint = this.transformPoint(endpoint)
+
+    return {
+      type: KCLOperationType.BezierCurve,
+      params: {
+        control1: [transformedControl1.x, transformedControl1.y],
+        control2: [transformedControl2.x, transformedControl2.y],
+        to: [transformedEndpoint.x, transformedEndpoint.y]
+      }
     }
   }
 
@@ -85,6 +246,79 @@ export class Converter {
     return subpaths
   }
 
+  private convertPathCommands(commands: Path['commands']): KCLOperation[] {
+    const operations: KCLOperation[] = []
+    this.previousControlPoint = null
+    this.currentPoint = { x: 0, y: 0 }
+
+    commands.forEach((command, index) => {
+      this.currentPoint = command.position
+
+      if (index === 0) {
+        operations.push({
+          type: KCLOperationType.StartSketch,
+          params: { point: [this.currentPoint.x, this.currentPoint.y] }
+        })
+        return
+      }
+
+      switch (command.type) {
+        // Lines.
+        case PathCommandType.LineAbsolute:
+        case PathCommandType.LineRelative:
+        case PathCommandType.HorizontalLineAbsolute:
+        case PathCommandType.HorizontalLineRelative:
+        case PathCommandType.VerticalLineAbsolute:
+        case PathCommandType.VerticalLineRelative:
+          operations.push({
+            type: KCLOperationType.LineTo,
+            params: { point: [this.currentPoint.x, this.currentPoint.y] }
+          })
+          break
+
+        // Quadratic beziers.
+        case PathCommandType.QuadraticBezierAbsolute:
+          operations.push(this.handleQuadraticBezier(command, false))
+          break
+        case PathCommandType.QuadraticBezierRelative:
+          operations.push(this.handleQuadraticBezier(command, true))
+          break
+        case PathCommandType.QuadraticBezierSmoothAbsolute:
+          operations.push(this.handleSmoothQuadraticBezier(command, false))
+          break
+        case PathCommandType.QuadraticBezierSmoothRelative:
+          operations.push(this.handleSmoothQuadraticBezier(command, true))
+          break
+
+        // Cubic beziers.
+        case PathCommandType.CubicBezierAbsolute:
+          operations.push(this.handleCubicBezier(command, false))
+          break
+        case PathCommandType.CubicBezierRelative:
+          operations.push(this.handleCubicBezier(command, true))
+          break
+        case PathCommandType.CubicBezierSmoothAbsolute:
+          operations.push(this.handleSmoothCubicBezier(command, false))
+          break
+        case PathCommandType.CubicBezierSmoothRelative:
+          operations.push(this.handleSmoothCubicBezier(command, true))
+          break
+
+        // Stops.
+        case PathCommandType.StopAbsolute:
+        case PathCommandType.StopRelative:
+          operations.push({ type: KCLOperationType.Close, params: null })
+          break
+      }
+    })
+
+    if (!operations.some((op) => op.type === KCLOperationType.Close)) {
+      operations.push({ type: KCLOperationType.Close, params: null })
+    }
+
+    return operations
+  }
+
   private pathToOperations(path: Path): KCLOperation[] {
     const operations: KCLOperation[] = []
 
@@ -97,14 +331,14 @@ export class Converter {
       operations.push(...this.convertPathCommands(outline.commands))
 
       // Convert holes.
-      holes.forEach((hole) => {
-        operations.push({
-          type: KCLOperationType.Hole,
-          params: {
-            operations: this.convertPathCommands(hole.commands)
-          }
-        })
-      })
+      //   holes.forEach((hole) => {
+      //     operations.push({
+      //       type: KCLOperationType.Hole,
+      //       params: {
+      //         operations: this.convertPathCommands(hole.commands)
+      //       }
+      //     })
+      //   })
     } else {
       // Nonzero fill rule - use winding direction.
       const subpaths = this.separateSubpaths(path)
@@ -128,123 +362,6 @@ export class Converter {
           })
         }
       })
-    }
-
-    return operations
-  }
-
-  private convertPathCommands(commands: Path['commands']): KCLOperation[] {
-    const operations: KCLOperation[] = []
-    this.previousControlPoint = null
-    this.currentPoint = null
-
-    commands.forEach((command, index) => {
-      const point = this.invertY(command.position)
-      // Store non-inverted position.
-      this.currentPoint = command.position
-
-      if (index === 0) {
-        operations.push({
-          type: KCLOperationType.StartSketch,
-          params: { point: [point.x, point.y] }
-        })
-        return
-      }
-
-      switch (command.type) {
-        case PathCommandType.LineAbsolute:
-        case PathCommandType.LineRelative:
-        case PathCommandType.HorizontalLineAbsolute:
-        case PathCommandType.HorizontalLineRelative:
-        case PathCommandType.VerticalLineAbsolute:
-        case PathCommandType.VerticalLineRelative:
-          operations.push({
-            type: KCLOperationType.LineTo,
-            params: { point: [point.x, point.y] }
-          })
-          break
-
-        case PathCommandType.QuadraticBezierAbsolute:
-        case PathCommandType.QuadraticBezierRelative: {
-          const [x1, y1] = command.parameters
-          const control = this.invertY({ x: x1, y: y1 })
-          this.previousControlPoint = { x: x1, y: y1 }
-
-          operations.push({
-            type: KCLOperationType.BezierCurve,
-            params: {
-              control1: [control.x, control.y],
-              control2: [control.x, control.y], // Same control point for quadratic.
-              to: [point.x, point.y]
-            }
-          })
-          break
-        }
-
-        case PathCommandType.QuadraticBezierSmoothAbsolute:
-        case PathCommandType.QuadraticBezierSmoothRelative: {
-          const reflectedControl = this.calculateReflectedControlPoint()
-          const control = this.invertY(reflectedControl)
-          this.previousControlPoint = reflectedControl
-
-          operations.push({
-            type: KCLOperationType.BezierCurve,
-            params: {
-              control1: [control.x, control.y],
-              control2: [control.x, control.y],
-              to: [point.x, point.y]
-            }
-          })
-          break
-        }
-
-        case PathCommandType.CubicBezierAbsolute:
-        case PathCommandType.CubicBezierRelative: {
-          const [x1, y1, x2, y2] = command.parameters
-          const control1 = this.invertY({ x: x1, y: y1 })
-          const control2 = this.invertY({ x: x2, y: y2 })
-          this.previousControlPoint = { x: x2, y: y2 }
-
-          operations.push({
-            type: KCLOperationType.BezierCurve,
-            params: {
-              control1: [control1.x, control1.y],
-              control2: [control2.x, control2.y],
-              to: [point.x, point.y]
-            }
-          })
-          break
-        }
-
-        case PathCommandType.CubicBezierSmoothAbsolute:
-        case PathCommandType.CubicBezierSmoothRelative: {
-          const [x2, y2] = command.parameters
-          const reflectedControl = this.calculateReflectedControlPoint()
-          const control1 = this.invertY(reflectedControl)
-          const control2 = this.invertY({ x: x2, y: y2 })
-          this.previousControlPoint = { x: x2, y: y2 }
-
-          operations.push({
-            type: KCLOperationType.BezierCurve,
-            params: {
-              control1: [control1.x, control1.y],
-              control2: [control2.x, control2.y],
-              to: [point.x, point.y]
-            }
-          })
-          break
-        }
-
-        case PathCommandType.StopAbsolute:
-        case PathCommandType.StopRelative:
-          operations.push({ type: KCLOperationType.Close, params: null })
-          break
-      }
-    })
-
-    // Ensure path is closed.
-    if (!operations.some((op) => op.type === KCLOperationType.Close)) {
-      operations.push({ type: KCLOperationType.Close, params: null })
     }
 
     return operations
@@ -313,12 +430,11 @@ export class Converter {
 
   private circleToOperations(circle: Circle): KCLOperation[] {
     const { center, radius } = circle
-    const invertedCenter = this.invertY(center)
 
     return [
       {
         type: KCLOperationType.StartSketch,
-        params: { point: [invertedCenter.x, invertedCenter.y] }
+        params: { point: [center.x, center.y] }
       },
       {
         type: KCLOperationType.Circle,
@@ -328,17 +444,14 @@ export class Converter {
   }
 
   private lineToOperations(line: Line): KCLOperation[] {
-    const start = this.invertY(line.start)
-    const end = this.invertY(line.end)
-
     return [
       {
         type: KCLOperationType.StartSketch,
-        params: { point: [start.x, start.y] }
+        params: { point: [line.start.x, line.start.y] }
       },
       {
         type: KCLOperationType.LineTo,
-        params: { point: [end.x, end.y] }
+        params: { point: [line.end.x, line.end.y] }
       }
     ]
   }
@@ -349,7 +462,7 @@ export class Converter {
     }
 
     const operations: KCLOperation[] = []
-    const points = polyline.points.map((p) => this.invertY(p))
+    const points = polyline.points.map((p) => p)
 
     operations.push({
       type: KCLOperationType.StartSketch,
@@ -372,7 +485,7 @@ export class Converter {
     }
 
     const operations: KCLOperation[] = []
-    const points = polygon.points.map((p) => this.invertY(p))
+    const points = polygon.points.map((p) => p)
 
     operations.push({
       type: KCLOperationType.StartSketch,

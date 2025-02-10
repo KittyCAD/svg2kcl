@@ -1,4 +1,4 @@
-import { Matrix } from '../utils/matrix'
+import { Transform } from '../utils/transform'
 
 // Our current supported element types.
 export enum GeometricElementType {
@@ -21,20 +21,6 @@ export interface ViewBox {
   yMin: number
   width: number
   height: number
-}
-
-// Transform types.
-export enum TransformType {
-  Translate = 'translate',
-  Scale = 'scale',
-  Rotate = 'rotate',
-  SkewX = 'skewX',
-  SkewY = 'skewY',
-  Matrix = 'matrix'
-}
-
-export interface Transform {
-  matrix: Matrix
 }
 
 // Base interface from which all geometric elements inherit.

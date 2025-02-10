@@ -9,8 +9,8 @@ import {
 } from '../types/geometric'
 import { RawSVGElement } from '../types/svg'
 
-import { parseTransform } from '../parsers/transform'
 import { parseNumber, parsePoints } from '../parsers/values'
+import { Transform } from '../utils/transform'
 
 export class ShapeReadError extends Error {
   constructor(message: string) {
@@ -29,7 +29,7 @@ export class ShapeReader {
       height: parseNumber(element.attributes['height'], 'height'),
       rx: element.attributes['rx'] ? parseNumber(element.attributes['rx'], 'rx') : undefined,
       ry: element.attributes['ry'] ? parseNumber(element.attributes['ry'], 'ry') : undefined,
-      transform: parseTransform(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform'])
     }
   }
 
@@ -41,7 +41,7 @@ export class ShapeReader {
         y: parseNumber(element.attributes['cy'], 'cy')
       },
       radius: parseNumber(element.attributes['r'], 'r'),
-      transform: parseTransform(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform'])
     }
   }
 
@@ -56,7 +56,7 @@ export class ShapeReader {
         x: parseNumber(element.attributes['x2'], 'x2'),
         y: parseNumber(element.attributes['y2'], 'y2')
       },
-      transform: parseTransform(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform'])
     }
   }
 
@@ -69,7 +69,7 @@ export class ShapeReader {
     return {
       type: GeometricElementType.Polyline,
       points: parsePoints(pointsStr),
-      transform: parseTransform(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform'])
     }
   }
 
@@ -82,7 +82,7 @@ export class ShapeReader {
     return {
       type: GeometricElementType.Polygon,
       points: parsePoints(pointsStr),
-      transform: parseTransform(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform'])
     }
   }
 

@@ -1,7 +1,7 @@
 import { SVGPathParser } from '../parsers/path'
-import { parseTransform } from '../parsers/transform'
 import { FillRule, GeometricElementType, Path } from '../types/geometric'
 import { RawSVGElement } from '../types/svg'
+import { Transform } from '../utils/transform'
 
 export class PathReadError extends Error {
   constructor(message: string) {
@@ -88,8 +88,9 @@ export class PathReader {
     }
 
     // Parse the transform if present.
-    const transformResult = parseTransform(mergedData.transform)
-    const transform = transformResult ? transformResult.matrix : null
+    const transform = mergedData.transform
+      ? Transform.fromString(mergedData.transform)
+      : new Transform()
 
     // Parse the path data using our parser.
     const parsedPath = this.pathParser.parsePath(mergedData.d, transform, mergedData.fillRule)
@@ -98,7 +99,7 @@ export class PathReader {
       type: GeometricElementType.Path,
       commands: parsedPath.commands,
       fillRule: parsedPath.fillRule,
-      transform: transform ? { matrix: transform } : undefined
+      transform: transform
     }
   }
 }

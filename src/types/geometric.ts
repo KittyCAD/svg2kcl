@@ -27,6 +27,7 @@ export interface ViewBox {
 export interface GeometricElement {
   transform?: Transform
   fillRule?: FillRule
+  parentElement: GeometricElement | null
 }
 
 // Path handling.

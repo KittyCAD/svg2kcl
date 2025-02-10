@@ -99,7 +99,8 @@ export class PathReader {
       type: GeometricElementType.Path,
       commands: parsedPath.commands,
       fillRule: parsedPath.fillRule,
-      transform: transform
+      transform: transform,
+      parentElement: null
     }
   }
 }

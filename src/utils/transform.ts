@@ -33,7 +33,7 @@ export enum TransformType {
 }
 
 export class Transform {
-  private matrix: Matrix
+  public matrix: Matrix
 
   constructor(matrix?: Matrix) {
     this.matrix = matrix || new Matrix()

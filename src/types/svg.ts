@@ -1,4 +1,5 @@
 import { GeometricShape, PathCommandType, ViewBox } from './geometric'
+import { Transform } from '../utils/transform'
 
 // Representation of an SVG doc and its elements.
 export interface SVG {

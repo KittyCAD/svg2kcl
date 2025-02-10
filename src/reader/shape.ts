@@ -29,7 +29,8 @@ export class ShapeReader {
       height: parseNumber(element.attributes['height'], 'height'),
       rx: element.attributes['rx'] ? parseNumber(element.attributes['rx'], 'rx') : undefined,
       ry: element.attributes['ry'] ? parseNumber(element.attributes['ry'], 'ry') : undefined,
-      transform: Transform.fromString(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform']),
+      parentElement: null
     }
   }
 
@@ -41,7 +42,8 @@ export class ShapeReader {
         y: parseNumber(element.attributes['cy'], 'cy')
       },
       radius: parseNumber(element.attributes['r'], 'r'),
-      transform: Transform.fromString(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform']),
+      parentElement: null
     }
   }
 
@@ -56,7 +58,8 @@ export class ShapeReader {
         x: parseNumber(element.attributes['x2'], 'x2'),
         y: parseNumber(element.attributes['y2'], 'y2')
       },
-      transform: Transform.fromString(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform']),
+      parentElement: null
     }
   }
 
@@ -69,7 +72,8 @@ export class ShapeReader {
     return {
       type: GeometricElementType.Polyline,
       points: parsePoints(pointsStr),
-      transform: Transform.fromString(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform']),
+      parentElement: null
     }
   }
 
@@ -82,7 +86,8 @@ export class ShapeReader {
     return {
       type: GeometricElementType.Polygon,
       points: parsePoints(pointsStr),
-      transform: Transform.fromString(element.attributes['transform'])
+      transform: Transform.fromString(element.attributes['transform']),
+      parentElement: null
     }
   }
 

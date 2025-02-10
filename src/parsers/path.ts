@@ -1,6 +1,6 @@
 import { FillRule, PathCommandType, Point } from '../types/geometric'
 import { SVGPathCommandMap } from '../types/svg'
-import { Matrix } from '../utils/matrix'
+import { Transform } from '../utils/transform'
 
 const DEFAULT_FILL_RULE = FillRule.EvenOdd
 
@@ -35,10 +35,10 @@ interface PathState {
 export class SVGPathParser {
   private state: PathState
   private path!: ParsedPath
-  private transform: Matrix | null
+  private transform: Transform
 
   constructor() {
-    this.transform = null
+    this.transform = new Transform()
     this.state = {
       command: PathCommandType.NotSet,
       values: [],
@@ -63,9 +63,16 @@ export class SVGPathParser {
   private applyTransform(point: Point): Point {
     if (!this.transform) return point
 
+    // TODO: Add an apply method to the Transform class.
     return {
-      x: this.transform.a * point.x + this.transform.c * point.y + this.transform.e,
-      y: this.transform.b * point.x + this.transform.d * point.y + this.transform.f
+      x:
+        this.transform.matrix.a * point.x +
+        this.transform.matrix.c * point.y +
+        this.transform.matrix.e,
+      y:
+        this.transform.matrix.b * point.x +
+        this.transform.matrix.d * point.y +
+        this.transform.matrix.f
     }
   }
 
@@ -309,7 +316,7 @@ export class SVGPathParser {
 
   public parsePath(
     pathData: string,
-    transform: Matrix | null = null,
+    transform: Transform,
     inheritedFillRule?: FillRule
   ): ParsedPath {
     // Reset.

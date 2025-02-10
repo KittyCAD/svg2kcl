@@ -9,8 +9,8 @@ async function convertSVGtoKCL(
   options: KCLOptions = {}
 ): Promise<void> {
   // Read and parse SVG.
-  const SVGReader = new SVGReader()
-  const svg = await SVGReader.readFile(inputPath)
+  const svgReader = new SVGReader()
+  const svg = await svgReader.readFile(inputPath)
 
   // Convert to KCL.
   const writer = new KCLWriter(svg, options)

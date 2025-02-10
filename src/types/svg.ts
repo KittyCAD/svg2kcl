@@ -1,5 +1,4 @@
 import { GeometricShape, PathCommandType, ViewBox } from './geometric'
-import { Transform } from '../utils/transform'
 
 // Representation of an SVG doc and its elements.
 export interface SVG {
@@ -11,6 +10,7 @@ export interface RawSVGElement {
   type: string
   attributes: Record<string, string>
   children?: RawSVGElement[]
+  parent?: RawSVGElement
 }
 
 export interface RawSVG {

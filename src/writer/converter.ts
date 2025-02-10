@@ -15,6 +15,7 @@ import {
 } from '../types/geometric'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
 import { separateSubpaths } from '../utils/geometry'
+import { getCombinedTransform } from '../utils/transform'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -478,23 +479,44 @@ export class Converter {
   }
 
   public convertElement(element: GeometricShape): KCLOperation[] {
+    // Get the combined transform for this element.
+    const combinedTransform = getCombinedTransform(element)
+
+    // Store the original transform.
+    const originalTransform = element.transform
+
+    // Temporarily set the element's transform to the combined transform.
+    element.transform = combinedTransform
+
+    let opList: KCLOperation[] = []
+
     switch (element.type) {
       case GeometricElementType.Path:
-        return this.convertPathToKclOps(element as Path)
+        opList = this.convertPathToKclOps(element as Path)
+        break
       case GeometricElementType.Rectangle:
-        return this.convertRectangleToKclOps(element as Rectangle)
+        opList = this.convertRectangleToKclOps(element as Rectangle)
+        break
       case GeometricElementType.Circle:
-        return this.convertCircleToKclOps(element as Circle)
+        opList = this.convertCircleToKclOps(element as Circle)
+        break
       case GeometricElementType.Line:
-        return this.convertLineToKclOps(element as Line)
+        opList = this.convertLineToKclOps(element as Line)
+        break
       case GeometricElementType.Polyline:
-        return this.convertPolylineToKclOps(element as Polyline)
+        opList = this.convertPolylineToKclOps(element as Polyline)
+        break
       case GeometricElementType.Polygon:
-        return this.convertPolygonToKclOps(element as Polygon)
+        opList = this.convertPolygonToKclOps(element as Polygon)
+        break
       default: {
         const exhaustiveCheck: never = element
         throw new ConverterError(`Unsupported element type: ${(element as any).type}`)
       }
     }
+
+    // Restore the original transform.
+    element.transform = originalTransform
+    return opList
   }
 }

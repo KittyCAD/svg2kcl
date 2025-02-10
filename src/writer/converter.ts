@@ -65,10 +65,6 @@ export class Converter {
     return point
   }
 
-  private transformAndCenter(point: Point, transform: Transform | null): Point {
-    return this.centerPoint(this.transformPoint(point, transform))
-  }
-
   private calculateReflectedControlPoint(): Point {
     if (!this.previousControlPoint) {
       // If no previous control point, use current point.
@@ -116,8 +112,8 @@ export class Converter {
     // Set current point.
     this.currentPoint = { x: endX, y: endY }
 
-    // Transform and center.
-    const transformedEndpoint = this.transformAndCenter(endpoint, transform)
+    // Transform.
+    const transformedEndpoint = this.transformPoint(endpoint, transform)
 
     return {
       type: KCLOperationType.Line,

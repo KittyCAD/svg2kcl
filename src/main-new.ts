@@ -25,7 +25,7 @@ async function main() {
   const outputFile = './output.kcl'
 
   const options: KCLOptions = {
-    centerOnViewBox: true // Center the output on the SVG viewBox
+    centerOnViewBox: false // Center the output on the SVG viewBox
   }
 
   try {

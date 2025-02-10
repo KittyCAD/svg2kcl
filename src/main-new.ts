@@ -21,7 +21,7 @@ async function convertSVGtoKCL(
 }
 
 async function main() {
-  const inputFile = './tests/data/group_transform.svg'
+  const inputFile = './tests/data/project_payload.svg'
   const outputFile = './output.kcl'
 
   const options: KCLOptions = {

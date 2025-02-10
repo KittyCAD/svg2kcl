@@ -30,17 +30,22 @@ export class Converter {
 
   constructor(private options: KCLOptions = {}, viewBox: ViewBox) {
     // Calculate offset coordinates for centering if requested.
-    const x = options.centerOnViewBox ? viewBox.xMin + viewBox.width / 2 : 0
-    const y = options.centerOnViewBox ? viewBox.yMin + viewBox.height / 2 : 0
-    this.offsetCoords = { x, y }
+    const xOffset = viewBox.xMin + viewBox.width / 2
+    const yOffset = viewBox.yMin + viewBox.height / 2
+    this.offsetCoords = { x: xOffset, y: yOffset }
+    this.options = options
   }
 
   // Utilities used in conversion.
   // --------------------------------------------------
   private centerPoint(point: Point): Point {
-    return {
-      x: point.x - this.offsetCoords.x,
-      y: point.y - this.offsetCoords.y
+    if (!this.options.centerOnViewBox) {
+      return point
+    } else {
+      return {
+        x: point.x - this.offsetCoords.x,
+        y: point.y - this.offsetCoords.y
+      }
     }
   }
 
@@ -58,6 +63,10 @@ export class Converter {
     point = this.centerPoint(point)
 
     return point
+  }
+
+  private transformAndCenter(point: Point, transform: Transform | null): Point {
+    return this.centerPoint(this.transformPoint(point, transform))
   }
 
   private calculateReflectedControlPoint(): Point {
@@ -100,15 +109,15 @@ export class Converter {
     const endY = isRelative ? y + this.currentPoint.y : y
 
     let endpoint = {
-      x: endX - this.currentPoint.x + this.offsetCoords.x,
-      y: endY - this.currentPoint.y + this.offsetCoords.y
+      x: endX - this.currentPoint.x,
+      y: endY - this.currentPoint.y
     }
 
     // Set current point.
     this.currentPoint = { x: endX, y: endY }
 
     // Transform and center.
-    const transformedEndpoint = this.transformPoint(endpoint, transform)
+    const transformedEndpoint = this.transformAndCenter(endpoint, transform)
 
     return {
       type: KCLOperationType.Line,
@@ -125,12 +134,12 @@ export class Converter {
     const endY = isRelative ? y + this.currentPoint.y : y
 
     let control1 = {
-      x: c1x - this.currentPoint.x + this.offsetCoords.x,
-      y: c1y - this.currentPoint.y + this.offsetCoords.y
+      x: c1x - this.currentPoint.x,
+      y: c1y - this.currentPoint.y
     }
     let endpoint = {
-      x: endX - this.currentPoint.x + this.offsetCoords.x,
-      y: endY - this.currentPoint.y + this.offsetCoords.y
+      x: endX - this.currentPoint.x,
+      y: endY - this.currentPoint.y
     }
 
     // Set current point to endpoint and save control point.
@@ -161,8 +170,8 @@ export class Converter {
     const endY = isRelative ? y + this.currentPoint.y : y
 
     let endpoint = {
-      x: endX - this.currentPoint.x + this.offsetCoords.x,
-      y: endY - this.currentPoint.y + this.offsetCoords.y
+      x: endX - this.currentPoint.x,
+      y: endY - this.currentPoint.y
     }
 
     // Set current point to endpoint and save control point.
@@ -194,16 +203,16 @@ export class Converter {
     const endY = isRelative ? y + this.currentPoint.y : y
 
     let control1 = {
-      x: c1x - this.currentPoint.x + this.offsetCoords.x,
-      y: c1y - this.currentPoint.y + this.offsetCoords.y
+      x: c1x - this.currentPoint.x,
+      y: c1y - this.currentPoint.y
     }
     let control2 = {
-      x: c2x - this.currentPoint.x + this.offsetCoords.x,
-      y: c2y - this.currentPoint.y + this.offsetCoords.y
+      x: c2x - this.currentPoint.x,
+      y: c2y - this.currentPoint.y
     }
     let endpoint = {
-      x: endX - this.currentPoint.x + this.offsetCoords.x,
-      y: endY - this.currentPoint.y + this.offsetCoords.y
+      x: endX - this.currentPoint.x,
+      y: endY - this.currentPoint.y
     }
 
     // Set current point to endpoint and save control point.
@@ -238,12 +247,12 @@ export class Converter {
     const endY = isRelative ? y + this.currentPoint.y : y
 
     let control2 = {
-      x: c2x - this.currentPoint.x + this.offsetCoords.x,
-      y: c2y - this.currentPoint.y + this.offsetCoords.y
+      x: c2x - this.currentPoint.x,
+      y: c2y - this.currentPoint.y
     }
     let endpoint = {
-      x: endX - this.currentPoint.x + this.offsetCoords.x,
-      y: endY - this.currentPoint.y + this.offsetCoords.y
+      x: endX - this.currentPoint.x,
+      y: endY - this.currentPoint.y
     }
 
     // Set current point to endpoint and save control point.

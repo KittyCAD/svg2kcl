@@ -36,4 +36,4 @@ export async function convertSVGtoKCL(
 const inputFile = './tests/data/project_payload.svg'
 const outputFile = './output.kcl'
 
-convertSVGtoKCL(inputFile, outputFile, false)
+convertSVGtoKCL(inputFile, outputFile, true)

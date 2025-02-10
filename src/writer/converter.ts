@@ -122,75 +122,41 @@ export class Converter {
   }
 
   private createQuadraticBezierOp(command: PathCommand, isRelative: boolean): KCLOperation {
-    // Quadratic bezier.
+    // Get coordinates from command
     const [x1, y1, x, y] = command.parameters
+
+    // Convert to absolute coordinates if relative
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
     const c1y = isRelative ? y1 + this.currentPoint.y : y1
     const endX = isRelative ? x + this.currentPoint.x : x
     const endY = isRelative ? y + this.currentPoint.y : y
 
+    // Make control points relative to current point
     let control1 = {
       x: c1x - this.currentPoint.x,
       y: c1y - this.currentPoint.y
     }
-    let endpoint = {
-      x: endX - this.currentPoint.x,
-      y: endY - this.currentPoint.y
-    }
 
-    // Set current point to endpoint and save control point.
-    this.currentPoint = { x: endX, y: endY }
+    // Update state
     this.previousControlPoint = { x: c1x, y: c1y }
-
-    // Center for writing out.
-    const centeredControl = this.centerPoint(control1)
-    const centeredEndpoint = this.centerPoint(endpoint)
-
-    return {
-      type: KCLOperationType.BezierCurve,
-      params: {
-        control1: [centeredControl.x, centeredControl.y],
-        control2: [centeredControl.x, centeredControl.y],
-        to: [centeredEndpoint.x, centeredEndpoint.y]
-      }
-    }
-  }
-
-  private createQuadraticBezierSmoothOp(command: PathCommand, isRelative: boolean): KCLOperation {
-    // Get reflected control point.
-    const control = this.calculateReflectedControlPoint()
-
-    // Get endpoint from command.
-    const [x, y] = command.parameters
-    const endX = isRelative ? x + this.currentPoint.x : x
-    const endY = isRelative ? y + this.currentPoint.y : y
-
-    let endpoint = {
-      x: endX - this.currentPoint.x,
-      y: endY - this.currentPoint.y
-    }
-
-    // Set current point to endpoint and save control point.
-    this.previousControlPoint = control
     this.currentPoint = { x: endX, y: endY }
 
-    // Center and invert points.
-    const centeredControl = this.centerPoint(control)
-    const centeredEndpoint = this.centerPoint(endpoint)
+    // Only center the final endpoint
+    const centeredEndpoint = this.centerPoint({ x: endX, y: endY })
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [centeredControl.x, centeredControl.y],
-        control2: [centeredControl.x, centeredControl.y],
+        control1: [control1.x, control1.y],
+        control2: [control1.x, control1.y],
         to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }
   }
 
   private createCubicBezierOp(command: PathCommand, isRelative: boolean): KCLOperation {
-    // Cubic bezier.
     const [x1, y1, x2, y2, x, y] = command.parameters
+
     const c1x = isRelative ? x1 + this.currentPoint.x : x1
     const c1y = isRelative ? y1 + this.currentPoint.y : y1
     const c2x = isRelative ? x2 + this.currentPoint.x : x2
@@ -211,32 +177,48 @@ export class Converter {
       y: endY - this.currentPoint.y
     }
 
-    // Set current point to endpoint and save control point.
+    // This works with no offsets or centering because it is, practically, all relative.
+    // Once we get the starting point in the right spot, the rest is relative to that.
+
     this.previousControlPoint = { x: c2x, y: c2y }
     this.currentPoint = { x: endX, y: endY }
-
-    // Center and invert points for writing out.
-    const centeredControl1 = this.centerPoint(control1)
-    const centeredControl2 = this.centerPoint(control2)
-    const centeredEndpoint = this.centerPoint(endpoint)
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [centeredControl1.x, centeredControl1.y],
-        control2: [centeredControl2.x, centeredControl2.y],
+        control1: [control1.x, control1.y],
+        control2: [control2.x, control2.y],
+        to: [endpoint.x, endpoint.y]
+      }
+    }
+  }
+
+  private createQuadraticBezierSmoothOp(command: PathCommand, isRelative: boolean): KCLOperation {
+    const control = this.calculateReflectedControlPoint()
+
+    const [x, y] = command.parameters
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
+
+    this.previousControlPoint = control
+    this.currentPoint = { x: endX, y: endY }
+
+    const centeredEndpoint = this.centerPoint({ x: endX, y: endY })
+
+    return {
+      type: KCLOperationType.BezierCurve,
+      params: {
+        control1: [control.x, control.y],
+        control2: [control.x, control.y],
         to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }
   }
 
   private createCubicBezierSmoothOp(command: PathCommand, isRelative: boolean): KCLOperation {
-    const [x2, y2, x, y] = command.parameters
-
-    // Get reflected control point.
     const control1 = this.calculateReflectedControlPoint()
 
-    // Second control point and endpoint from command.
+    const [x2, y2, x, y] = command.parameters
     const c2x = isRelative ? x2 + this.currentPoint.x : x2
     const c2y = isRelative ? y2 + this.currentPoint.y : y2
     const endX = isRelative ? x + this.currentPoint.x : x
@@ -246,25 +228,17 @@ export class Converter {
       x: c2x - this.currentPoint.x,
       y: c2y - this.currentPoint.y
     }
-    let endpoint = {
-      x: endX - this.currentPoint.x,
-      y: endY - this.currentPoint.y
-    }
 
-    // Set current point to endpoint and save control point.
     this.previousControlPoint = { x: c2x, y: c2y }
     this.currentPoint = { x: endX, y: endY }
 
-    // Center and invert points for writing out.
-    const centeredControl1 = this.centerPoint(control1)
-    const centeredControl2 = this.centerPoint(control2)
-    const centeredEndpoint = this.centerPoint(endpoint)
+    const centeredEndpoint = this.centerPoint({ x: endX, y: endY })
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [centeredControl1.x, centeredControl1.y],
-        control2: [centeredControl2.x, centeredControl2.y],
+        control1: [control1.x, control1.y],
+        control2: [control2.x, control2.y],
         to: [centeredEndpoint.x, centeredEndpoint.y]
       }
     }

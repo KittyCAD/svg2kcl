@@ -21,11 +21,11 @@ async function convertSVGtoKCL(
 }
 
 async function main() {
-  const inputFile = './tests/data/nested_group_transform.svg'
+  const inputFile = './tests/data/group_transform.svg'
   const outputFile = './output.kcl'
 
   const options: KCLOptions = {
-    centerOnViewBox: true // Center the output on the SVG viewBox
+    centerOnViewBox: false // Center the output on the SVG viewBox
   }
 
   try {

@@ -14,6 +14,7 @@ import { PathCommand, PathCommandType } from '../types/path'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
 import { separateSubpaths } from '../utils/geometry'
 import { getCombinedTransform } from '../utils/transform'
+import { Transform } from '../utils/transform'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -56,6 +57,18 @@ export class Converter {
     }
   }
 
+  private transformPoint(point: Point, transform: Transform | null): Point {
+    if (!transform || !transform.matrix) {
+      return point
+    }
+
+    const { a, b, c, d, e, f } = transform.matrix
+    return {
+      x: a * point.x + c * point.y + e,
+      y: b * point.x + d * point.y + f
+    }
+  }
+
   // Operation creation methods.
   // --------------------------------------------------
   private createNewSketchOp(command: PathCommand): KCLOperation {
@@ -68,6 +81,30 @@ export class Converter {
     return {
       type: KCLOperationType.StartSketch,
       params: { point: [outPoint.x, outPoint.y] }
+    }
+  }
+
+  private createLineOp(command: PathCommand, isRelative: boolean): KCLOperation {
+    // Line.
+    const [x, y] = command.parameters
+
+    const endX = isRelative ? x + this.currentPoint.x : x
+    const endY = isRelative ? y + this.currentPoint.y : y
+
+    let endpoint = {
+      x: endX - this.currentPoint.x + this.offsetCoords.x,
+      y: endY - this.currentPoint.y + this.offsetCoords.y
+    }
+
+    // Set current point.
+    this.currentPoint = { x: endX, y: endY }
+
+    // Center.
+    const centeredEndpoint = this.centerPoint(endpoint)
+
+    return {
+      type: KCLOperationType.Line,
+      params: { point: [centeredEndpoint.x, centeredEndpoint.y] }
     }
   }
 
@@ -237,15 +274,14 @@ export class Converter {
       switch (command.type) {
         // Lines.
         case PathCommandType.LineAbsolute:
-        case PathCommandType.LineRelative:
         case PathCommandType.HorizontalLineAbsolute:
-        case PathCommandType.HorizontalLineRelative:
         case PathCommandType.VerticalLineAbsolute:
+          operations.push(this.createLineOp(command, false))
+          break
+        case PathCommandType.LineRelative:
+        case PathCommandType.HorizontalLineRelative:
         case PathCommandType.VerticalLineRelative:
-          operations.push({
-            type: KCLOperationType.LineTo,
-            params: { point: [this.currentPoint.x, this.currentPoint.y] }
-          })
+          operations.push(this.createLineOp(command, true))
           break
 
         // Quadratic beziers.
@@ -355,7 +391,7 @@ export class Converter {
       operations.push(
         { type: KCLOperationType.StartSketch, params: { point: points[0] } },
         ...points.slice(1).map((point) => ({
-          type: KCLOperationType.LineTo,
+          type: KCLOperationType.Line,
           params: { point }
         })),
         { type: KCLOperationType.Close, params: null }
@@ -370,14 +406,14 @@ export class Converter {
 
       // Top edge and top-right corner.
       operations.push(
-        { type: KCLOperationType.LineTo, params: { point: [x + width - effectiveRx, -y] } },
+        { type: KCLOperationType.Line, params: { point: [x + width - effectiveRx, -y] } },
         { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } }
       )
 
       // Right edge and bottom-right corner.
       operations.push(
         {
-          type: KCLOperationType.LineTo,
+          type: KCLOperationType.Line,
           params: { point: [x + width, -(y + height - effectiveRy)] }
         },
         { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } }
@@ -385,13 +421,13 @@ export class Converter {
 
       // Bottom edge and bottom-left corner.
       operations.push(
-        { type: KCLOperationType.LineTo, params: { point: [x + effectiveRx, -(y + height)] } },
+        { type: KCLOperationType.Line, params: { point: [x + effectiveRx, -(y + height)] } },
         { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } }
       )
 
       // Left edge and top-left corner.
       operations.push(
-        { type: KCLOperationType.LineTo, params: { point: [x, -(y + effectiveRy)] } },
+        { type: KCLOperationType.Line, params: { point: [x, -(y + effectiveRy)] } },
         { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } },
         { type: KCLOperationType.Close, params: null }
       )
@@ -423,7 +459,7 @@ export class Converter {
         params: { point: [line.start.x, line.start.y] }
       },
       {
-        type: KCLOperationType.LineTo,
+        type: KCLOperationType.Line,
         params: { point: [line.end.x, line.end.y] }
       }
     ]
@@ -444,7 +480,7 @@ export class Converter {
 
     points.slice(1).forEach((point) => {
       operations.push({
-        type: KCLOperationType.LineTo,
+        type: KCLOperationType.Line,
         params: { point: [point.x, point.y] }
       })
     })
@@ -467,7 +503,7 @@ export class Converter {
 
     points.slice(1).forEach((point) => {
       operations.push({
-        type: KCLOperationType.LineTo,
+        type: KCLOperationType.Line,
         params: { point: [point.x, point.y] }
       })
     })

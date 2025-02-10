@@ -111,10 +111,6 @@ export class KCLWriter {
     }
   }
 
-  private writeNewLine(): void {
-    this.addCommand('\n')
-  }
-
   private writeStartSketch(point: Point, isHole: boolean = false): void {
     this.currentPoint = point
     let outPoint = this.transformPoint(point)

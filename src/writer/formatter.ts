@@ -58,11 +58,11 @@ export class Formatter {
         return `startSketchAt(${this.formatPoint(operation.params.point)})`
       }
 
-      case KCLOperationType.LineTo: {
+      case KCLOperationType.Line: {
         if (!this.isLineToParams(operation.params)) {
-          throw new FormatterError('Invalid LineTo parameters')
+          throw new FormatterError('Invalid Line parameters')
         }
-        return `|> lineTo(${this.formatPoint(operation.params.point)}, %)`
+        return `|> line(end = ${this.formatPoint(operation.params.point)})`
       }
 
       case KCLOperationType.BezierCurve: {
@@ -80,11 +80,11 @@ export class Formatter {
         if (!this.isCircleParams(operation.params)) {
           throw new FormatterError('Invalid Circle parameters')
         }
-        return `|> circle({ radius = ${operation.params.radius} }, %)`
+        return `|> circle({ center = [${operation.params.x}, ${operation.params.y}], radius = ${operation.params.radius} }, %)`
       }
 
       case KCLOperationType.Close:
-        return '|> close(%)'
+        return '|> close()'
 
       case KCLOperationType.Hole: {
         if (!this.isHoleParams(operation.params)) {
@@ -122,13 +122,6 @@ export class Formatter {
         return `|> yLineTo({ y = ${operation.params.y} }, %)`
       }
 
-      case KCLOperationType.Line: {
-        if (!operation.params || !('dx' in operation.params) || !('dy' in operation.params)) {
-          throw new FormatterError('Invalid Line parameters')
-        }
-        return `|> line({ dx = ${operation.params.dx}, dy = ${operation.params.dy} }, %)`
-      }
-
       case KCLOperationType.TangentialArc: {
         if (!operation.params || !('radius' in operation.params)) {
           throw new FormatterError('Invalid TangentialArc parameters')
@@ -144,7 +137,7 @@ export class Formatter {
         ) {
           throw new FormatterError('Invalid Polygon parameters')
         }
-        return `|> polygon({ sides = ${operation.params.sides}, radius = ${operation.params.radius} }, %)`
+        return `|> polygon({ numSides = ${operation.params.sides}, radius = ${operation.params.radius} }, %)`
       }
 
       default:

@@ -6,10 +6,9 @@ export interface KCLOptions {
 // The type of operation being performed.
 export enum KCLOperationType {
   StartSketch = 'startSketch',
-  LineTo = 'lineTo',
+  Line = 'line',
   XLineTo = 'xLineTo',
   YLineTo = 'yLineTo',
-  Line = 'line',
   Arc = 'arc',
   TangentialArc = 'tangentialArc',
   BezierCurve = 'bezierCurve',
@@ -42,11 +41,6 @@ export interface YLineToParams {
   y: number
 }
 
-export interface LineParams {
-  dx: number
-  dy: number
-}
-
 export interface ArcParams {
   radius: number
   angle: number // In degrees.
@@ -58,6 +52,8 @@ export interface TangentialArcParams {
 
 export interface CircleParams {
   radius: number
+  x: number
+  y: number
 }
 
 export interface PolygonParams {
@@ -75,7 +71,6 @@ export type KCLOperationParams =
   | LineToParams
   | XLineToParams
   | YLineToParams
-  | LineParams
   | ArcParams
   | TangentialArcParams
   | BezierCurveParams

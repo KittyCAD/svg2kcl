@@ -44,6 +44,22 @@ export class Converter {
     }
   }
 
+  private transformPoint(point: Point, transform: Transform | null): Point {
+    // First apply any SVG transforms.
+    if (transform && transform.matrix) {
+      const { a, b, c, d, e, f } = transform.matrix
+      point = {
+        x: a * point.x + c * point.y + e,
+        y: b * point.x + d * point.y + f
+      }
+    }
+
+    // Then apply centering offset if requested.
+    point = this.centerPoint(point)
+
+    return point
+  }
+
   private calculateReflectedControlPoint(): Point {
     if (!this.previousControlPoint) {
       // If no previous control point, use current point.
@@ -54,18 +70,6 @@ export class Converter {
     return {
       x: 2 * this.currentPoint.x - this.previousControlPoint.x,
       y: 2 * this.currentPoint.y - this.previousControlPoint.y
-    }
-  }
-
-  private transformPoint(point: Point, transform: Transform | null): Point {
-    if (!transform || !transform.matrix) {
-      return point
-    }
-
-    const { a, b, c, d, e, f } = transform.matrix
-    return {
-      x: a * point.x + c * point.y + e,
-      y: b * point.x + d * point.y + f
     }
   }
 
@@ -84,7 +88,11 @@ export class Converter {
     }
   }
 
-  private createLineOp(command: PathCommand, isRelative: boolean): KCLOperation {
+  private createLineOp(
+    command: PathCommand,
+    isRelative: boolean,
+    transform: Transform
+  ): KCLOperation {
     // Line.
     const [x, y] = command.parameters
 
@@ -99,12 +107,12 @@ export class Converter {
     // Set current point.
     this.currentPoint = { x: endX, y: endY }
 
-    // Center.
-    const centeredEndpoint = this.centerPoint(endpoint)
+    // Transform and center.
+    const transformedEndpoint = this.transformPoint(endpoint, transform)
 
     return {
       type: KCLOperationType.Line,
-      params: { point: [centeredEndpoint.x, centeredEndpoint.y] }
+      params: { point: [transformedEndpoint.x, transformedEndpoint.y] }
     }
   }
 
@@ -259,7 +267,10 @@ export class Converter {
 
   // Command conversion methods.
   // --------------------------------------------------
-  private convertPathCommandsToKclOps(commands: PathCommand[]): KCLOperation[] {
+  private convertPathCommandsToKclOps(
+    commands: PathCommand[],
+    transform: Transform
+  ): KCLOperation[] {
     const operations: KCLOperation[] = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
@@ -276,12 +287,12 @@ export class Converter {
         case PathCommandType.LineAbsolute:
         case PathCommandType.HorizontalLineAbsolute:
         case PathCommandType.VerticalLineAbsolute:
-          operations.push(this.createLineOp(command, false))
+          operations.push(this.createLineOp(command, false, transform))
           break
         case PathCommandType.LineRelative:
         case PathCommandType.HorizontalLineRelative:
         case PathCommandType.VerticalLineRelative:
-          operations.push(this.createLineOp(command, true))
+          operations.push(this.createLineOp(command, true, transform))
           break
 
         // Quadratic beziers.
@@ -329,6 +340,7 @@ export class Converter {
 
   private convertPathToKclOps(path: PathElement): KCLOperation[] {
     const operations: KCLOperation[] = []
+    const transform = path.transform!
 
     if (path.fillRule === FillRule.EvenOdd) {
       // Even-odd fill rule - first subpath is outline, rest are holes.
@@ -336,14 +348,14 @@ export class Converter {
       const [outline, ...holes] = subpaths
 
       // Convert outline.
-      operations.push(...this.convertPathCommandsToKclOps(outline.commands))
+      operations.push(...this.convertPathCommandsToKclOps(outline.commands, transform))
 
       // Convert holes.
       holes.forEach((hole) => {
         operations.push({
           type: KCLOperationType.Hole,
           params: {
-            operations: this.convertPathCommandsToKclOps(hole.commands)
+            operations: this.convertPathCommandsToKclOps(hole.commands, transform)
           }
         })
       })
@@ -354,11 +366,11 @@ export class Converter {
       const baseClockwise = first.isClockwise
 
       // Convert first path.
-      operations.push(...this.convertPathCommandsToKclOps(first.commands))
+      operations.push(...this.convertPathCommandsToKclOps(first.commands, transform))
 
       // Rest are holes if opposite winding, separate shapes if same.
       rest.forEach((subpath) => {
-        const subpathOps = this.convertPathCommandsToKclOps(subpath.commands)
+        const subpathOps = this.convertPathCommandsToKclOps(subpath.commands, transform)
         if (subpath.isClockwise === baseClockwise) {
           // Same winding - separate shape.
           operations.push(...subpathOps)

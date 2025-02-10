@@ -1,12 +1,12 @@
 import {
-  Circle,
-  GeometricElementType,
-  GeometricShape,
-  Line,
-  Polygon,
-  Polyline,
-  Rectangle
-} from '../types/geometric'
+  CircleElement,
+  Element,
+  ElementType,
+  LineElement,
+  PolygonElement,
+  PolylineElement,
+  RectangleElement
+} from '../types/elements'
 import { RawSVGElement } from '../types/svg'
 
 import { parseNumber, parsePoints } from '../parsers/values'
@@ -20,9 +20,9 @@ export class ShapeReadError extends Error {
 }
 
 export class ShapeReader {
-  private readRectangle(element: RawSVGElement): Rectangle {
+  private readRectangle(element: RawSVGElement): RectangleElement {
     return {
-      type: GeometricElementType.Rectangle,
+      type: ElementType.Rectangle,
       x: parseNumber(element.attributes['x'], 'x'),
       y: parseNumber(element.attributes['y'], 'y'),
       width: parseNumber(element.attributes['width'], 'width'),
@@ -30,26 +30,26 @@ export class ShapeReader {
       rx: element.attributes['rx'] ? parseNumber(element.attributes['rx'], 'rx') : undefined,
       ry: element.attributes['ry'] ? parseNumber(element.attributes['ry'], 'ry') : undefined,
       transform: Transform.fromString(element.attributes['transform']),
-      parentElement: null
+      parent: null
     }
   }
 
-  private readCircle(element: RawSVGElement): Circle {
+  private readCircle(element: RawSVGElement): CircleElement {
     return {
-      type: GeometricElementType.Circle,
+      type: ElementType.Circle,
       center: {
         x: parseNumber(element.attributes['cx'], 'cx'),
         y: parseNumber(element.attributes['cy'], 'cy')
       },
       radius: parseNumber(element.attributes['r'], 'r'),
       transform: Transform.fromString(element.attributes['transform']),
-      parentElement: null
+      parent: null
     }
   }
 
-  private readLine(element: RawSVGElement): Line {
+  private readLine(element: RawSVGElement): LineElement {
     return {
-      type: GeometricElementType.Line,
+      type: ElementType.Line,
       start: {
         x: parseNumber(element.attributes['x1'], 'x1'),
         y: parseNumber(element.attributes['y1'], 'y1')
@@ -59,39 +59,39 @@ export class ShapeReader {
         y: parseNumber(element.attributes['y2'], 'y2')
       },
       transform: Transform.fromString(element.attributes['transform']),
-      parentElement: null
+      parent: null
     }
   }
 
-  private readPolyline(element: RawSVGElement): Polyline {
+  private readPolyline(element: RawSVGElement): PolylineElement {
     const pointsStr = element.attributes['points']
     if (!pointsStr) {
       throw new ShapeReadError('Missing points attribute')
     }
 
     return {
-      type: GeometricElementType.Polyline,
+      type: ElementType.Polyline,
       points: parsePoints(pointsStr),
       transform: Transform.fromString(element.attributes['transform']),
-      parentElement: null
+      parent: null
     }
   }
 
-  private readPolygon(element: RawSVGElement): Polygon {
+  private readPolygon(element: RawSVGElement): PolygonElement {
     const pointsStr = element.attributes['points']
     if (!pointsStr) {
       throw new ShapeReadError('Missing points attribute')
     }
 
     return {
-      type: GeometricElementType.Polygon,
+      type: ElementType.Polygon,
       points: parsePoints(pointsStr),
       transform: Transform.fromString(element.attributes['transform']),
-      parentElement: null
+      parent: null
     }
   }
 
-  public read(element: RawSVGElement): GeometricShape {
+  public read(element: RawSVGElement): Element {
     switch (element.type) {
       case 'rect':
         return this.readRectangle(element)

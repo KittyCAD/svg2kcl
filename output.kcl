@@ -1,0 +1,5 @@
+sketch001 = startSketchAt([-240, 240])
+  |> lineTo([10, -10], %)
+  |> lineTo([10, -10], %)
+  |> lineTo([10, -10], %)
+  |> close(%)

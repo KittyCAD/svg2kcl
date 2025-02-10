@@ -1,4 +1,4 @@
-import { GeometricElement } from '../types/geometric'
+import { Element } from '../types/elements'
 
 export class Matrix {
   // https://www.w3.org/TR/SVG11/coords.html
@@ -161,19 +161,19 @@ export class Transform {
   }
 }
 
-export function getCombinedTransform(element: GeometricElement): Transform {
+export function getCombinedTransform(element: Element): Transform {
   // Start with the element's own transform or identity transform.
   let transform = element.transform || new Transform()
 
   // Walk up the parent chain, combining transforms.
-  let currentElement = element.parentElement
+  let currentElement = element.parent
   while (currentElement) {
     if (currentElement.transform) {
       // Combine transforms from parent to child.
       // Parent transform should be applied first, then child.
       transform = currentElement.transform.combine(transform)
     }
-    currentElement = currentElement.parentElement
+    currentElement = currentElement.parent
   }
 
   return transform

@@ -1,9 +1,10 @@
 import { XMLParser } from 'fast-xml-parser'
 import { promises as fs } from 'node:fs'
-import { GeometricElementType, GeometricShape, GeometricElement } from '../types/geometric'
-import { CollectionType, RawSVGElement, SVG } from '../types/svg'
+import { RawSVGElement, SVG } from '../types/svg'
+import { ElementType, Element, GroupElement } from '../types/elements'
 import { PathReader } from './path'
 import { ShapeReader } from './shape'
+import { Transform } from '../utils/transform'
 
 export class SVGReadError extends Error {
   constructor(message: string) {
@@ -22,42 +23,42 @@ export class SVGReader {
   private pathReader = new PathReader()
 
   private isGeometricElement(type: string): boolean {
-    return Object.values(GeometricElementType).includes(type as GeometricElementType)
+    return Object.values(ElementType).includes(type as ElementType)
   }
 
   private isGroupElement(type: string): boolean {
-    return type === CollectionType.Group
+    return type === ElementType.Group
+  }
+
+  private readGroup(element: RawSVGElement): GroupElement {
+    return {
+      type: ElementType.Group,
+      children: element.children ? element.children.map((child) => this.readElement(child)) : [],
+      transform: element.attributes.transform
+        ? Transform.fromString(element.attributes.transform)
+        : new Transform(),
+      parent: null // Will be set by parent element.
+    }
   }
 
   private processElement(element: any, type: string, parent?: RawSVGElement): RawSVGElement[] {
     const elements: RawSVGElement[] = []
 
-    // Handle direct geometric elements.
-    if (this.isGeometricElement(type)) {
+    // Handle groups and geometric elements
+    if (this.isGeometricElement(type) || this.isGroupElement(type)) {
       const rawElement: RawSVGElement = {
-        type: type as GeometricElementType,
+        type: type as ElementType,
         attributes: element,
         children: [],
         parent
       }
+
+      // Process children if this is a group
+      if (this.isGroupElement(type)) {
+        rawElement.children = this.extractElementsFromGroup(element, rawElement)
+      }
+
       elements.push(rawElement)
-      return elements
-    }
-
-    // Handle groups.
-    if (this.isGroupElement(type)) {
-      const groupElement: RawSVGElement = {
-        type: CollectionType.Group,
-        attributes: element,
-        children: [],
-        parent
-      }
-
-      // Process group children and set their parent.
-      const childElements = this.extractElementsFromGroup(element, groupElement)
-      groupElement.children = childElements
-      elements.push(groupElement)
-      return elements
     }
 
     return elements
@@ -125,11 +126,33 @@ export class SVGReader {
     return elements
   }
 
-  private readElement(element: RawSVGElement): GeometricShape {
-    if (element.type === GeometricElementType.Path) {
-      return this.pathReader.read(element)
+  private readElement(element: RawSVGElement, parent: Element | null = null): Element {
+    let output: Element
+
+    switch (element.type) {
+      case ElementType.Group:
+        const groupElement = this.readGroup(element)
+        groupElement.parent = parent
+        // Recursively set parent for all children
+        groupElement.children = groupElement.children.map((child) => {
+          child.parent = groupElement
+          return child
+        })
+        output = groupElement
+        break
+      case ElementType.Path:
+        const pathElement = this.pathReader.read(element)
+        pathElement.parent = parent
+        output = pathElement
+        break
+      default:
+        const shapeElement = this.shapeReader.read(element)
+        shapeElement.parent = parent
+        output = shapeElement
+        break
     }
-    return this.shapeReader.read(element)
+
+    return output
   }
 
   private readString(content: string): SVG {
@@ -139,14 +162,11 @@ export class SVGReader {
       throw new SVGReadError('No SVG element found')
     }
 
-    // Extract full element hierarchy.
+    // Extract full element hierarchy
     const [rootElement] = this.extractElements(parsed)
 
-    // Flatten to get only geometric elements while maintaining parent links.
-    const geometricElements = this.flattenGeometricElements(rootElement)
-
-    // Convert to geometric shapes.
-    const elements = geometricElements.map((elem) => this.readElement(elem))
+    // Convert to geometric shapes starting from root, building parent-child relationships
+    const elements = rootElement.children!.map((elem) => this.readElement(elem, null))
 
     // Handle viewBox parsing.
     let viewBox = { xMin: 0, yMin: 0, width: 0, height: 0 }

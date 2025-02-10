@@ -1,5 +1,5 @@
-import { FillRule, PathCommandType, Point } from '../types/geometric'
-import { SVGPathCommandMap } from '../types/svg'
+import { FillRule, Point } from '../types/base'
+import { PathCommandType, SVGPathCommandMap } from '../types/path'
 import { Transform } from '../utils/transform'
 
 const DEFAULT_FILL_RULE = FillRule.EvenOdd

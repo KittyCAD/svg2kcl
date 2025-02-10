@@ -1,7 +1,8 @@
 import { SVGPathParser } from '../parsers/path'
-import { FillRule, GeometricElementType, Path } from '../types/geometric'
+import { FillRule } from '../types/base'
 import { RawSVGElement } from '../types/svg'
 import { Transform } from '../utils/transform'
+import { ElementType, PathElement } from '../types/elements'
 
 export class PathReadError extends Error {
   constructor(message: string) {
@@ -24,7 +25,7 @@ export class PathReader {
   }
 
   public readAttributes(element: RawSVGElement): RawPathData {
-    if (element.type !== GeometricElementType.Path) {
+    if (element.type !== ElementType.Path) {
       throw new PathReadError('Element is not a path')
     }
 
@@ -79,7 +80,7 @@ export class PathReader {
     return result
   }
 
-  public read(element: RawSVGElement): Path {
+  public read(element: RawSVGElement): PathElement {
     const rawData = this.readAttributes(element)
     const styleData = this.readStyleAttributes(element)
     const mergedData = {
@@ -96,11 +97,11 @@ export class PathReader {
     const parsedPath = this.pathParser.parsePath(mergedData.d, transform, mergedData.fillRule)
 
     return {
-      type: GeometricElementType.Path,
+      type: ElementType.Path,
       commands: parsedPath.commands,
       fillRule: parsedPath.fillRule,
       transform: transform,
-      parentElement: null
+      parent: null
     }
   }
 }

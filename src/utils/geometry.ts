@@ -1,4 +1,6 @@
-import { Path, PathCommand, PathCommandType, Point } from '../types/geometric'
+import { Point } from '../types/base'
+import { PathElement } from '../types/elements'
+import { PathCommand, PathCommandType } from '../types/path'
 
 export function isClockwise(points: Point[]): boolean {
   let sum = 0
@@ -10,7 +12,7 @@ export function isClockwise(points: Point[]): boolean {
   return sum > 0
 }
 
-export function separateSubpaths(path: Path): {
+export function separateSubpaths(path: PathElement): {
   commands: PathCommand[]
   isClockwise: boolean
 }[] {

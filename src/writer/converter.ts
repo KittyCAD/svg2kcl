@@ -1,18 +1,16 @@
 import {
-  Circle,
-  FillRule,
-  GeometricElementType,
-  GeometricShape,
-  Line,
-  Path,
-  PathCommand,
-  PathCommandType,
-  Point,
-  Polygon,
-  Polyline,
-  Rectangle,
-  ViewBox
-} from '../types/geometric'
+  PathElement,
+  RectangleElement,
+  CircleElement,
+  LineElement,
+  PolylineElement,
+  PolygonElement,
+  Element,
+  ElementType,
+  GroupElement
+} from '../types/elements'
+import { Point, ViewBox, FillRule } from '../types/base'
+import { PathCommand, PathCommandType } from '../types/path'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
 import { separateSubpaths } from '../utils/geometry'
 import { getCombinedTransform } from '../utils/transform'
@@ -293,7 +291,7 @@ export class Converter {
     return operations
   }
 
-  private convertPathToKclOps(path: Path): KCLOperation[] {
+  private convertPathToKclOps(path: PathElement): KCLOperation[] {
     const operations: KCLOperation[] = []
 
     if (path.fillRule === FillRule.EvenOdd) {
@@ -341,7 +339,7 @@ export class Converter {
     return operations
   }
 
-  private convertRectangleToKclOps(rect: Rectangle): KCLOperation[] {
+  private convertRectangleToKclOps(rect: RectangleElement): KCLOperation[] {
     const operations: KCLOperation[] = []
     const { x, y, width, height, rx, ry } = rect
 
@@ -402,7 +400,7 @@ export class Converter {
     return operations
   }
 
-  private convertCircleToKclOps(circle: Circle): KCLOperation[] {
+  private convertCircleToKclOps(circle: CircleElement): KCLOperation[] {
     const { center, radius } = circle
 
     return [
@@ -417,7 +415,7 @@ export class Converter {
     ]
   }
 
-  private convertLineToKclOps(line: Line): KCLOperation[] {
+  private convertLineToKclOps(line: LineElement): KCLOperation[] {
     this.currentPoint = line.end
     return [
       {
@@ -431,7 +429,7 @@ export class Converter {
     ]
   }
 
-  private convertPolylineToKclOps(polyline: Polyline): KCLOperation[] {
+  private convertPolylineToKclOps(polyline: PolylineElement): KCLOperation[] {
     if (polyline.points.length < 2) {
       throw new ConverterError('Polyline must have at least 2 points')
     }
@@ -454,7 +452,7 @@ export class Converter {
     return operations
   }
 
-  private convertPolygonToKclOps(polygon: Polygon): KCLOperation[] {
+  private convertPolygonToKclOps(polygon: PolygonElement): KCLOperation[] {
     if (polygon.points.length < 3) {
       throw new ConverterError('Polygon must have at least 3 points')
     }
@@ -478,7 +476,7 @@ export class Converter {
     return operations
   }
 
-  public convertElement(element: GeometricShape): KCLOperation[] {
+  public convertElement(element: Element): KCLOperation[] {
     // Get the combined transform for this element.
     const combinedTransform = getCombinedTransform(element)
 
@@ -491,23 +489,28 @@ export class Converter {
     let opList: KCLOperation[] = []
 
     switch (element.type) {
-      case GeometricElementType.Path:
-        opList = this.convertPathToKclOps(element as Path)
+      case ElementType.Path:
+        opList = this.convertPathToKclOps(element as PathElement)
         break
-      case GeometricElementType.Rectangle:
-        opList = this.convertRectangleToKclOps(element as Rectangle)
+      case ElementType.Rectangle:
+        opList = this.convertRectangleToKclOps(element as RectangleElement)
         break
-      case GeometricElementType.Circle:
-        opList = this.convertCircleToKclOps(element as Circle)
+      case ElementType.Circle:
+        opList = this.convertCircleToKclOps(element as CircleElement)
         break
-      case GeometricElementType.Line:
-        opList = this.convertLineToKclOps(element as Line)
+      case ElementType.Line:
+        opList = this.convertLineToKclOps(element as LineElement)
         break
-      case GeometricElementType.Polyline:
-        opList = this.convertPolylineToKclOps(element as Polyline)
+      case ElementType.Polyline:
+        opList = this.convertPolylineToKclOps(element as PolylineElement)
         break
-      case GeometricElementType.Polygon:
-        opList = this.convertPolygonToKclOps(element as Polygon)
+      case ElementType.Polygon:
+        opList = this.convertPolygonToKclOps(element as PolygonElement)
+        break
+      case ElementType.Group:
+        // Recursively convert children.
+        const group = element as GroupElement
+        opList = group.children.flatMap((child) => this.convertElement(child))
         break
       default: {
         const exhaustiveCheck: never = element

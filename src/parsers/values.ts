@@ -1,4 +1,4 @@
-import { Point } from '../types/geometric'
+import { Point } from '../types/base'
 import { ParseError } from './exceptions'
 
 export function parseNumber(value: string | undefined, name: string): number {

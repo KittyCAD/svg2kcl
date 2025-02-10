@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { BaseReader } from './reader/base'
-import { BaseWriter } from './writer/base'
+import { KCLWriter } from './writer/base'
 import { KCLOptions } from './types/kcl'
 
 async function convertSVGtoKCL(
@@ -13,7 +13,7 @@ async function convertSVGtoKCL(
   const svg = await baseReader.readFile(inputPath)
 
   // Convert to KCL.
-  const writer = new BaseWriter(svg, options)
+  const writer = new KCLWriter(svg, options)
   const kclContent = writer.write()
 
   // Write output file.

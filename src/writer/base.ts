@@ -30,9 +30,9 @@ export class KCLWriter {
         shapes: []
       }
 
-      // Convert each geometric element to KCL operation.
+      // Convert each element to KCL operation.
       for (const element of this.svg.elements) {
-        const operations = this.converter.convertElement(element)
+        const operations = this.converter.convertElement(this.svg.elements, element)
         if (operations.length > 0) {
           const shape: KCLShape = {
             operations,

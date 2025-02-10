@@ -161,20 +161,49 @@ export class Transform {
   }
 }
 
-export function getCombinedTransform(element: Element): Transform {
-  // Start with the element's own transform or identity transform.
-  let transform = element.transform || new Transform()
+export function getElementAndGroupTransforms(
+  elements: Element[],
+  targetElement: Element
+): Transform[] {
+  const transforms: Transform[] = []
 
-  // Walk up the parent chain, combining transforms.
-  let currentElement = element.parent
-  while (currentElement) {
-    if (currentElement.transform) {
-      // Combine transforms from parent to child.
-      // Parent transform should be applied first, then child.
-      transform = currentElement.transform.combine(transform)
+  function findElementPath(
+    currentElements: Element[],
+    target: Element,
+    path: Transform[] = []
+  ): boolean {
+    for (const element of currentElements) {
+      // Add this element's transform if it has one
+      const currentTransform = element.transform ? element.transform : new Transform()
+      path.push(currentTransform)
+
+      if (element === target) {
+        // Found it! The path has all transforms in order
+        transforms.push(...path)
+        return true
+      }
+
+      // Check children if this is a group
+      if ('children' in element) {
+        const found = findElementPath(element.children, target, path)
+        if (found) return true
+      }
+
+      // Remove this element's transform since we're backtracking
+      path.pop()
     }
-    currentElement = currentElement.parent
+
+    return false
   }
 
-  return transform
+  findElementPath(elements, targetElement)
+  return transforms
+}
+
+// Then combine them in the right order
+export function getCombinedTransform(elements: Element[], targetElement: Element): Transform {
+  const transforms = getElementAndGroupTransforms(elements, targetElement)
+  return transforms.reduce((combined, transform) => {
+    return combined.combine(transform)
+  }, new Transform())
 }

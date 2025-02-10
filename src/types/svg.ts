@@ -11,7 +11,6 @@ export interface RawSVGElement {
   type: string
   attributes: Record<string, string>
   children?: RawSVGElement[]
-  parent?: RawSVGElement
 }
 
 export interface RawSVG {

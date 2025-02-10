@@ -476,50 +476,51 @@ export class Converter {
     return operations
   }
 
-  public convertElement(element: Element): KCLOperation[] {
-    // Get the combined transform for this element.
-    const combinedTransform = getCombinedTransform(element)
+  public convertElement(elements: Element[], targetElement: Element): KCLOperation[] {
+    // Get the combined transform by walking up through the groups
+    const combinedTransform = getCombinedTransform(elements, targetElement)
 
     // Store the original transform.
-    const originalTransform = element.transform
+    const originalTransform = targetElement.transform
 
     // Temporarily set the element's transform to the combined transform.
-    element.transform = combinedTransform
+    targetElement.transform = combinedTransform
 
     let opList: KCLOperation[] = []
 
-    switch (element.type) {
+    switch (targetElement.type) {
       case ElementType.Path:
-        opList = this.convertPathToKclOps(element as PathElement)
+        opList = this.convertPathToKclOps(targetElement as PathElement)
         break
       case ElementType.Rectangle:
-        opList = this.convertRectangleToKclOps(element as RectangleElement)
+        opList = this.convertRectangleToKclOps(targetElement as RectangleElement)
         break
       case ElementType.Circle:
-        opList = this.convertCircleToKclOps(element as CircleElement)
+        opList = this.convertCircleToKclOps(targetElement as CircleElement)
         break
       case ElementType.Line:
-        opList = this.convertLineToKclOps(element as LineElement)
+        opList = this.convertLineToKclOps(targetElement as LineElement)
         break
       case ElementType.Polyline:
-        opList = this.convertPolylineToKclOps(element as PolylineElement)
+        opList = this.convertPolylineToKclOps(targetElement as PolylineElement)
         break
       case ElementType.Polygon:
-        opList = this.convertPolygonToKclOps(element as PolygonElement)
+        opList = this.convertPolygonToKclOps(targetElement as PolygonElement)
         break
       case ElementType.Group:
         // Recursively convert children.
-        const group = element as GroupElement
-        opList = group.children.flatMap((child) => this.convertElement(child))
+        const group = targetElement as GroupElement
+        opList = group.children.flatMap((child) => this.convertElement(elements, child))
         break
       default: {
-        const exhaustiveCheck: never = element
-        throw new ConverterError(`Unsupported element type: ${(element as any).type}`)
+        const exhaustiveCheck: never = targetElement
+        throw new ConverterError(`Unsupported element type: ${(targetElement as any).type}`)
       }
     }
 
     // Restore the original transform.
-    element.transform = originalTransform
+    targetElement.transform = originalTransform
+
     return opList
   }
 }

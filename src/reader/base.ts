@@ -36,12 +36,11 @@ export class SVGReader {
       children: element.children ? element.children.map((child) => this.readElement(child)) : [],
       transform: element.attributes.transform
         ? Transform.fromString(element.attributes.transform)
-        : new Transform(),
-      parent: null // Will be set by parent element.
+        : new Transform()
     }
   }
 
-  private processElement(element: any, type: string, parent?: RawSVGElement): RawSVGElement[] {
+  private processElement(element: any, type: string): RawSVGElement[] {
     const elements: RawSVGElement[] = []
 
     // Handle groups and geometric elements
@@ -49,13 +48,12 @@ export class SVGReader {
       const rawElement: RawSVGElement = {
         type: type as ElementType,
         attributes: element,
-        children: [],
-        parent
+        children: []
       }
 
       // Process children if this is a group
       if (this.isGroupElement(type)) {
-        rawElement.children = this.extractElementsFromGroup(element, rawElement)
+        rawElement.children = this.extractElementsFromGroup(element)
       }
 
       elements.push(rawElement)
@@ -64,7 +62,7 @@ export class SVGReader {
     return elements
   }
 
-  private extractElementsFromGroup(group: any, parent: RawSVGElement): RawSVGElement[] {
+  private extractElementsFromGroup(group: any): RawSVGElement[] {
     const elements: RawSVGElement[] = []
 
     // Process all properties of the group
@@ -77,12 +75,12 @@ export class SVGReader {
       // Handle arrays of elements.
       if (Array.isArray(value)) {
         value.forEach((item) => {
-          elements.push(...this.processElement(item, key, parent))
+          elements.push(...this.processElement(item, key))
         })
       }
       // Handle single elements.
       else {
-        elements.push(...this.processElement(value, key, parent))
+        elements.push(...this.processElement(value, key))
       }
     }
 
@@ -98,12 +96,11 @@ export class SVGReader {
     const svgElement: RawSVGElement = {
       type: 'svg',
       attributes: parsed.svg,
-      children: [],
-      parent: undefined
+      children: []
     }
 
     // Process all child elements
-    svgElement.children = this.extractElementsFromGroup(parsed.svg, svgElement)
+    svgElement.children = this.extractElementsFromGroup(parsed.svg)
 
     return [svgElement]
   }
@@ -126,28 +123,23 @@ export class SVGReader {
     return elements
   }
 
-  private readElement(element: RawSVGElement, parent: Element | null = null): Element {
+  private readElement(element: RawSVGElement): Element {
     let output: Element
 
     switch (element.type) {
       case ElementType.Group:
         const groupElement = this.readGroup(element)
-        groupElement.parent = parent
-        // Recursively set parent for all children
         groupElement.children = groupElement.children.map((child) => {
-          child.parent = groupElement
           return child
         })
         output = groupElement
         break
       case ElementType.Path:
         const pathElement = this.pathReader.read(element)
-        pathElement.parent = parent
         output = pathElement
         break
       default:
         const shapeElement = this.shapeReader.read(element)
-        shapeElement.parent = parent
         output = shapeElement
         break
     }
@@ -166,7 +158,7 @@ export class SVGReader {
     const [rootElement] = this.extractElements(parsed)
 
     // Convert to geometric shapes starting from root, building parent-child relationships
-    const elements = rootElement.children!.map((elem) => this.readElement(elem, null))
+    const elements = rootElement.children!.map((elem) => this.readElement(elem))
 
     // Handle viewBox parsing.
     let viewBox = { xMin: 0, yMin: 0, width: 0, height: 0 }

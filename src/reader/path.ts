@@ -100,8 +100,7 @@ export class PathReader {
       type: ElementType.Path,
       commands: parsedPath.commands,
       fillRule: parsedPath.fillRule,
-      transform: transform,
-      parent: null
+      transform: transform
     }
   }
 }

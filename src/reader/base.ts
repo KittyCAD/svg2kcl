@@ -12,7 +12,7 @@ export class SVGReadError extends Error {
   }
 }
 
-export class BaseReader {
+export class SVGReader {
   private xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: ''

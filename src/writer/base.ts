@@ -10,7 +10,7 @@ export class KCLWriteError extends Error {
   }
 }
 
-export class BaseWriter {
+export class KCLWriter {
   private variableCounter: number = 1
   private converter: Converter
   private formatter: Formatter

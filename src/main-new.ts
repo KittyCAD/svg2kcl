@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs'
-import { BaseReader } from './reader/base'
+import { SVGReader } from './reader/base'
 import { KCLWriter } from './writer/base'
 import { KCLOptions } from './types/kcl'
 
@@ -9,8 +9,8 @@ async function convertSVGtoKCL(
   options: KCLOptions = {}
 ): Promise<void> {
   // Read and parse SVG.
-  const baseReader = new BaseReader()
-  const svg = await baseReader.readFile(inputPath)
+  const SVGReader = new SVGReader()
+  const svg = await SVGReader.readFile(inputPath)
 
   // Convert to KCL.
   const writer = new KCLWriter(svg, options)

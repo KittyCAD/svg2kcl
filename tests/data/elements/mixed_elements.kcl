@@ -12,13 +12,13 @@ sketch003 = startSketchAt([10, -70])
 
 sketch004 = startSketchAt([20, -80])
   |> bezierCurve({
-      control1 = [15, -10],
-      control2 = [15, -10],
+      control1 = [10, -6.667],
+      control2 = [20, -6.667],
       to = [30, 0]
     }, %)
   |> bezierCurve({
-      control1 = [15, 10],
-      control2 = [15, 10],
+      control1 = [10, 6.667],
+      control2 = [20, 6.667],
       to = [30, 0]
     }, %)
   |> close()

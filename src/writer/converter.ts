@@ -556,6 +556,11 @@ export class Converter {
 
   private convertLineToKclOps(line: LineElement): KCLOperation[] {
     this.currentPoint = line.end
+
+    // Lines are relative in our KCL call, but absolute in SVG.
+    const deltaX = line.end.x - line.start.x
+    const deltaY = line.end.y - line.start.y
+
     return [
       {
         type: KCLOperationType.StartSketch,
@@ -563,7 +568,7 @@ export class Converter {
       },
       {
         type: KCLOperationType.Line,
-        params: { point: [line.end.x, line.end.y] }
+        params: { point: [deltaX, deltaY] }
       }
     ]
   }

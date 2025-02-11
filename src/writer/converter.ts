@@ -92,7 +92,31 @@ export class Converter {
 
   private createLineOp(command: PathCommand, isRelative: boolean): KCLOperation {
     // See: https://www.w3.org/TR/SVG11/paths.html#PathDataLinetoCommands
-    const [x, y] = command.parameters
+
+    // Set up x and y values. We may have to override some of these.
+    let x: number, y: number
+
+    switch (command.type) {
+      case PathCommandType.LineAbsolute:
+      case PathCommandType.LineRelative:
+        // X and Y supplied.
+        ;[x, y] = command.parameters
+        break
+      case PathCommandType.HorizontalLineAbsolute:
+      case PathCommandType.HorizontalLineRelative:
+        // X supplied, Y is 0.
+        x = command.parameters[0]
+        y = 0
+        break
+      case PathCommandType.VerticalLineAbsolute:
+      case PathCommandType.VerticalLineRelative:
+        // Y supplied, X is 0.
+        x = 0
+        y = command.parameters[0]
+        break
+      default:
+        throw new ConverterError(`Invalid line command: ${command.type}`)
+    }
 
     // KCL will use relative coordinates for all points.
     let relativeEndX: number, relativeEndY: number
@@ -133,6 +157,7 @@ export class Converter {
 
     // KCL will use relative coordinates for all points.
     let relativeControl1X: number, relativeControl1Y: number
+    let relativeControl2X: number, relativeControl2Y: number
     let relativeEndX: number, relativeEndY: number
 
     // But our state tracking here needs absolute coordinates.
@@ -169,12 +194,28 @@ export class Converter {
     this.previousControlPoint = { x: absoluteControl1X, y: absoluteControl1Y }
     this.currentPoint = { x: absoluteEndX, y: absoluteEndY }
 
-    // KCL wants cubic Beziers, so duplicate control point to mimic quadratic.
+    // Convert quadratic to cubic Bézier control points for KCL.
+    // See: https://stackoverflow.com/questions/3162645/convert-a-quadratic-bezier-to-a-cubic-one
+    // CP1 = P0 + 2/3 * (P1 - P0)
+    // CP2 = P2 + 2/3 * (P1 - P2)
+    const cp1x = this.currentPoint.x + (2 / 3) * (absoluteControl1X - this.currentPoint.x)
+    const cp1y = this.currentPoint.y + (2 / 3) * (absoluteControl1Y - this.currentPoint.y)
+    const cp2x = absoluteEndX + (2 / 3) * (absoluteControl1X - absoluteEndX)
+    const cp2y = absoluteEndY + (2 / 3) * (absoluteControl1Y - absoluteEndY)
+
+    // Convert to relative coordinates for KCL output.
+    relativeControl1X = cp1x - this.currentPoint.x
+    relativeControl1Y = cp1y - this.currentPoint.y
+    relativeControl2X = cp2x - this.currentPoint.x
+    relativeControl2Y = cp2y - this.currentPoint.y
+    relativeEndX = absoluteEndX - this.currentPoint.x
+    relativeEndY = absoluteEndY - this.currentPoint.y
+
     return {
       type: KCLOperationType.BezierCurve,
       params: {
         control1: [relativeControl1X, relativeControl1Y],
-        control2: [relativeControl1X, relativeControl1Y],
+        control2: [relativeControl2X, relativeControl2Y],
         to: [relativeEndX, relativeEndY]
       }
     }

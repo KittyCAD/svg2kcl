@@ -482,12 +482,12 @@ export class Converter {
     const { x, y, width, height, rx, ry } = rect
 
     if (!rx && !ry) {
-      // Regular rectangle.
+      // Regular rectangle, drawn clockwise, y+ve down. Note our KCL line op is relative.
       const points: [number, number][] = [
         [x, y],
-        [x + width, y],
-        [x + width, y + height],
-        [x, y + height]
+        [width, 0],
+        [0, height],
+        [-width, 0]
       ]
 
       operations.push(
@@ -503,34 +503,34 @@ export class Converter {
       const effectiveRx = rx || ry || 0
       const effectiveRy = ry || rx || 0
 
-      const startPoint: [number, number] = [x + effectiveRx, -y]
+      const startPoint: [number, number] = [x + effectiveRx, y]
       operations.push({ type: KCLOperationType.StartSketch, params: { point: startPoint } })
 
       // Top edge and top-right corner.
       operations.push(
-        { type: KCLOperationType.Line, params: { point: [x + width - effectiveRx, -y] } },
-        { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } }
+        { type: KCLOperationType.Line, params: { point: [width - effectiveRx, 0] } },
+        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
       )
 
       // Right edge and bottom-right corner.
       operations.push(
         {
           type: KCLOperationType.Line,
-          params: { point: [x + width, -(y + height - effectiveRy)] }
+          params: { point: [0, -(height - effectiveRy)] }
         },
-        { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } }
+        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
       )
 
       // Bottom edge and bottom-left corner.
       operations.push(
-        { type: KCLOperationType.Line, params: { point: [x + effectiveRx, -(y + height)] } },
-        { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } }
+        { type: KCLOperationType.Line, params: { point: [-(width - effectiveRx), 0] } },
+        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
       )
 
       // Left edge and top-left corner.
       operations.push(
-        { type: KCLOperationType.Line, params: { point: [x, -(y + effectiveRy)] } },
-        { type: KCLOperationType.Arc, params: { radius: effectiveRx, angle: 90 } },
+        { type: KCLOperationType.Line, params: { point: [0, height - effectiveRy] } },
+        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } },
         { type: KCLOperationType.Close, params: null }
       )
     }
@@ -548,7 +548,7 @@ export class Converter {
       },
       {
         type: KCLOperationType.Circle,
-        params: { radius }
+        params: { radius, x: center.x, y: center.y }
       }
     ]
   }

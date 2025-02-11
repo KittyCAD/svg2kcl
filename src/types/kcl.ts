@@ -48,6 +48,7 @@ export interface ArcParams {
 
 export interface TangentialArcParams {
   radius: number
+  offset: number
 }
 
 export interface CircleParams {

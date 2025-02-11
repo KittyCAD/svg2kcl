@@ -3,7 +3,7 @@ import { SVGReader } from './reader/base'
 import { KCLWriter } from './writer/base'
 import { KCLOptions } from './types/kcl'
 
-async function convertSVGtoKCL(
+export async function convertSVGtoKCL(
   inputPath: string,
   outputPath: string,
   options: KCLOptions = {}
@@ -36,4 +36,4 @@ async function main() {
   }
 }
 
-main()
+// main()

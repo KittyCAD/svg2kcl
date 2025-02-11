@@ -128,7 +128,10 @@ export class Formatter {
         if (!operation.params || !('radius' in operation.params)) {
           throw new FormatterError('Invalid TangentialArc parameters')
         }
-        return `|> tangentialArc({ radius = ${operation.params.radius} }, %)`
+        if (!('offset' in operation.params)) {
+          throw new FormatterError('Invalid TangentialArc parameters')
+        }
+        return `|> tangentialArc({ radius = ${operation.params.radius}, offset = ${operation.params.offset} }, %)`
       }
 
       case KCLOperationType.Polygon: {

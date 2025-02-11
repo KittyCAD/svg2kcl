@@ -581,15 +581,25 @@ export class Converter {
     const operations: KCLOperation[] = []
     const points = polyline.points.map((p) => p)
 
+    // Lines are relative in our KCL call, but absolute in SVG. Need a backwards diff.
+    const diffs = points.reduce((acc, point, index, arr) => {
+      if (index === 0) return acc
+      acc.push({
+        dx: point.x - arr[index - 1].x,
+        dy: point.y - arr[index - 1].y
+      })
+      return acc
+    }, [] as Array<{ dx: number; dy: number }>)
+
     operations.push({
       type: KCLOperationType.StartSketch,
       params: { point: [points[0].x, points[0].y] }
     })
 
-    points.slice(1).forEach((point) => {
+    diffs.forEach((point) => {
       operations.push({
         type: KCLOperationType.Line,
-        params: { point: [point.x, point.y] }
+        params: { point: [point.dx, point.dy] }
       })
     })
 

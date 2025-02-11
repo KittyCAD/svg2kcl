@@ -59,9 +59,6 @@ export class Converter {
       }
     }
 
-    // Then apply centering offset if requested.
-    point = this.centerPoint(point)
-
     return point
   }
 
@@ -87,37 +84,47 @@ export class Converter {
 
     // Offset, if centering, and write.
     let outPoint = this.centerPoint(this.currentPoint)
+
     return {
       type: KCLOperationType.StartSketch,
       params: { point: [outPoint.x, outPoint.y] }
     }
   }
 
-  private createLineOp(
-    command: PathCommand,
-    isRelative: boolean,
-    transform: Transform
-  ): KCLOperation {
-    // Line.
+  private createLineOp(command: PathCommand, isRelative: boolean): KCLOperation {
+    // See: https://www.w3.org/TR/SVG11/paths.html#PathDataLinetoCommands
     const [x, y] = command.parameters
 
-    const endX = isRelative ? x + this.currentPoint.x : x
-    const endY = isRelative ? y + this.currentPoint.y : y
+    // KCL will use relative coordinates for all points.
+    let relativeEndX: number, relativeEndY: number
 
-    let endpoint = {
-      x: endX - this.currentPoint.x,
-      y: endY - this.currentPoint.y
+    // But our state tracking here needs absolute coordinates.
+    let absoluteEndX: number, absoluteEndY: number
+
+    if (isRelative) {
+      // Coordinates are already relative.
+      relativeEndX = x
+      relativeEndY = y
+
+      // Convert relative values to absolute for state tracking.
+      absoluteEndX = x + this.currentPoint.x
+      absoluteEndY = y + this.currentPoint.y
+    } else {
+      // Input params are absolute so convert to relative for KCL output
+      relativeEndX = x - this.currentPoint.x
+      relativeEndY = y - this.currentPoint.y
+
+      // Absolute values remain unchanged for state tracking.
+      absoluteEndX = x
+      absoluteEndY = y
     }
 
-    // Set current point.
-    this.currentPoint = { x: endX, y: endY }
-
-    // Transform.
-    const transformedEndpoint = this.transformPoint(endpoint, transform)
+    // Store absolute position for next command.
+    this.currentPoint = { x: absoluteEndX, y: absoluteEndY }
 
     return {
       type: KCLOperationType.Line,
-      params: { point: [transformedEndpoint.x, transformedEndpoint.y] }
+      params: { point: [relativeEndX, relativeEndY] }
     }
   }
 
@@ -370,12 +377,12 @@ export class Converter {
         case PathCommandType.LineAbsolute:
         case PathCommandType.HorizontalLineAbsolute:
         case PathCommandType.VerticalLineAbsolute:
-          operations.push(this.createLineOp(command, false, transform))
+          operations.push(this.createLineOp(command, false))
           break
         case PathCommandType.LineRelative:
         case PathCommandType.HorizontalLineRelative:
         case PathCommandType.VerticalLineRelative:
-          operations.push(this.createLineOp(command, true, transform))
+          operations.push(this.createLineOp(command, true))
           break
 
         // Quadratic beziers.

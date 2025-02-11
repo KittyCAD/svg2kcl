@@ -541,6 +541,7 @@ export class Converter {
   private convertCircleToKclOps(circle: CircleElement): KCLOperation[] {
     const { center, radius } = circle
 
+    // Chain together new sketch and circle operations.
     return [
       {
         type: KCLOperationType.StartSketch,

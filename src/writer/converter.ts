@@ -157,38 +157,49 @@ export class Converter {
   private createCubicBezierOp(command: PathCommand, isRelative: boolean): KCLOperation {
     const [x1, y1, x2, y2, x, y] = command.parameters
 
-    const c1x = isRelative ? x1 + this.currentPoint.x : x1
-    const c1y = isRelative ? y1 + this.currentPoint.y : y1
-    const c2x = isRelative ? x2 + this.currentPoint.x : x2
-    const c2y = isRelative ? y2 + this.currentPoint.y : y2
-    const endX = isRelative ? x + this.currentPoint.x : x
-    const endY = isRelative ? y + this.currentPoint.y : y
+    let c1x: number, c1y: number, c2x: number, c2y: number, endX: number, endY: number
+    let absC2x: number, absC2y: number, absEndX: number, absEndY: number
 
-    let control1 = {
-      x: c1x - this.currentPoint.x,
-      y: c1y - this.currentPoint.y
-    }
-    let control2 = {
-      x: c2x - this.currentPoint.x,
-      y: c2y - this.currentPoint.y
-    }
-    let endpoint = {
-      x: endX - this.currentPoint.x,
-      y: endY - this.currentPoint.y
+    if (isRelative) {
+      // When the command is relative, coordinates are already relative.
+      c1x = x1
+      c1y = y1
+      c2x = x2
+      c2y = y2
+      endX = x
+      endY = y
+
+      // Convert relative values to absolute for state tracking.
+      absC2x = this.currentPoint.x + x2
+      absC2y = this.currentPoint.y + y2
+      absEndX = this.currentPoint.x + x
+      absEndY = this.currentPoint.y + y
+    } else {
+      // When the command is absolute, convert to relative for KCL output.
+      c1x = x1 - this.currentPoint.x
+      c1y = y1 - this.currentPoint.y
+      c2x = x2 - this.currentPoint.x
+      c2y = y2 - this.currentPoint.y
+      endX = x - this.currentPoint.x
+      endY = y - this.currentPoint.y
+
+      // Absolute values remain unchanged for state tracking.
+      absC2x = x2
+      absC2y = y2
+      absEndX = x
+      absEndY = y
     }
 
-    // This works with no offsets or centering because it is, practically, all relative.
-    // Once we get the starting point in the right spot, the rest is relative to that.
-
-    this.previousControlPoint = { x: c2x, y: c2y }
-    this.currentPoint = { x: endX, y: endY }
+    // Store absolute positions for next command reference.
+    this.previousControlPoint = { x: absC2x, y: absC2y }
+    this.currentPoint = { x: absEndX, y: absEndY }
 
     return {
       type: KCLOperationType.BezierCurve,
       params: {
-        control1: [control1.x, control1.y],
-        control2: [control2.x, control2.y],
-        to: [endpoint.x, endpoint.y]
+        control1: [c1x, c1y], // KCL expects relative coordinates
+        control2: [c2x, c2y],
+        to: [endX, endY]
       }
     }
   }

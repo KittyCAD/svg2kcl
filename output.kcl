@@ -11,7 +11,7 @@ sketch001 = startSketchAt([129.125, 256.327])
     }, %)
   |> bezierCurve({
       control1 = [15.426, -25.239],
-      control2 = [40.75, -23.925],
+      control2 = [40.751, -23.925],
       to = [53.314, 2.655]
     }, %)
   |> bezierCurve({

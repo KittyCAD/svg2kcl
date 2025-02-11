@@ -591,6 +591,7 @@ export class Converter {
       return acc
     }, [] as Array<{ dx: number; dy: number }>)
 
+    // Push ops.
     operations.push({
       type: KCLOperationType.StartSketch,
       params: { point: [points[0].x, points[0].y] }
@@ -614,15 +615,26 @@ export class Converter {
     const operations: KCLOperation[] = []
     const points = polygon.points.map((p) => p)
 
+    // SVG does polygons with chained absolute points, but our KCL call uses relative.
+    const diffs = points.reduce((acc, point, index, arr) => {
+      if (index === 0) return acc
+      acc.push({
+        dx: point.x - arr[index - 1].x,
+        dy: point.y - arr[index - 1].y
+      })
+      return acc
+    }, [] as Array<{ dx: number; dy: number }>)
+
+    // Push ops.
     operations.push({
       type: KCLOperationType.StartSketch,
       params: { point: [points[0].x, points[0].y] }
     })
 
-    points.slice(1).forEach((point) => {
+    diffs.forEach((point) => {
       operations.push({
         type: KCLOperationType.Line,
-        params: { point: [point.x, point.y] }
+        params: { point: [point.dx, point.dy] }
       })
     })
 

@@ -1,3 +1,5 @@
+import { Plane3D } from './base'
+
 // Options that control KCL output generation.
 export interface KCLOptions {
   centerOnViewBox?: boolean
@@ -6,6 +8,7 @@ export interface KCLOptions {
 // The type of operation being performed.
 export enum KCLOperationType {
   StartSketch = 'startSketch',
+  StartSketchOn = 'startSketchOn',
   Line = 'line',
   XLineTo = 'xLineTo',
   YLineTo = 'yLineTo',
@@ -21,6 +24,10 @@ export enum KCLOperationType {
 // Parameters for different KCL operations.
 export interface StartSketchParams {
   point: [number, number]
+}
+
+export type StartSketchOnParams = {
+  plane: Plane3D
 }
 
 export interface LineToParams {
@@ -69,6 +76,7 @@ export interface HoleParams {
 // Union type for all possible operation parameters.
 export type KCLOperationParams =
   | StartSketchParams
+  | StartSketchOnParams
   | LineToParams
   | XLineToParams
   | YLineToParams

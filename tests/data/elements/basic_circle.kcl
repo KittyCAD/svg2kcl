@@ -1,5 +1,5 @@
-sketch001 = startSketchAt([30, -30])
-  |> circle({ center = [30, 30], radius = 20 }, %)
+sketch001 = startSketchOn("XY")
+  |> circle({ center = [30, -30], radius = 20 }, %)
 
-sketch002 = startSketchAt([70, -70])
-  |> circle({ center = [70, 70], radius = 25 }, %)
+sketch002 = startSketchOn("XY")
+  |> circle({ center = [70, -70], radius = 25 }, %)

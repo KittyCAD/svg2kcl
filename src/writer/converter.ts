@@ -1,20 +1,19 @@
+import { FillRule, Plane3D, Point, ViewBox } from '../types/base'
 import {
-  PathElement,
-  RectangleElement,
   CircleElement,
-  LineElement,
-  PolylineElement,
-  PolygonElement,
   Element,
   ElementType,
-  GroupElement
+  GroupElement,
+  LineElement,
+  PathElement,
+  PolygonElement,
+  PolylineElement,
+  RectangleElement
 } from '../types/elements'
-import { Point, ViewBox, FillRule } from '../types/base'
-import { PathCommand, PathCommandType } from '../types/path'
 import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
+import { PathCommand, PathCommandType } from '../types/path'
 import { separateSubpaths } from '../utils/geometry'
-import { getCombinedTransform } from '../utils/transform'
-import { Transform } from '../utils/transform'
+import { getCombinedTransform, Transform } from '../utils/transform'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -544,8 +543,8 @@ export class Converter {
     // Chain together new sketch and circle operations.
     return [
       {
-        type: KCLOperationType.StartSketch,
-        params: { point: [center.x, center.y] }
+        type: KCLOperationType.StartSketchOn,
+        params: { plane: Plane3D.XY }
       },
       {
         type: KCLOperationType.Circle,

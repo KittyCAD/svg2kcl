@@ -3,7 +3,7 @@ import { PathCommand } from './path'
 
 export enum ElementType {
   Path = 'path',
-  Rectangle = 'rectangle',
+  Rectangle = 'rect',
   Circle = 'circle',
   Line = 'line',
   Polyline = 'polyline',

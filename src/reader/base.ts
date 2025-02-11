@@ -23,7 +23,7 @@ export class SVGReader {
   private pathReader = new PathReader()
 
   private isGeometricElement(type: string): boolean {
-    return Object.values(ElementType).includes(type as ElementType)
+    return Object.values(ElementType).includes(type as ElementType) && type !== ElementType.Group
   }
 
   private isGroupElement(type: string): boolean {
@@ -42,6 +42,14 @@ export class SVGReader {
 
   private processElement(element: any, type: string): RawSVGElement[] {
     const elements: RawSVGElement[] = []
+
+    // If element is an array of direct children (common in parsed SVGs)
+    if (Array.isArray(element)) {
+      element.forEach((child) => {
+        elements.push(...this.processElement(child, type))
+      })
+      return elements
+    }
 
     // Handle groups and geometric elements
     if (this.isGeometricElement(type) || this.isGroupElement(type)) {
@@ -67,19 +75,20 @@ export class SVGReader {
 
     // Process all properties of the group
     for (const [key, value] of Object.entries(group)) {
-      // Skip non-element properties.
-      if (typeof value !== 'object' || key.startsWith('@') || key === '#text') {
+      // Skip non-element properties
+      if (typeof value !== 'object' || key === '@' || key === '#text') {
         continue
       }
 
-      // Handle arrays of elements.
+      // Handle arrays of elements
       if (Array.isArray(value)) {
         value.forEach((item) => {
           elements.push(...this.processElement(item, key))
         })
       }
-      // Handle single elements.
-      else {
+      // Handle single elements
+      else if (key !== 'viewBox' && key !== 'xmlns') {
+        // Skip SVG attributes
         elements.push(...this.processElement(value, key))
       }
     }

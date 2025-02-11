@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <g>
+        <g>
+            <rect x="10" y="10" width="30" height="30" />
+            <circle cx="70" cy="25" r="15" />
+        </g>
+        <g>
+            <line x1="10" y1="50" x2="90" y2="50" />
+            <polyline points="10,70 50,90 90,70" />
+        </g>
+    </g>
+</svg>

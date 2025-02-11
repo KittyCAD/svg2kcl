@@ -285,6 +285,7 @@ export class Converter {
 
     // KCL will use relative coordinates for all points.
     let relativeControl1X: number, relativeControl1Y: number
+    let relativeControl2X: number, relativeControl2Y: number
     let relativeEndX: number, relativeEndY: number
 
     // But our state tracking here needs absolute coordinates.
@@ -314,20 +315,32 @@ export class Converter {
       absoluteEndY = y
     }
 
-    // Control point is relative to current point.
-    relativeControl1X = absoluteControl1X - this.currentPoint.x
-    relativeControl1Y = absoluteControl1Y - this.currentPoint.y
+    // Capture the previous current point before updating.
+    const startX = this.currentPoint.x
+    const startY = this.currentPoint.y
+
+    // Convert quadratic to cubic Bézier control points for KCL.
+    const cp1x = startX + (2 / 3) * (absoluteControl1X - startX)
+    const cp1y = startY + (2 / 3) * (absoluteControl1Y - startY)
+
+    const cp2x = absoluteEndX + (2 / 3) * (absoluteControl1X - absoluteEndX)
+    const cp2y = absoluteEndY + (2 / 3) * (absoluteControl1Y - absoluteEndY)
+
+    // Convert to relative positions for KCL output using startX and startY.
+    relativeControl1X = cp1x - startX
+    relativeControl1Y = cp1y - startY
+    relativeControl2X = cp2x - startX
+    relativeControl2Y = cp2y - startY
 
     // Store absolute positions for next command.
     this.previousControlPoint = { x: absoluteControl1X, y: absoluteControl1Y }
     this.currentPoint = { x: absoluteEndX, y: absoluteEndY }
 
-    // KCL wants cubic Beziers, so duplicate control point to mimic quadratic
     return {
       type: KCLOperationType.BezierCurve,
       params: {
         control1: [relativeControl1X, relativeControl1Y],
-        control2: [relativeControl1X, relativeControl1Y],
+        control2: [relativeControl2X, relativeControl2Y],
         to: [relativeEndX, relativeEndY]
       }
     }

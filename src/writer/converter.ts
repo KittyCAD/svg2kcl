@@ -190,26 +190,27 @@ export class Converter {
       absoluteEndY = y
     }
 
-    // Store absolute positions for next command.
-    this.previousControlPoint = { x: absoluteControl1X, y: absoluteControl1Y }
-    this.currentPoint = { x: absoluteEndX, y: absoluteEndY }
-
     // Convert quadratic to cubic Bézier control points for KCL.
     // See: https://stackoverflow.com/questions/3162645/convert-a-quadratic-bezier-to-a-cubic-one
-    // CP1 = P0 + 2/3 * (P1 - P0)
-    // CP2 = P2 + 2/3 * (P1 - P2)
-    const cp1x = this.currentPoint.x + (2 / 3) * (absoluteControl1X - this.currentPoint.x)
-    const cp1y = this.currentPoint.y + (2 / 3) * (absoluteControl1Y - this.currentPoint.y)
+    // https://stackoverflow.com/questions/9485788/convert-quadratic-curve-to-cubic-curve
+    const startX = this.currentPoint.x
+    const startY = this.currentPoint.y
+
+    const cp1x = startX + (2 / 3) * (absoluteControl1X - startX)
+    const cp1y = startY + (2 / 3) * (absoluteControl1Y - startY)
+
     const cp2x = absoluteEndX + (2 / 3) * (absoluteControl1X - absoluteEndX)
     const cp2y = absoluteEndY + (2 / 3) * (absoluteControl1Y - absoluteEndY)
 
-    // Convert to relative coordinates for KCL output.
+    // Then convert to relative positions for KCL output.
     relativeControl1X = cp1x - this.currentPoint.x
     relativeControl1Y = cp1y - this.currentPoint.y
     relativeControl2X = cp2x - this.currentPoint.x
     relativeControl2Y = cp2y - this.currentPoint.y
-    relativeEndX = absoluteEndX - this.currentPoint.x
-    relativeEndY = absoluteEndY - this.currentPoint.y
+
+    // Store absolute positions for next command.
+    this.previousControlPoint = { x: absoluteControl1X, y: absoluteControl1Y }
+    this.currentPoint = { x: absoluteEndX, y: absoluteEndY }
 
     return {
       type: KCLOperationType.BezierCurve,

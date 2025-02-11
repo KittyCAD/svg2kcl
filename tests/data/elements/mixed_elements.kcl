@@ -1,0 +1,29 @@
+sketch001 = startSketchAt([10, -10])
+  |> line(end = [80, 0])
+  |> line(end = [0, -20])
+  |> line(end = [-80, 0])
+  |> close()
+
+sketch002 = startSketchOn("XY")
+  |> circle({ center = [50, -50], radius = 15 }, %)
+
+sketch003 = startSketchAt([10, -70])
+  |> line(end = [80, 0])
+
+sketch004 = startSketchAt([20, -80])
+  |> bezierCurve({
+      control1 = [15, -10],
+      control2 = [15, -10],
+      to = [30, 0]
+    }, %)
+  |> bezierCurve({
+      control1 = [15, 10],
+      control2 = [15, 10],
+      to = [30, 0]
+    }, %)
+  |> close()
+
+sketch005 = startSketchAt([10, -90])
+  |> line(end = [40, -5])
+  |> line(end = [40, 5])
+  |> close()

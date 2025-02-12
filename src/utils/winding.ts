@@ -1,5 +1,5 @@
 import { Point } from '../types/base'
-import { PathCommand } from '../types/path'
+import { PathCommand, PathCommandType } from '../types/path'
 import { KclOperation, KclOperationType } from '../types/kcl'
 import { Transform } from './transform'
 
@@ -14,17 +14,20 @@ export class WindingAnalyzer {
 
     // Path is closed if it ends with any kind of Stop command.
     const lastCommand = commands[commands.length - 1]
-    return lastCommand.type !== 'StopAbsolute' && lastCommand.type !== 'StopRelative'
+    return (
+      lastCommand.type !== PathCommandType.StopAbsolute &&
+      lastCommand.type !== PathCommandType.StopRelative
+    )
   }
 
   private calculateWindingNumber(
     point: Point,
     subpaths: { commands: PathCommand[]; isClockwise: boolean }[],
-    currentPathIndex: number // Add this parameter
+    currentPathIndex: number
   ): number {
     let windingNumber = 0
 
-    // Only check if the point is inside the current path
+    // Only check if the point is inside the current path.
     if (this.isPointInPath(point, subpaths[currentPathIndex].commands)) {
       windingNumber = subpaths[currentPathIndex].isClockwise ? 1 : -1
     }
@@ -37,11 +40,11 @@ export class WindingAnalyzer {
   ): WindingRegion[] {
     const regions: WindingRegion[] = []
 
-    // Process each subpath
+    // Process each subpath.
     for (let i = 0; i < subpaths.length; i++) {
       const subpath = subpaths[i]
       const samplePoint = this.getSamplePointInsidePath(subpath.commands)
-      const windingNumber = this.calculateWindingNumber(samplePoint, subpaths, i) // Pass the index
+      const windingNumber = this.calculateWindingNumber(samplePoint, subpaths, i)
 
       if (windingNumber !== 0) {
         regions.push({
@@ -117,14 +120,14 @@ export class WindingAnalyzer {
   ): KclOperation[] {
     const operations: KclOperation[] = []
 
-    // Split paths into open and closed
+    // Split paths into open and closed.
     const openPaths = subpaths.filter((path) => this.isOpenPath(path.commands))
     const closedPaths = subpaths.filter((path) => !this.isOpenPath(path.commands))
 
-    // Handle open paths directly - they're always independent shapes
+    // Handle open paths directly - they're always independent shapes.
     operations.push(...openPaths.flatMap((path) => convertCommandsFn(path.commands, transform)))
 
-    // If we have closed paths, process them with winding number analysis
+    // If we have closed paths, process them with winding number analysis.
     if (closedPaths.length > 0) {
       const regions = this.findRegionBoundaries(closedPaths)
 
@@ -188,13 +191,13 @@ export class WindingAnalyzer {
     return path1.every((cmd, i) => {
       const cmd2 = path2[i]
 
-      // Check command type
+      // Check command type.
       if (cmd.type !== cmd2.type) return false
 
-      // Check position
+      // Check position.
       if (cmd.position.x !== cmd2.position.x || cmd.position.y !== cmd2.position.y) return false
 
-      // Check parameters if they exist
+      // Check parameters if they exist.
       if (cmd.parameters && cmd2.parameters) {
         if (cmd.parameters.length !== cmd2.parameters.length) return false
         return cmd.parameters.every((param, j) => param === cmd2.parameters[j])
@@ -215,7 +218,7 @@ export class WindingAnalyzer {
   }
 
   private isPathContainedInPath(inner: PathCommand[], outer: PathCommand[]): boolean {
-    // Test a point from the inner path (e.g., first vertex)
+    // Test a point from the inner path (e.g., first vertex).
     return this.isPointInPath(inner[0].position, outer)
   }
 }

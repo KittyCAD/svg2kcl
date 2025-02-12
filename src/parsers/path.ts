@@ -4,6 +4,11 @@ import { Transform } from '../utils/transform'
 
 const DEFAULT_FILL_RULE = FillRule.EvenOdd
 
+const UNSUPPORTED_COMMANDS = [
+  PathCommandType.EllipticalArcAbsolute,
+  PathCommandType.EllipticalArcRelative
+]
+
 export class SVGParseError extends Error {
   constructor(message: string) {
     super(message)
@@ -91,22 +96,34 @@ export class SVGPathParser {
   }
 
   private handleCommandChar(char: string): void {
-    this.pushValue() // 1. Push any pending value from previous command
+    const command = SVGPathCommandMap[char]
 
-    if (this.state.command !== PathCommandType.NotSet) {
-      this.handleCommand() // 2. Process previous command if there was one
+    // Check if this command is supported.
+    if (UNSUPPORTED_COMMANDS.includes(command)) {
+      throw new SVGParseError('Unsupported SVG commands found in the input.')
     }
 
-    this.state.command = SVGPathCommandMap[char] // 3. Set new command
-    this.state.values = [] // 4. Clear values for new command
+    // 1. Push any pending value from previous command.
+    this.pushValue()
+
+    // 2. Process previous command if there was one.
+    if (this.state.command !== PathCommandType.NotSet) {
+      this.handleCommand()
+    }
+
+    // 3. Set new command.
+    this.state.command = command
+
+    // 4. Clear values for new command.
+    this.state.values = []
     this.state.isValuePushed = false
 
-    // 5. For commands that don't need values (like z/Z), process them immediately
+    // 5. For commands that don't need values (like z/Z), process them immediately.
     if (
       this.state.command === PathCommandType.StopAbsolute ||
       this.state.command === PathCommandType.StopRelative
     ) {
-      this.processValues([]) // They can be processed with empty parameters array
+      this.processValues([])
     }
   }
 

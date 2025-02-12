@@ -1,14 +1,14 @@
 import { ElementProperties, Point } from './base'
 import { PathCommand } from './path'
-
 export enum ElementType {
-  Path = 'path',
-  Rectangle = 'rect',
   Circle = 'circle',
+  Ellipse = 'ellipse',
+  Group = 'g',
   Line = 'line',
-  Polyline = 'polyline',
+  Path = 'path',
   Polygon = 'polygon',
-  Group = 'g'
+  Polyline = 'polyline',
+  Rectangle = 'rect'
 }
 
 export interface PathElement extends ElementProperties {

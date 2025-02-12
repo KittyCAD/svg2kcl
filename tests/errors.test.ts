@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals'
 import path from 'path'
-import { convertSVGtoKCL } from '../src/main-new'
+import { convertSVGtoKCL } from '../src/main'
 import { KCLOptions } from '../src/types/kcl'
 
 const options: KCLOptions = {

@@ -5,7 +5,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "hack": "ts-node ./src/main-new.ts",
+    "hack": "ts-node ./src/main.ts",
     "generateExample": "ts-node main.ts",
     "test": "jest"
   },

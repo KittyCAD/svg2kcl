@@ -1,12 +1,12 @@
 import { Plane3D } from './base'
 
-// Options that control KCL output generation.
-export interface KCLOptions {
+// Options that control Kcl output generation.
+export interface KclOptions {
   centerOnViewBox?: boolean
 }
 
 // The type of operation being performed.
-export enum KCLOperationType {
+export enum KclOperationType {
   StartSketch = 'startSketch',
   StartSketchOn = 'startSketchOn',
   Line = 'line',
@@ -21,7 +21,7 @@ export enum KCLOperationType {
   Hole = 'hole'
 }
 
-// Parameters for different KCL operations.
+// Parameters for different Kcl operations.
 export interface StartSketchParams {
   point: [number, number]
 }
@@ -70,11 +70,11 @@ export interface PolygonParams {
 }
 
 export interface HoleParams {
-  operations: KCLOperation[]
+  operations: KclOperation[]
 }
 
 // Union type for all possible operation parameters.
-export type KCLOperationParams =
+export type KclOperationParams =
   | StartSketchParams
   | StartSketchOnParams
   | LineToParams
@@ -88,19 +88,19 @@ export type KCLOperationParams =
   | HoleParams
   | null // For operations like close that have no parameters.
 
-// A single KCL operation.
-export interface KCLOperation {
-  type: KCLOperationType
-  params: KCLOperationParams
+// A single Kcl operation.
+export interface KclOperation {
+  type: KclOperationType
+  params: KclOperationParams
 }
 
-// A complete KCL shape definition.
-export interface KCLShape {
-  operations: KCLOperation[]
+// A complete Kcl shape definition.
+export interface KclShape {
+  operations: KclOperation[]
   variable?: string // The variable name this shape is assigned to, if any.
 }
 
-// The complete KCL output.
-export interface KCLOutput {
-  shapes: KCLShape[]
+// The complete Kcl output.
+export interface KclOutput {
+  shapes: KclShape[]
 }

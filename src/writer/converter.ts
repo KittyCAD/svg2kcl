@@ -10,7 +10,7 @@ import {
   PolylineElement,
   RectangleElement
 } from '../types/elements'
-import { KCLOperation, KCLOperationType, KCLOptions } from '../types/kcl'
+import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/path'
 import { separateSubpaths } from '../utils/geometry'
 import { getCombinedTransform, Transform } from '../utils/transform'
@@ -27,7 +27,7 @@ export class Converter {
   private currentPoint: Point = { x: 0, y: 0 }
   private readonly offsetCoords: Point
 
-  constructor(private options: KCLOptions = {}, viewBox: ViewBox) {
+  constructor(private options: KclOptions = {}, viewBox: ViewBox) {
     // Calculate offset coordinates for centering if requested.
     const xOffset = viewBox.xMin + viewBox.width / 2
     const yOffset = viewBox.yMin + viewBox.height / 2
@@ -63,7 +63,7 @@ export class Converter {
 
   // Operation creation methods.
   // --------------------------------------------------
-  private createNewSketchOp(command: PathCommand, transform: Transform): KCLOperation {
+  private createNewSketchOp(command: PathCommand, transform: Transform): KclOperation {
     // Set the 'currentPoint' to be the position of the first point. Relative
     // commands will add to this point.
     this.currentPoint = command.position
@@ -75,7 +75,7 @@ export class Converter {
     const centeredPoint = this.centerPoint(transformedStart)
 
     return {
-      type: KCLOperationType.StartSketch,
+      type: KclOperationType.StartSketch,
       params: { point: [centeredPoint.x, centeredPoint.y] }
     }
   }
@@ -84,7 +84,7 @@ export class Converter {
     command: PathCommand,
     isRelative: boolean,
     transform: Transform
-  ): KCLOperation {
+  ): KclOperation {
     // See: https://www.w3.org/TR/SVG11/paths.html#PathDataLinetoCommands
 
     // Set up x and y values. We may have to override some of these.
@@ -128,7 +128,7 @@ export class Converter {
     const transformedStart = transform.transformPoint(this.currentPoint)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Calculate relative position from transformed points for KCL output
+    // Calculate relative position from transformed points for Kcl output
     const relativeEnd = {
       x: transformedEnd.x - transformedStart.x,
       y: transformedEnd.y - transformedStart.y
@@ -138,7 +138,7 @@ export class Converter {
     this.currentPoint = absoluteEnd
 
     return {
-      type: KCLOperationType.Line,
+      type: KclOperationType.Line,
       params: { point: [relativeEnd.x, relativeEnd.y] }
     }
   }
@@ -147,7 +147,7 @@ export class Converter {
     command: PathCommand,
     isRelative: boolean,
     transform: Transform
-  ): KCLOperation {
+  ): KclOperation {
     // See: https://www.w3.org/TR/SVG11/paths.html#PathDataQuadraticBezierCommands
     const [x1, y1, x, y] = command.parameters
 
@@ -182,7 +182,7 @@ export class Converter {
     const transformedControl1 = transform.transformPoint(absoluteControl1)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert quadratic to cubic Bézier control points for KCL.
+    // Convert quadratic to cubic Bézier control points for Kcl.
     // See: https://stackoverflow.com/questions/3162645/convert-a-quadratic-bezier-to-a-cubic-one
     const cp1x = transformedStart.x + (2 / 3) * (transformedControl1.x - transformedStart.x)
     const cp1y = transformedStart.y + (2 / 3) * (transformedControl1.y - transformedStart.y)
@@ -190,7 +190,7 @@ export class Converter {
     const cp2x = transformedEnd.x + (2 / 3) * (transformedControl1.x - transformedEnd.x)
     const cp2y = transformedEnd.y + (2 / 3) * (transformedControl1.y - transformedEnd.y)
 
-    // Convert to relative positions for KCL output.
+    // Convert to relative positions for Kcl output.
     const relativeControl1 = {
       x: cp1x - transformedStart.x,
       y: cp1y - transformedStart.y
@@ -209,7 +209,7 @@ export class Converter {
     this.currentPoint = absoluteEnd
 
     return {
-      type: KCLOperationType.BezierCurve,
+      type: KclOperationType.BezierCurve,
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
@@ -222,7 +222,7 @@ export class Converter {
     command: PathCommand,
     isRelative: boolean,
     transform: Transform
-  ): KCLOperation {
+  ): KclOperation {
     // See: https://www.w3.org/TR/SVG11/paths.html#PathDataLinetoCommands
     const [x1, y1, x2, y2, x, y] = command.parameters
 
@@ -260,7 +260,7 @@ export class Converter {
     const transformedControl2 = transform.transformPoint(absoluteControl2)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert to relative positions for KCL output.
+    // Convert to relative positions for Kcl output.
     const relativeControl1 = {
       x: transformedControl1.x - transformedStart.x,
       y: transformedControl1.y - transformedStart.y
@@ -279,7 +279,7 @@ export class Converter {
     this.currentPoint = absoluteEnd
 
     return {
-      type: KCLOperationType.BezierCurve,
+      type: KclOperationType.BezierCurve,
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
@@ -292,7 +292,7 @@ export class Converter {
     command: PathCommand,
     isRelative: boolean,
     transform: Transform
-  ): KCLOperation {
+  ): KclOperation {
     // See: https://www.w3.org/TR/SVG11/paths.html#PathDataQuadraticBezierCommands
     const [x, y] = command.parameters
 
@@ -326,14 +326,14 @@ export class Converter {
     const transformedControl1 = transform.transformPoint(absoluteControl1)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert quadratic to cubic Bézier control points for KCL.
+    // Convert quadratic to cubic Bézier control points for Kcl.
     const cp1x = transformedStart.x + (2 / 3) * (transformedControl1.x - transformedStart.x)
     const cp1y = transformedStart.y + (2 / 3) * (transformedControl1.y - transformedStart.y)
 
     const cp2x = transformedEnd.x + (2 / 3) * (transformedControl1.x - transformedEnd.x)
     const cp2y = transformedEnd.y + (2 / 3) * (transformedControl1.y - transformedEnd.y)
 
-    // Convert to relative positions for KCL output.
+    // Convert to relative positions for Kcl output.
     const relativeControl1 = {
       x: cp1x - transformedStart.x,
       y: cp1y - transformedStart.y
@@ -352,7 +352,7 @@ export class Converter {
     this.currentPoint = absoluteEnd
 
     return {
-      type: KCLOperationType.BezierCurve,
+      type: KclOperationType.BezierCurve,
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
@@ -365,7 +365,7 @@ export class Converter {
     command: PathCommand,
     isRelative: boolean,
     transform: Transform
-  ): KCLOperation {
+  ): KclOperation {
     // See: https://www.w3.org/TR/SVG11/paths.html#PathDataCubicBezierCommands
     const [x2, y2, x, y] = command.parameters
 
@@ -402,7 +402,7 @@ export class Converter {
     const transformedControl2 = transform.transformPoint(absoluteControl2)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert to relative positions for KCL output.
+    // Convert to relative positions for Kcl output.
     const relativeControl1 = {
       x: transformedControl1.x - transformedStart.x,
       y: transformedControl1.y - transformedStart.y
@@ -421,7 +421,7 @@ export class Converter {
     this.currentPoint = absoluteEnd
 
     return {
-      type: KCLOperationType.BezierCurve,
+      type: KclOperationType.BezierCurve,
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
@@ -434,8 +434,8 @@ export class Converter {
   private convertPathCommandsToKclOps(
     commands: PathCommand[],
     transform: Transform
-  ): KCLOperation[] {
-    const operations: KCLOperation[] = []
+  ): KclOperation[] {
+    const operations: KclOperation[] = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
 
@@ -490,20 +490,20 @@ export class Converter {
         // Stops.
         case PathCommandType.StopAbsolute:
         case PathCommandType.StopRelative:
-          operations.push({ type: KCLOperationType.Close, params: null })
+          operations.push({ type: KclOperationType.Close, params: null })
           break
       }
     })
 
-    if (!operations.some((op) => op.type === KCLOperationType.Close)) {
-      operations.push({ type: KCLOperationType.Close, params: null })
+    if (!operations.some((op) => op.type === KclOperationType.Close)) {
+      operations.push({ type: KclOperationType.Close, params: null })
     }
 
     return operations
   }
 
-  private convertPathToKclOps(path: PathElement): KCLOperation[] {
-    const operations: KCLOperation[] = []
+  private convertPathToKclOps(path: PathElement): KclOperation[] {
+    const operations: KclOperation[] = []
     const transform = path.transform!
 
     if (path.fillRule === FillRule.EvenOdd) {
@@ -517,7 +517,7 @@ export class Converter {
       // Convert holes.
       holes.forEach((hole) => {
         operations.push({
-          type: KCLOperationType.Hole,
+          type: KclOperationType.Hole,
           params: {
             operations: this.convertPathCommandsToKclOps(hole.commands, transform)
           }
@@ -541,7 +541,7 @@ export class Converter {
         } else {
           // Opposite winding - hole.
           operations.push({
-            type: KCLOperationType.Hole,
+            type: KclOperationType.Hole,
             params: { operations: subpathOps }
           })
         }
@@ -551,12 +551,12 @@ export class Converter {
     return operations
   }
 
-  private convertRectangleToKclOps(rect: RectangleElement): KCLOperation[] {
-    const operations: KCLOperation[] = []
+  private convertRectangleToKclOps(rect: RectangleElement): KclOperation[] {
+    const operations: KclOperation[] = []
     const { x, y, width, height, rx, ry } = rect
 
     if (!rx && !ry) {
-      // Regular rectangle, drawn clockwise, y+ve down. Note our KCL line op is relative.
+      // Regular rectangle, drawn clockwise, y+ve down. Note our Kcl line op is relative.
       const points: [number, number][] = [
         [x, y],
         [width, 0],
@@ -565,12 +565,12 @@ export class Converter {
       ]
 
       operations.push(
-        { type: KCLOperationType.StartSketch, params: { point: points[0] } },
+        { type: KclOperationType.StartSketch, params: { point: points[0] } },
         ...points.slice(1).map((point) => ({
-          type: KCLOperationType.Line,
+          type: KclOperationType.Line,
           params: { point }
         })),
-        { type: KCLOperationType.Close, params: null }
+        { type: KclOperationType.Close, params: null }
       )
     } else {
       // Rounded rectangle.
@@ -578,84 +578,84 @@ export class Converter {
       const effectiveRy = ry || rx || 0
 
       const startPoint: [number, number] = [x + effectiveRx, y]
-      operations.push({ type: KCLOperationType.StartSketch, params: { point: startPoint } })
+      operations.push({ type: KclOperationType.StartSketch, params: { point: startPoint } })
 
       // Top edge and top-right corner.
       operations.push(
-        { type: KCLOperationType.Line, params: { point: [width - effectiveRx, 0] } },
-        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
+        { type: KclOperationType.Line, params: { point: [width - effectiveRx, 0] } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
       )
 
       // Right edge and bottom-right corner.
       operations.push(
         {
-          type: KCLOperationType.Line,
+          type: KclOperationType.Line,
           params: { point: [0, -(height - effectiveRy)] }
         },
-        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
       )
 
       // Bottom edge and bottom-left corner.
       operations.push(
-        { type: KCLOperationType.Line, params: { point: [-(width - effectiveRx), 0] } },
-        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
+        { type: KclOperationType.Line, params: { point: [-(width - effectiveRx), 0] } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
       )
 
       // Left edge and top-left corner.
       operations.push(
-        { type: KCLOperationType.Line, params: { point: [0, height - effectiveRy] } },
-        { type: KCLOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } },
-        { type: KCLOperationType.Close, params: null }
+        { type: KclOperationType.Line, params: { point: [0, height - effectiveRy] } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } },
+        { type: KclOperationType.Close, params: null }
       )
     }
 
     return operations
   }
 
-  private convertCircleToKclOps(circle: CircleElement): KCLOperation[] {
+  private convertCircleToKclOps(circle: CircleElement): KclOperation[] {
     const { center, radius } = circle
 
     // Chain together new sketch and circle operations.
     return [
       {
-        type: KCLOperationType.StartSketchOn,
+        type: KclOperationType.StartSketchOn,
         params: { plane: Plane3D.XY }
       },
       {
-        type: KCLOperationType.Circle,
+        type: KclOperationType.Circle,
         params: { radius, x: center.x, y: center.y }
       }
     ]
   }
 
-  private convertLineToKclOps(line: LineElement): KCLOperation[] {
+  private convertLineToKclOps(line: LineElement): KclOperation[] {
     this.currentPoint = line.end
 
-    // Lines are relative in our KCL call, but absolute in SVG.
+    // Lines are relative in our Kcl call, but absolute in SVG.
     const deltaX = line.end.x - line.start.x
     const deltaY = line.end.y - line.start.y
 
     return [
       {
-        type: KCLOperationType.StartSketch,
+        type: KclOperationType.StartSketch,
         params: { point: [line.start.x, line.start.y] }
       },
       {
-        type: KCLOperationType.Line,
+        type: KclOperationType.Line,
         params: { point: [deltaX, deltaY] }
       }
     ]
   }
 
-  private convertPolylineToKclOps(polyline: PolylineElement): KCLOperation[] {
+  private convertPolylineToKclOps(polyline: PolylineElement): KclOperation[] {
     if (polyline.points.length < 2) {
       throw new ConverterError('Polyline must have at least 2 points')
     }
 
-    const operations: KCLOperation[] = []
+    const operations: KclOperation[] = []
     const points = polyline.points.map((p) => p)
 
-    // Lines are relative in our KCL call, but absolute in SVG. Need a backwards diff.
+    // Lines are relative in our Kcl call, but absolute in SVG. Need a backwards diff.
     const diffs = points.reduce((acc, point, index, arr) => {
       if (index === 0) return acc
       acc.push({
@@ -667,13 +667,13 @@ export class Converter {
 
     // Push ops.
     operations.push({
-      type: KCLOperationType.StartSketch,
+      type: KclOperationType.StartSketch,
       params: { point: [points[0].x, points[0].y] }
     })
 
     diffs.forEach((point) => {
       operations.push({
-        type: KCLOperationType.Line,
+        type: KclOperationType.Line,
         params: { point: [point.dx, point.dy] }
       })
     })
@@ -681,15 +681,15 @@ export class Converter {
     return operations
   }
 
-  private convertPolygonToKclOps(polygon: PolygonElement): KCLOperation[] {
+  private convertPolygonToKclOps(polygon: PolygonElement): KclOperation[] {
     if (polygon.points.length < 3) {
       throw new ConverterError('Polygon must have at least 3 points')
     }
 
-    const operations: KCLOperation[] = []
+    const operations: KclOperation[] = []
     const points = polygon.points.map((p) => p)
 
-    // SVG does polygons with chained absolute points, but our KCL call uses relative.
+    // SVG does polygons with chained absolute points, but our Kcl call uses relative.
     const diffs = points.reduce((acc, point, index, arr) => {
       if (index === 0) return acc
       acc.push({
@@ -701,22 +701,22 @@ export class Converter {
 
     // Push ops.
     operations.push({
-      type: KCLOperationType.StartSketch,
+      type: KclOperationType.StartSketch,
       params: { point: [points[0].x, points[0].y] }
     })
 
     diffs.forEach((point) => {
       operations.push({
-        type: KCLOperationType.Line,
+        type: KclOperationType.Line,
         params: { point: [point.dx, point.dy] }
       })
     })
 
-    operations.push({ type: KCLOperationType.Close, params: null })
+    operations.push({ type: KclOperationType.Close, params: null })
     return operations
   }
 
-  public convertElement(elements: Element[], targetElement: Element): KCLOperation[] {
+  public convertElement(elements: Element[], targetElement: Element): KclOperation[] {
     if (targetElement.type === ElementType.Group) {
       // For groups, just recurse to children without applying transforms.
       const group = targetElement as GroupElement
@@ -732,7 +732,7 @@ export class Converter {
     // Temporarily set the element's transform to the combined transform.
     targetElement.transform = combinedTransform
 
-    let opList: KCLOperation[] = []
+    let opList: KclOperation[] = []
 
     switch (targetElement.type) {
       case ElementType.Path:

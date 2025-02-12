@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@jest/globals'
 import path from 'path'
-import { convertSVGtoKCL } from '../src/main'
-import { KCLOptions } from '../src/types/kcl'
+import { convertSVGtoKcl } from '../src/main'
+import { KclOptions } from '../src/types/kcl'
 
-const options: KCLOptions = {
+const options: KclOptions = {
   centerOnViewBox: false
 }
 
@@ -15,7 +15,7 @@ describe('Validation of SVG', () => {
     const outputPath = path.join(dataDir, 'output.kcl')
 
     // Run the conversion and expect an error to be thrown.
-    await expect(convertSVGtoKCL(inputPath, outputPath, options)).rejects.toThrow(
+    await expect(convertSVGtoKcl(inputPath, outputPath, options)).rejects.toThrow(
       'Unsupported path command:'
     )
   })
@@ -25,7 +25,7 @@ describe('Validation of SVG', () => {
     const outputPath = path.join(dataDir, 'output.kcl')
 
     // Run the conversion and expect an error to be thrown.
-    await expect(convertSVGtoKCL(inputPath, outputPath, options)).rejects.toThrow(
+    await expect(convertSVGtoKcl(inputPath, outputPath, options)).rejects.toThrow(
       'Unsupported shape type:'
     )
   })

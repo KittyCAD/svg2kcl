@@ -1,148 +1,148 @@
 import { describe, expect, it } from '@jest/globals'
 import { promises as fsPromises } from 'node:fs'
 import path from 'path'
-import { convertSVGtoKCL } from '../src/main'
-import { KCLOptions } from '../src/types/kcl'
+import { convertSVGtoKcl } from '../src/main'
+import { KclOptions } from '../src/types/kcl'
 
-const options: KCLOptions = {
+const options: KclOptions = {
   centerOnViewBox: false
 }
 
 const dataDir = path.join(__dirname, 'data', 'elements')
 
-describe('SVG Basic Elements to KCL Conversion', () => {
+describe('SVG Basic Elements to Kcl Conversion', () => {
   // Actually a good test for fill rule.
-  //   it('should correctly convert basic_path.svg to KCL', async () => {
+  //   it('should correctly convert basic_path.svg to Kcl', async () => {
   //     const inputPath = path.join(dataDir, 'basic_path.svg')
   //     const outputPath = path.join(dataDir, 'output.kcl')
-  //     const expectedKCLPath = path.join(dataDir, 'basic_path.kcl')
+  //     const expectedKclPath = path.join(dataDir, 'basic_path.kcl')
 
   //     // Run the conversion
-  //     await convertSVGtoKCL(inputPath, outputPath, options)
-  //     const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-  //     const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+  //     await convertSVGtoKcl(inputPath, outputPath, options)
+  //     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+  //     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
   //     // Compare output with expected result
-  //     expect(actualKCL.trim()).toBe(expectedKCL.trim())
+  //     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   //   })
 
-  it('should correctly convert basic_rectangle.svg to KCL', async () => {
+  it('should correctly convert basic_rectangle.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_rectangle.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'basic_rectangle.kcl')
+    const expectedKclPath = path.join(dataDir, 'basic_rectangle.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_circle.svg to KCL', async () => {
+  it('should correctly convert basic_circle.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_circle.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'basic_circle.kcl')
+    const expectedKclPath = path.join(dataDir, 'basic_circle.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_line.svg to KCL', async () => {
+  it('should correctly convert basic_line.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_line.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'basic_line.kcl')
+    const expectedKclPath = path.join(dataDir, 'basic_line.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_polyline.svg to KCL', async () => {
+  it('should correctly convert basic_polyline.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_polyline.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'basic_polyline.kcl')
+    const expectedKclPath = path.join(dataDir, 'basic_polyline.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_polygon.svg to KCL', async () => {
+  it('should correctly convert basic_polygon.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_polygon.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'basic_polygon.kcl')
+    const expectedKclPath = path.join(dataDir, 'basic_polygon.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 })
 
-describe('SVG Group Elements to KCL Conversion', () => {
-  it('should correctly convert basic_group.svg to KCL', async () => {
+describe('SVG Group Elements to Kcl Conversion', () => {
+  it('should correctly convert basic_group.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_group.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'basic_group.kcl')
+    const expectedKclPath = path.join(dataDir, 'basic_group.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert nested_group.svg to KCL', async () => {
+  it('should correctly convert nested_group.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'nested_group.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'nested_group.kcl')
+    const expectedKclPath = path.join(dataDir, 'nested_group.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 })
 
-describe('SVG Complex Cases to KCL Conversion', () => {
-  it('should correctly convert mixed_elements.svg to KCL', async () => {
+describe('SVG Complex Cases to Kcl Conversion', () => {
+  it('should correctly convert mixed_elements.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'mixed_elements.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'mixed_elements.kcl')
+    const expectedKclPath = path.join(dataDir, 'mixed_elements.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert compound_path.svg to KCL', async () => {
+  it('should correctly convert compound_path.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'compound_path.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKCLPath = path.join(dataDir, 'compound_path.kcl')
+    const expectedKclPath = path.join(dataDir, 'compound_path.kcl')
 
-    await convertSVGtoKCL(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    await convertSVGtoKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
   it('should throw error for polyline with less than 2 points', async () => {
     const inputPath = path.join(dataDir, 'invalid_polyline.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
 
-    await expect(convertSVGtoKCL(inputPath, outputPath, options)).rejects.toThrow(
+    await expect(convertSVGtoKcl(inputPath, outputPath, options)).rejects.toThrow(
       'Polyline must have at least 2 points'
     )
   })
@@ -151,7 +151,7 @@ describe('SVG Complex Cases to KCL Conversion', () => {
     const inputPath = path.join(dataDir, 'invalid_polygon.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
 
-    await expect(convertSVGtoKCL(inputPath, outputPath, options)).rejects.toThrow(
+    await expect(convertSVGtoKcl(inputPath, outputPath, options)).rejects.toThrow(
       'Polygon must have at least 3 points'
     )
   })

@@ -2,10 +2,10 @@ import {
   BezierCurveParams,
   CircleParams,
   HoleParams,
-  KCLOperation,
-  KCLOperationType,
-  KCLOutput,
-  KCLShape,
+  KclOperation,
+  KclOperationType,
+  KclOutput,
+  KclShape,
   LineToParams,
   StartSketchOnParams,
   StartSketchParams
@@ -52,34 +52,34 @@ export class Formatter {
     return params && 'operations' in params && Array.isArray(params.operations)
   }
 
-  private formatOperation(operation: KCLOperation): string {
-    if (!operation.params && operation.type !== KCLOperationType.Close) {
+  private formatOperation(operation: KclOperation): string {
+    if (!operation.params && operation.type !== KclOperationType.Close) {
       throw new FormatterError(`Missing parameters for operation type: ${operation.type}`)
     }
 
     switch (operation.type) {
-      case KCLOperationType.StartSketch: {
+      case KclOperationType.StartSketch: {
         if (!this.isStartSketchParams(operation.params)) {
           throw new FormatterError('Invalid StartSketch parameters')
         }
         return `startSketchAt(${this.formatPoint(operation.params.point)})`
       }
 
-      case KCLOperationType.StartSketchOn: {
+      case KclOperationType.StartSketchOn: {
         if (!this.isStartSketchOnParams(operation.params)) {
           throw new FormatterError('Invalid StartSketchOn parameters')
         }
         return `startSketchOn("${operation.params.plane}")`
       }
 
-      case KCLOperationType.Line: {
+      case KclOperationType.Line: {
         if (!this.isLineToParams(operation.params)) {
           throw new FormatterError('Invalid Line parameters')
         }
         return `|> line(end = ${this.formatPoint(operation.params.point)})`
       }
 
-      case KCLOperationType.BezierCurve: {
+      case KclOperationType.BezierCurve: {
         if (!this.isBezierCurveParams(operation.params)) {
           throw new FormatterError('Invalid BezierCurve parameters')
         }
@@ -90,7 +90,7 @@ export class Formatter {
     }, %)`
       }
 
-      case KCLOperationType.Circle: {
+      case KclOperationType.Circle: {
         if (!this.isCircleParams(operation.params)) {
           throw new FormatterError('Invalid Circle parameters')
         }
@@ -100,10 +100,10 @@ export class Formatter {
         } }, %)`
       }
 
-      case KCLOperationType.Close:
+      case KclOperationType.Close:
         return '|> close()'
 
-      case KCLOperationType.Hole: {
+      case KclOperationType.Hole: {
         if (!this.isHoleParams(operation.params)) {
           throw new FormatterError('Invalid Hole parameters')
         }
@@ -114,7 +114,7 @@ export class Formatter {
         ${holeOps}, %)`
       }
 
-      case KCLOperationType.Arc: {
+      case KclOperationType.Arc: {
         if (
           !operation.params ||
           !('radius' in operation.params) ||
@@ -125,7 +125,7 @@ export class Formatter {
         return `|> arc({ radius = ${operation.params.radius}, angle = ${operation.params.angle} }, %)`
       }
 
-      case KCLOperationType.TangentialArc: {
+      case KclOperationType.TangentialArc: {
         if (!operation.params || !('radius' in operation.params)) {
           throw new FormatterError('Invalid TangentialArc parameters')
         }
@@ -135,21 +135,21 @@ export class Formatter {
         return `|> tangentialArc({ radius = ${operation.params.radius}, offset = ${operation.params.offset} }, %)`
       }
 
-      case KCLOperationType.XLineTo: {
+      case KclOperationType.XLineTo: {
         if (!operation.params || !('x' in operation.params)) {
           throw new FormatterError('Invalid XLineTo parameters')
         }
         return `|> xLineTo({ x = ${operation.params.x} }, %)`
       }
 
-      case KCLOperationType.YLineTo: {
+      case KclOperationType.YLineTo: {
         if (!operation.params || !('y' in operation.params)) {
           throw new FormatterError('Invalid YLineTo parameters')
         }
         return `|> yLineTo({ y = ${operation.params.y} }, %)`
       }
 
-      case KCLOperationType.Polygon: {
+      case KclOperationType.Polygon: {
         if (
           !operation.params ||
           !('sides' in operation.params) ||
@@ -165,7 +165,7 @@ export class Formatter {
     }
   }
 
-  private formatShape(shape: KCLShape): string {
+  private formatShape(shape: KclShape): string {
     const operations = shape.operations.map((op) => this.formatOperation(op))
 
     if (shape.variable) {
@@ -175,7 +175,7 @@ export class Formatter {
     return operations.join('\n  ')
   }
 
-  public format(output: KCLOutput): string {
+  public format(output: KclOutput): string {
     return output.shapes.map((shape) => this.formatShape(shape)).join('\n\n')
   }
 }

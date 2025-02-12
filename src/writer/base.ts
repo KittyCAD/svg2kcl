@@ -1,5 +1,5 @@
 import { KclOptions, KclOutput, KclShape } from '../types/kcl'
-import { SVG } from '../types/svg'
+import { Svg } from '../types/svg'
 import { Converter } from './converter'
 import { Formatter } from './formatter'
 
@@ -15,7 +15,7 @@ export class KclWriter {
   private converter: Converter
   private formatter: Formatter
 
-  constructor(private svg: SVG, private options: KclOptions = {}) {
+  constructor(private svg: Svg, private options: KclOptions = {}) {
     this.converter = new Converter(options, svg.viewBox)
     this.formatter = new Formatter()
   }
@@ -30,7 +30,7 @@ export class KclWriter {
         shapes: []
       }
 
-      // Convert each element to Kcl operation.
+      // Convert each element to KCL operation.
       for (const element of this.svg.elements) {
         const operations = this.converter.convertElement(this.svg.elements, element)
         if (operations.length > 0) {
@@ -42,7 +42,7 @@ export class KclWriter {
         }
       }
 
-      // Format the output into Kcl code
+      // Format the output into KCL code
       return this.formatter.format(output)
     } catch (error) {
       throw new KclWriteError(

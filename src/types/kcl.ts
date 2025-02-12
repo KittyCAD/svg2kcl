@@ -1,6 +1,6 @@
 import { Plane3D } from './base'
 
-// Options that control Kcl output generation.
+// Options that control KCL output generation.
 export interface KclOptions {
   centerOnViewBox?: boolean
 }
@@ -21,7 +21,7 @@ export enum KclOperationType {
   Hole = 'hole'
 }
 
-// Parameters for different Kcl operations.
+// Parameters for different KCL operations.
 export interface StartSketchParams {
   point: [number, number]
 }
@@ -88,19 +88,19 @@ export type KclOperationParams =
   | HoleParams
   | null // For operations like close that have no parameters.
 
-// A single Kcl operation.
+// A single KCL operation.
 export interface KclOperation {
   type: KclOperationType
   params: KclOperationParams
 }
 
-// A complete Kcl shape definition.
+// A complete KCL shape definition.
 export interface KclShape {
   operations: KclOperation[]
   variable?: string // The variable name this shape is assigned to, if any.
 }
 
-// The complete Kcl output.
+// The complete KCL output.
 export interface KclOutput {
   shapes: KclShape[]
 }

@@ -128,7 +128,7 @@ export class Converter {
     const transformedStart = transform.transformPoint(this.currentPoint)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Calculate relative position from transformed points for Kcl output
+    // Calculate relative position from transformed points for KCL output
     const relativeEnd = {
       x: transformedEnd.x - transformedStart.x,
       y: transformedEnd.y - transformedStart.y
@@ -182,7 +182,7 @@ export class Converter {
     const transformedControl1 = transform.transformPoint(absoluteControl1)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert quadratic to cubic Bézier control points for Kcl.
+    // Convert quadratic to cubic Bézier control points for KCL.
     // See: https://stackoverflow.com/questions/3162645/convert-a-quadratic-bezier-to-a-cubic-one
     const cp1x = transformedStart.x + (2 / 3) * (transformedControl1.x - transformedStart.x)
     const cp1y = transformedStart.y + (2 / 3) * (transformedControl1.y - transformedStart.y)
@@ -190,7 +190,7 @@ export class Converter {
     const cp2x = transformedEnd.x + (2 / 3) * (transformedControl1.x - transformedEnd.x)
     const cp2y = transformedEnd.y + (2 / 3) * (transformedControl1.y - transformedEnd.y)
 
-    // Convert to relative positions for Kcl output.
+    // Convert to relative positions for KCL output.
     const relativeControl1 = {
       x: cp1x - transformedStart.x,
       y: cp1y - transformedStart.y
@@ -260,7 +260,7 @@ export class Converter {
     const transformedControl2 = transform.transformPoint(absoluteControl2)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert to relative positions for Kcl output.
+    // Convert to relative positions for KCL output.
     const relativeControl1 = {
       x: transformedControl1.x - transformedStart.x,
       y: transformedControl1.y - transformedStart.y
@@ -326,14 +326,14 @@ export class Converter {
     const transformedControl1 = transform.transformPoint(absoluteControl1)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert quadratic to cubic Bézier control points for Kcl.
+    // Convert quadratic to cubic Bézier control points for KCL.
     const cp1x = transformedStart.x + (2 / 3) * (transformedControl1.x - transformedStart.x)
     const cp1y = transformedStart.y + (2 / 3) * (transformedControl1.y - transformedStart.y)
 
     const cp2x = transformedEnd.x + (2 / 3) * (transformedControl1.x - transformedEnd.x)
     const cp2y = transformedEnd.y + (2 / 3) * (transformedControl1.y - transformedEnd.y)
 
-    // Convert to relative positions for Kcl output.
+    // Convert to relative positions for KCL output.
     const relativeControl1 = {
       x: cp1x - transformedStart.x,
       y: cp1y - transformedStart.y
@@ -402,7 +402,7 @@ export class Converter {
     const transformedControl2 = transform.transformPoint(absoluteControl2)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Convert to relative positions for Kcl output.
+    // Convert to relative positions for KCL output.
     const relativeControl1 = {
       x: transformedControl1.x - transformedStart.x,
       y: transformedControl1.y - transformedStart.y
@@ -556,7 +556,7 @@ export class Converter {
     const { x, y, width, height, rx, ry } = rect
 
     if (!rx && !ry) {
-      // Regular rectangle, drawn clockwise, y+ve down. Note our Kcl line op is relative.
+      // Regular rectangle, drawn clockwise, y+ve down. Note our KCL line op is relative.
       const points: [number, number][] = [
         [x, y],
         [width, 0],
@@ -631,7 +631,7 @@ export class Converter {
   private convertLineToKclOps(line: LineElement): KclOperation[] {
     this.currentPoint = line.end
 
-    // Lines are relative in our Kcl call, but absolute in SVG.
+    // Lines are relative in our KCL call, but absolute in SVG.
     const deltaX = line.end.x - line.start.x
     const deltaY = line.end.y - line.start.y
 
@@ -655,7 +655,7 @@ export class Converter {
     const operations: KclOperation[] = []
     const points = polyline.points.map((p) => p)
 
-    // Lines are relative in our Kcl call, but absolute in SVG. Need a backwards diff.
+    // Lines are relative in our KCL call, but absolute in SVG. Need a backwards diff.
     const diffs = points.reduce((acc, point, index, arr) => {
       if (index === 0) return acc
       acc.push({
@@ -689,7 +689,7 @@ export class Converter {
     const operations: KclOperation[] = []
     const points = polygon.points.map((p) => p)
 
-    // SVG does polygons with chained absolute points, but our Kcl call uses relative.
+    // SVG does polygons with chained absolute points, but our KCL call uses relative.
     const diffs = points.reduce((acc, point, index, arr) => {
       if (index === 0) return acc
       acc.push({

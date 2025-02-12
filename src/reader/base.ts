@@ -1,19 +1,19 @@
 import { XMLParser } from 'fast-xml-parser'
 import { promises as fs } from 'node:fs'
 import { Element, ElementType, GroupElement } from '../types/elements'
-import { RawSVGElement, SVG } from '../types/svg'
+import { RawSvgElement, Svg } from '../types/svg'
 import { Transform } from '../utils/transform'
 import { PathReader } from './path'
 import { ShapeReader } from './shape'
 
-export class SVGReadError extends Error {
+export class SvgReadError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'SVGReadError'
+    this.name = 'SvgReadError'
   }
 }
 
-export class SVGReader {
+export class SvgReader {
   private xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: ''
@@ -30,7 +30,7 @@ export class SVGReader {
     return type === ElementType.Group
   }
 
-  private readGroup(element: RawSVGElement): GroupElement {
+  private readGroup(element: RawSvgElement): GroupElement {
     return {
       type: ElementType.Group,
       children: element.children ? element.children.map((child) => this.readElement(child)) : [],
@@ -40,8 +40,8 @@ export class SVGReader {
     }
   }
 
-  private processElement(element: any, type: string): RawSVGElement[] {
-    const elements: RawSVGElement[] = []
+  private processElement(element: any, type: string): RawSvgElement[] {
+    const elements: RawSvgElement[] = []
 
     // If element is an array of direct children (common in parsed SVGs)
     if (Array.isArray(element)) {
@@ -53,7 +53,7 @@ export class SVGReader {
 
     // Handle groups and geometric elements
     if (this.isGeometricElement(type) || this.isGroupElement(type)) {
-      const rawElement: RawSVGElement = {
+      const rawElement: RawSvgElement = {
         type: type as ElementType,
         attributes: element,
         children: []
@@ -70,8 +70,8 @@ export class SVGReader {
     return elements
   }
 
-  private extractElementsFromGroup(group: any): RawSVGElement[] {
-    const elements: RawSVGElement[] = []
+  private extractElementsFromGroup(group: any): RawSvgElement[] {
+    const elements: RawSvgElement[] = []
 
     // Process all properties of the group
     for (const [key, value] of Object.entries(group)) {
@@ -96,13 +96,13 @@ export class SVGReader {
     return elements
   }
 
-  private extractElements(parsed: any): RawSVGElement[] {
+  private extractElements(parsed: any): RawSvgElement[] {
     if (!parsed.svg) {
-      throw new SVGReadError('No SVG element found')
+      throw new SvgReadError('No SVG element found')
     }
 
     // Create root SVG element
-    const svgElement: RawSVGElement = {
+    const svgElement: RawSvgElement = {
       type: 'svg',
       attributes: parsed.svg,
       children: []
@@ -114,7 +114,7 @@ export class SVGReader {
     return [svgElement]
   }
 
-  private readElement(element: RawSVGElement): Element {
+  private readElement(element: RawSvgElement): Element {
     let output: Element
 
     switch (element.type) {
@@ -138,11 +138,11 @@ export class SVGReader {
     return output
   }
 
-  public readString(content: string): SVG {
+  public readString(content: string): Svg {
     const parsed = this.xmlParser.parse(content)
 
     if (!parsed.svg) {
-      throw new SVGReadError('No SVG element found')
+      throw new SvgReadError('No SVG element found')
     }
 
     // Extract full element hierarchy
@@ -179,12 +179,12 @@ export class SVGReader {
     }
   }
 
-  public async readFile(filepath: string): Promise<SVG> {
+  public async readFile(filepath: string): Promise<Svg> {
     try {
       const content = await fs.readFile(filepath, 'utf8')
       return this.readString(content)
     } catch (error) {
-      throw new SVGReadError(`Failed to read SVG file ${filepath}: ${error}`)
+      throw new SvgReadError(`Failed to read Svg file ${filepath}: ${error}`)
     }
   }
 }

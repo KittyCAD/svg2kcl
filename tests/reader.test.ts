@@ -1,12 +1,12 @@
 import { describe, expect, it } from '@jest/globals'
 import path from 'path'
-import { SVGReader, SVGReadError } from '../src/reader/base'
+import { SvgReader, SvgReadError } from '../src/reader/base'
 import { ElementType } from '../src/types/elements'
 
 const dataDir = path.join(__dirname, 'data', 'elements')
 
-describe('SVGReader', () => {
-  const reader = new SVGReader()
+describe('SvgReader', () => {
+  const reader = new SvgReader()
 
   describe('Basic Element Reading', () => {
     it('should correctly read basic_path.svg', async () => {
@@ -144,7 +144,7 @@ describe('SVGReader', () => {
   describe('Error Cases', () => {
     it('should throw error for non-existent file', async () => {
       const filepath = path.join(dataDir, 'non_existent.svg')
-      await expect(reader.readFile(filepath)).rejects.toThrow(SVGReadError)
+      await expect(reader.readFile(filepath)).rejects.toThrow(SvgReadError)
     })
 
     it('should correctly read invalid_polyline.svg without throwing', async () => {
@@ -165,7 +165,7 @@ describe('SVGReader', () => {
 
     it('should throw error for invalid XML', async () => {
       const filepath = path.join(dataDir, 'invalid.svg')
-      await expect(reader.readFile(filepath)).rejects.toThrow(SVGReadError)
+      await expect(reader.readFile(filepath)).rejects.toThrow(SvgReadError)
     })
   })
 })

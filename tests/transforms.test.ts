@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals'
 import { promises as fsPromises } from 'node:fs'
 import path from 'path'
-import { convertSVGtoKcl } from '../src/main'
+import { convertSvgtoKcl } from '../src/main'
 import { KclOptions } from '../src/types/kcl'
 
 const options: KclOptions = {
@@ -10,14 +10,14 @@ const options: KclOptions = {
 
 const dataDir = path.join(__dirname, 'data', 'transforms')
 
-describe('SVG to Kcl Conversion', () => {
+describe('Svg to Kcl Conversion', () => {
   it('should correctly convert basic_transform.svg to Kcl', async () => {
     const inputPath = path.join(dataDir, 'basic_transform.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_transform.kcl')
 
     // Run the conversion.
-    await convertSVGtoKcl(inputPath, outputPath, options)
+    await convertSvgtoKcl(inputPath, outputPath, options)
     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
@@ -31,7 +31,7 @@ describe('SVG to Kcl Conversion', () => {
     const expectedKclPath = path.join(dataDir, 'skew.kcl')
 
     // Run the conversion.
-    await convertSVGtoKcl(inputPath, outputPath, options)
+    await convertSvgtoKcl(inputPath, outputPath, options)
     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
@@ -45,7 +45,7 @@ describe('SVG to Kcl Conversion', () => {
     const expectedKclPath = path.join(dataDir, 'group_transform.kcl')
 
     // Run the conversion.
-    await convertSVGtoKcl(inputPath, outputPath, options)
+    await convertSvgtoKcl(inputPath, outputPath, options)
     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
@@ -59,7 +59,7 @@ describe('SVG to Kcl Conversion', () => {
     const expectedKclPath = path.join(dataDir, 'nested_group_transform.kcl')
 
     // Run the conversion.
-    await convertSVGtoKcl(inputPath, outputPath, options)
+    await convertSvgtoKcl(inputPath, outputPath, options)
     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
@@ -73,7 +73,7 @@ describe('SVG to Kcl Conversion', () => {
     const expectedKclPath = path.join(dataDir, 'matrix_transform.kcl')
 
     // Run the conversion.
-    await convertSVGtoKcl(inputPath, outputPath, options)
+    await convertSvgtoKcl(inputPath, outputPath, options)
     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
@@ -87,7 +87,7 @@ describe('SVG to Kcl Conversion', () => {
     const expectedKclPath = path.join(dataDir, 'mixed_transforms.kcl')
 
     // Run the conversion.
-    await convertSVGtoKcl(inputPath, outputPath, options)
+    await convertSvgtoKcl(inputPath, outputPath, options)
     const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 

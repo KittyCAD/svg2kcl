@@ -31,7 +31,7 @@ export interface PathCommand {
 }
 
 // The SVG path commands and our nicer names.
-export const SVGPathCommandMap: Record<string, PathCommandType> = {
+export const SvgPathCommandMap: Record<string, PathCommandType> = {
   A: PathCommandType.EllipticalArcAbsolute,
   a: PathCommandType.EllipticalArcRelative,
   C: PathCommandType.CubicBezierAbsolute,
@@ -54,8 +54,8 @@ export const SVGPathCommandMap: Record<string, PathCommandType> = {
   z: PathCommandType.StopRelative
 }
 
-export const PathCommandTypeToSVGPathCommandMap: Record<PathCommandType, string> = Object.entries(
-  SVGPathCommandMap
+export const PathCommandTypeToSvgPathCommandMap: Record<PathCommandType, string> = Object.entries(
+  SvgPathCommandMap
 ).reduce((acc, [key, value]) => {
   acc[value] = key
   return acc

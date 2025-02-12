@@ -1,7 +1,7 @@
-import { SVGPathParser } from '../parsers/path'
+import { SvgPathParser } from '../parsers/path'
 import { FillRule } from '../types/base'
 import { ElementType, PathElement } from '../types/elements'
-import { RawSVGElement } from '../types/svg'
+import { RawSvgElement } from '../types/svg'
 import { Transform } from '../utils/transform'
 
 export class PathReadError extends Error {
@@ -18,13 +18,13 @@ export interface RawPathData {
 }
 
 export class PathReader {
-  private pathParser: SVGPathParser
+  private pathParser: SvgPathParser
 
   constructor() {
-    this.pathParser = new SVGPathParser()
+    this.pathParser = new SvgPathParser()
   }
 
-  public readAttributes(element: RawSVGElement): RawPathData {
+  public readAttributes(element: RawSvgElement): RawPathData {
     if (element.type !== ElementType.Path) {
       throw new PathReadError('Element is not a path')
     }
@@ -52,7 +52,7 @@ export class PathReader {
     }
   }
 
-  public readStyleAttributes(element: RawSVGElement): Partial<RawPathData> {
+  public readStyleAttributes(element: RawSvgElement): Partial<RawPathData> {
     const style = element.attributes['style']
     if (!style) {
       return {}
@@ -80,7 +80,7 @@ export class PathReader {
     return result
   }
 
-  public read(element: RawSVGElement): PathElement {
+  public read(element: RawSvgElement): PathElement {
     const rawData = this.readAttributes(element)
     const styleData = this.readStyleAttributes(element)
     const mergedData = {

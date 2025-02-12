@@ -1,5 +1,5 @@
 import { FillRule, Point } from '../types/base'
-import { PathCommandType, SVGPathCommandMap } from '../types/path'
+import { PathCommandType, SvgPathCommandMap } from '../types/path'
 import { Transform } from '../utils/transform'
 import { ParseError } from './exceptions'
 
@@ -31,7 +31,7 @@ interface PathState {
   isValuePushed: boolean
 }
 
-export class SVGPathParser {
+export class SvgPathParser {
   private state: PathState
   private path!: ParsedPath
   private transform: Transform
@@ -74,7 +74,7 @@ export class SVGPathParser {
   }
 
   private handleCommandChar(char: string): void {
-    const command = SVGPathCommandMap[char]
+    const command = SvgPathCommandMap[char]
 
     // Check if this command is supported.
     if (UNSUPPORTED_COMMANDS.includes(command)) {
@@ -113,7 +113,7 @@ export class SVGPathParser {
   }
 
   private handleChar(char: string): void {
-    if (char in SVGPathCommandMap) {
+    if (char in SvgPathCommandMap) {
       this.handleCommandChar(char)
     } else if (char === '-') {
       this.handleNegative()

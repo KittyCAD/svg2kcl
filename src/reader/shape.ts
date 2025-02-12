@@ -7,7 +7,7 @@ import {
   PolylineElement,
   RectangleElement
 } from '../types/elements'
-import { RawSVGElement } from '../types/svg'
+import { RawSvgElement } from '../types/svg'
 
 import { parseNumber, parsePoints } from '../parsers/values'
 import { Transform } from '../utils/transform'
@@ -20,7 +20,7 @@ export class ShapeReadError extends Error {
 }
 
 export class ShapeReader {
-  private readRectangle(element: RawSVGElement): RectangleElement {
+  private readRectangle(element: RawSvgElement): RectangleElement {
     return {
       type: ElementType.Rectangle,
       x: parseNumber(element.attributes['x'], 'x'),
@@ -33,7 +33,7 @@ export class ShapeReader {
     }
   }
 
-  private readCircle(element: RawSVGElement): CircleElement {
+  private readCircle(element: RawSvgElement): CircleElement {
     return {
       type: ElementType.Circle,
       center: {
@@ -45,7 +45,7 @@ export class ShapeReader {
     }
   }
 
-  private readLine(element: RawSVGElement): LineElement {
+  private readLine(element: RawSvgElement): LineElement {
     return {
       type: ElementType.Line,
       start: {
@@ -60,7 +60,7 @@ export class ShapeReader {
     }
   }
 
-  private readPolyline(element: RawSVGElement): PolylineElement {
+  private readPolyline(element: RawSvgElement): PolylineElement {
     const pointsStr = element.attributes['points']
     if (!pointsStr) {
       throw new ShapeReadError('Missing points attribute')
@@ -73,7 +73,7 @@ export class ShapeReader {
     }
   }
 
-  private readPolygon(element: RawSVGElement): PolygonElement {
+  private readPolygon(element: RawSvgElement): PolygonElement {
     const pointsStr = element.attributes['points']
     if (!pointsStr) {
       throw new ShapeReadError('Missing points attribute')
@@ -86,7 +86,7 @@ export class ShapeReader {
     }
   }
 
-  public read(element: RawSVGElement): Element {
+  public read(element: RawSvgElement): Element {
     switch (element.type) {
       case ElementType.Circle:
         return this.readCircle(element)

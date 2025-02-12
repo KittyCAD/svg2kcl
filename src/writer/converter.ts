@@ -14,6 +14,7 @@ import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/path'
 import { separateSubpaths } from '../utils/geometry'
 import { getCombinedTransform, Transform } from '../utils/transform'
+import { WindingAnalyzer } from '../utils/winding'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -26,6 +27,7 @@ export class Converter {
   private previousControlPoint: Point | null = null
   private currentPoint: Point = { x: 0, y: 0 }
   private readonly offsetCoords: Point
+  private readonly windingAnalyzer: WindingAnalyzer
 
   constructor(private options: KclOptions = {}, viewBox: ViewBox) {
     // Calculate offset coordinates for centering if requested.
@@ -33,6 +35,9 @@ export class Converter {
     const yOffset = viewBox.yMin + viewBox.height / 2
     this.offsetCoords = { x: xOffset, y: yOffset }
     this.options = options
+
+    // Initialize winding analyzer.
+    this.windingAnalyzer = new WindingAnalyzer()
   }
 
   // Utilities used in conversion.
@@ -507,14 +512,12 @@ export class Converter {
     const transform = path.transform!
 
     if (path.fillRule === FillRule.EvenOdd) {
-      // Even-odd fill rule - first subpath is outline, rest are holes.
+      // Keep existing even-odd implementation
       const subpaths = separateSubpaths(path)
       const [outline, ...holes] = subpaths
 
-      // Convert outline.
       operations.push(...this.convertPathCommandsToKclOps(outline.commands, transform))
 
-      // Convert holes.
       holes.forEach((hole) => {
         operations.push({
           type: KclOperationType.Hole,
@@ -524,28 +527,15 @@ export class Converter {
         })
       })
     } else {
-      // Nonzero fill rule - use winding direction.
+      // Use new nonzero implementation
       const subpaths = separateSubpaths(path)
-      const [first, ...rest] = subpaths
-      const baseClockwise = first.isClockwise
-
-      // Convert first path.
-      operations.push(...this.convertPathCommandsToKclOps(first.commands, transform))
-
-      // Rest are holes if opposite winding, separate shapes if same.
-      rest.forEach((subpath) => {
-        const subpathOps = this.convertPathCommandsToKclOps(subpath.commands, transform)
-        if (subpath.isClockwise === baseClockwise) {
-          // Same winding - separate shape.
-          operations.push(...subpathOps)
-        } else {
-          // Opposite winding - hole.
-          operations.push({
-            type: KclOperationType.Hole,
-            params: { operations: subpathOps }
-          })
-        }
-      })
+      operations.push(
+        ...this.windingAnalyzer.analyzeNonzeroPath(
+          subpaths,
+          transform,
+          this.convertPathCommandsToKclOps.bind(this)
+        )
+      )
     }
 
     return operations

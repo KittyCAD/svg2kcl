@@ -1,0 +1,41 @@
+import { describe, expect, it } from '@jest/globals'
+import { promises as fsPromises } from 'node:fs'
+import path from 'path'
+import { convertSvgToKcl } from '../src/main'
+import { KclOptions } from '../src/types/kcl'
+
+const options: KclOptions = {
+  centerOnViewBox: false
+}
+
+const dataDir = path.join(__dirname, 'data', 'fillrule')
+
+describe('SVG Fill Rule Tests', () => {
+  it('should correctly convert nonzero_basic.svg to KCL', async () => {
+    const inputPath = path.join(dataDir, 'nonzero_basic.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+    const expectedKclPath = path.join(dataDir, 'nonzero_basic.kcl')
+
+    // Run the conversion.
+    await convertSvgToKcl(inputPath, outputPath, options)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  })
+
+  it('should correctly convert nonzero_hole.svg to KCL', async () => {
+    const inputPath = path.join(dataDir, 'nonzero_hole.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+    const expectedKclPath = path.join(dataDir, 'nonzero_hole.kcl')
+
+    // Run the conversion.
+    await convertSvgToKcl(inputPath, outputPath, options)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  })
+})

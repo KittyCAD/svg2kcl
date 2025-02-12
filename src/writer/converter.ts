@@ -717,7 +717,13 @@ export class Converter {
   }
 
   public convertElement(elements: Element[], targetElement: Element): KCLOperation[] {
-    // Get the combined transform by walking up through the groups
+    if (targetElement.type === ElementType.Group) {
+      // For groups, just recurse to children without applying transforms.
+      const group = targetElement as GroupElement
+      return group.children.flatMap((child) => this.convertElement(elements, child))
+    }
+
+    // Only get combined transform when we hit a leaf node (renderable non-group element).
     const combinedTransform = getCombinedTransform(elements, targetElement)
 
     // Store the original transform.
@@ -747,18 +753,13 @@ export class Converter {
       case ElementType.Polygon:
         opList = this.convertPolygonToKclOps(targetElement as PolygonElement)
         break
-      case ElementType.Group:
-        // Recursively convert children.
-        const group = targetElement as GroupElement
-        opList = group.children.flatMap((child) => this.convertElement(elements, child))
-        break
       default: {
         const exhaustiveCheck: never = targetElement
         throw new ConverterError(`Unsupported element type: ${(targetElement as any).type}`)
       }
     }
 
-    // Restore the original transform.
+    // Restore the original transform
     targetElement.transform = originalTransform
 
     return opList

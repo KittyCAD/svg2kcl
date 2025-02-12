@@ -1,4 +1,5 @@
 import { Element } from '../types/elements'
+import { Point } from '../types/base'
 
 export class Matrix {
   // https://www.w3.org/TR/SVG11/coords.html
@@ -108,6 +109,19 @@ export class Transform {
   // Get the underlying matrix.
   toMatrix(): Matrix {
     return this.matrix
+  }
+
+  // Actually use this transform to transform a point.
+  transformPoint(point: Point): Point {
+    if (!this.matrix) {
+      return point
+    }
+
+    const { a, b, c, d, e, f } = this.matrix
+    return {
+      x: a * point.x + c * point.y + e,
+      y: b * point.x + d * point.y + f
+    }
   }
 
   // Parse SVG transform string.

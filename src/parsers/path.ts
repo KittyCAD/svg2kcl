@@ -158,27 +158,27 @@ export class SVGPathParser {
     this.state.valueBuffer = ''
   }
 
-  private transformChunk(chunk: number[], chunkSize: number): number[] {
-    // Don't transform if no transform matrix
-    if (!this.transform) return chunk
+  private transformParameters(parameters: number[]): number[] {
+    // Don't transform if no transform matrix.
+    if (!this.transform) return parameters
 
-    // Transform pairs of coordinates
+    // Transform pairs of coordinates.
     const transformed: number[] = []
-    for (let i = 0; i < chunk.length; i += 2) {
-      if (i + 1 < chunk.length) {
-        // If we have a pair of coordinates, transform them
-        const point = this.applyTransform({ x: chunk[i], y: chunk[i + 1] })
+    for (let i = 0; i < parameters.length; i += 2) {
+      if (i + 1 < parameters.length) {
+        // If we have a pair of coordinates, transform them.
+        const point = this.applyTransform({ x: parameters[i], y: parameters[i + 1] })
         transformed.push(point.x, point.y)
       } else {
-        // For single values (like in H/V commands), pass through
-        transformed.push(chunk[i])
+        // For single values (like in H/V commands), pass through.
+        transformed.push(parameters[i])
       }
     }
     return transformed
   }
 
   private processValues(parameters: number[]): void {
-    let transformedChunk = [...parameters]
+    let transformedParameters = [...parameters]
 
     // Transform absolute coordinates.
     switch (this.state.command) {
@@ -187,12 +187,12 @@ export class SVGPathParser {
       case PathCommandType.CubicBezierAbsolute:
       case PathCommandType.QuadraticBezierAbsolute:
       case PathCommandType.EllipticalArcAbsolute:
-        transformedChunk = this.transformChunk(parameters, 2)
+        transformedParameters = this.transformParameters(parameters)
         break
       case PathCommandType.HorizontalLineAbsolute:
         if (this.transform) {
           // For H, transform considering current X.
-          transformedChunk = [
+          transformedParameters = [
             this.applyTransform({ x: parameters[0], y: this.state.currentPoint.y }).x
           ]
         }
@@ -200,7 +200,7 @@ export class SVGPathParser {
       case PathCommandType.VerticalLineAbsolute:
         if (this.transform) {
           // For V, transform considering current Y.
-          transformedChunk = [
+          transformedParameters = [
             this.applyTransform({ x: this.state.currentPoint.x, y: parameters[0] }).y
           ]
         }
@@ -211,31 +211,31 @@ export class SVGPathParser {
     switch (this.state.command) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.LineAbsolute:
-        this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
+        this.state.currentPoint = { x: transformedParameters[0], y: transformedParameters[1] }
         if (this.state.command === PathCommandType.MoveAbsolute && !this.path.commands.length) {
           this.path.startPosition = { ...this.state.currentPoint }
         }
         break
       case PathCommandType.HorizontalLineAbsolute:
-        this.state.currentPoint.x = transformedChunk[0]
+        this.state.currentPoint.x = transformedParameters[0]
         break
       case PathCommandType.VerticalLineAbsolute:
-        this.state.currentPoint.y = transformedChunk[0]
+        this.state.currentPoint.y = transformedParameters[0]
         break
       case PathCommandType.CubicBezierAbsolute:
-        this.state.currentPoint = { x: transformedChunk[4], y: transformedChunk[5] }
+        this.state.currentPoint = { x: transformedParameters[4], y: transformedParameters[5] }
         break
       case PathCommandType.QuadraticBezierAbsolute:
-        this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
+        this.state.currentPoint = { x: transformedParameters[2], y: transformedParameters[3] }
         break
       case PathCommandType.CubicBezierSmoothAbsolute:
-        this.state.currentPoint = { x: transformedChunk[2], y: transformedChunk[3] }
+        this.state.currentPoint = { x: transformedParameters[2], y: transformedParameters[3] }
         break
       case PathCommandType.QuadraticBezierSmoothAbsolute:
-        this.state.currentPoint = { x: transformedChunk[0], y: transformedChunk[1] }
+        this.state.currentPoint = { x: transformedParameters[0], y: transformedParameters[1] }
         break
       case PathCommandType.EllipticalArcAbsolute:
-        this.state.currentPoint = { x: transformedChunk[5], y: transformedChunk[6] }
+        this.state.currentPoint = { x: transformedParameters[5], y: transformedParameters[6] }
         break
     }
 
@@ -284,13 +284,13 @@ export class SVGPathParser {
     // Push the command with transformed values for absolute commands.
     this.path.commands.push({
       type: this.state.command,
-      parameters: this.state.command.endsWith('Absolute') ? transformedChunk : parameters,
+      parameters: this.state.command.endsWith('Absolute') ? transformedParameters : parameters,
       position: { ...this.state.currentPoint }
     })
   }
 
   private handleCommand(): void {
-    const chunkSizeMap = {
+    const parameterCountMap = {
       [PathCommandType.MoveAbsolute]: 2,
       [PathCommandType.MoveRelative]: 2,
       [PathCommandType.LineAbsolute]: 2,
@@ -315,18 +315,18 @@ export class SVGPathParser {
 
     if (
       this.state.command === PathCommandType.NotSet ||
-      (this.state.values.length === 0 && chunkSizeMap[this.state.command] > 0)
+      (this.state.values.length === 0 && parameterCountMap[this.state.command] > 0)
     ) {
       return
     }
 
-    let chunkSize = chunkSizeMap[this.state.command] || 2
+    let nParams = parameterCountMap[this.state.command] || 2
 
-    // Process values in chunks
-    for (let i = 0; i < this.state.values.length; i += chunkSize) {
-      const chunk = this.state.values.slice(i, i + chunkSize)
-      if (chunk.length === chunkSize) {
-        this.processValues(chunk)
+    // Process values in groups based on the expected parameter count.
+    for (let i = 0; i < this.state.values.length; i += nParams) {
+      const parameters = this.state.values.slice(i, i + nParams)
+      if (parameters.length === nParams) {
+        this.processValues(parameters)
       }
     }
   }

@@ -1,5 +1,4 @@
 import { describe, expect, it } from '@jest/globals'
-import { promises as fsPromises } from 'node:fs'
 import path from 'path'
 import { convertSVGtoKCL } from '../src/main-new'
 import { KCLOptions } from '../src/types/kcl'

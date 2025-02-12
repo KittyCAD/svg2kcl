@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { SVGReader } from './reader/base'
-import { KCLWriter } from './writer/base'
 import { KCLOptions } from './types/kcl'
+import { KCLWriter } from './writer/base'
 
 export async function convertSVGtoKCL(
   inputPath: string,

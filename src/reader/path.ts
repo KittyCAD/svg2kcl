@@ -1,8 +1,8 @@
 import { SVGPathParser } from '../parsers/path'
 import { FillRule } from '../types/base'
+import { ElementType, PathElement } from '../types/elements'
 import { RawSVGElement } from '../types/svg'
 import { Transform } from '../utils/transform'
-import { ElementType, PathElement } from '../types/elements'
 
 export class PathReadError extends Error {
   constructor(message: string) {

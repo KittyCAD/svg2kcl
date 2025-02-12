@@ -1,5 +1,5 @@
-import { SVG } from '../types/svg'
 import { KCLOptions, KCLOutput, KCLShape } from '../types/kcl'
+import { SVG } from '../types/svg'
 import { Converter } from './converter'
 import { Formatter } from './formatter'
 

@@ -1,6 +1,7 @@
 import { FillRule, Point } from '../types/base'
 import { PathCommandType, SVGPathCommandMap } from '../types/path'
 import { Transform } from '../utils/transform'
+import { ParseError } from './exceptions'
 
 const DEFAULT_FILL_RULE = FillRule.EvenOdd
 
@@ -8,13 +9,6 @@ const UNSUPPORTED_COMMANDS = [
   PathCommandType.EllipticalArcAbsolute,
   PathCommandType.EllipticalArcRelative
 ]
-
-export class PathParseError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'PathParseError'
-  }
-}
 
 export interface ParsedCommand {
   type: PathCommandType
@@ -84,7 +78,7 @@ export class SVGPathParser {
 
     // Check if this command is supported.
     if (UNSUPPORTED_COMMANDS.includes(command)) {
-      throw new PathParseError(`Unsupported path command: ${command}`)
+      throw new ParseError(`Unsupported path command: ${command}`)
     }
 
     // 1. Push any pending value from previous command.

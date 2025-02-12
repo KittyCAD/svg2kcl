@@ -1,10 +1,10 @@
 import { XMLParser } from 'fast-xml-parser'
 import { promises as fs } from 'node:fs'
+import { Element, ElementType, GroupElement } from '../types/elements'
 import { RawSVGElement, SVG } from '../types/svg'
-import { ElementType, Element, GroupElement } from '../types/elements'
+import { Transform } from '../utils/transform'
 import { PathReader } from './path'
 import { ShapeReader } from './shape'
-import { Transform } from '../utils/transform'
 
 export class SVGReadError extends Error {
   constructor(message: string) {

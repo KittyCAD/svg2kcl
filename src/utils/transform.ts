@@ -1,5 +1,5 @@
-import { Element } from '../types/elements'
 import { Point } from '../types/base'
+import { Element } from '../types/elements'
 
 export class Matrix {
   // https://www.w3.org/TR/SVG11/coords.html

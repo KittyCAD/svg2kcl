@@ -3,6 +3,11 @@ import { PathCommand, PathCommandType } from '../types/path'
 import { KclOperation, KclOperationType } from '../types/kcl'
 import { Transform } from './transform'
 
+export enum WindingDirection {
+  CLOCKWISE = 1,
+  ANTICLOCKWISE = -1
+}
+
 export interface WindingRegion {
   outline: PathCommand[]
   windingNumber: number
@@ -29,7 +34,9 @@ export class WindingAnalyzer {
 
     // Only check if the point is inside the current path.
     if (this.isPointInPath(point, subpaths[currentPathIndex].commands)) {
-      windingNumber = subpaths[currentPathIndex].isClockwise ? 1 : -1
+      windingNumber = subpaths[currentPathIndex].isClockwise
+        ? WindingDirection.CLOCKWISE
+        : WindingDirection.ANTICLOCKWISE
     }
 
     return windingNumber
@@ -58,16 +65,23 @@ export class WindingAnalyzer {
   }
 
   private isPointInPath(point: Point, commands: PathCommand[]): boolean {
+    // Determines if a point lies inside a path using the ray-casting algorithm:
+    // 1: Casts a horizontal ray from the test point to the right (infinity).
+    // 2: Counts intersections with path segments.
+    // 3: First condition checks if the point's y is between the segment's endpoints.
+    // 4: Second condition uses point-slope form to find where ray intersects segment.
+    // 5: If ray intersects segment, toggles inside/outside state.
+    // 6: Odd number of intersections = point is inside the path.
     let inside = false
     let j = commands.length - 1
 
     for (let i = 0; i < commands.length; i++) {
-      const pi = commands[i].position
-      const pj = commands[j].position
+      const pPrev = commands[i].position
+      const pCur = commands[j].position
 
       if (
-        pi.y > point.y !== pj.y > point.y &&
-        point.x < ((pj.x - pi.x) * (point.y - pi.y)) / (pj.y - pi.y) + pi.x
+        pPrev.y > point.y !== pCur.y > point.y &&
+        point.x < ((pCur.x - pPrev.x) * (point.y - pPrev.y)) / (pCur.y - pPrev.y) + pPrev.x
       ) {
         inside = !inside
       }
@@ -99,10 +113,11 @@ export class WindingAnalyzer {
     }
 
     // Otherwise, try points slightly offset from vertices.
+    const PERTURB_OFFSET = 0.1
     for (const cmd of commands) {
       const offsetPoint = {
-        x: cmd.position.x + (centroid.x - cmd.position.x) * 0.1,
-        y: cmd.position.y + (centroid.y - cmd.position.y) * 0.1
+        x: cmd.position.x + (centroid.x - cmd.position.x) * PERTURB_OFFSET,
+        y: cmd.position.y + (centroid.y - cmd.position.y) * PERTURB_OFFSET
       }
       if (this.isPointInPath(offsetPoint, commands)) {
         return offsetPoint
@@ -208,6 +223,8 @@ export class WindingAnalyzer {
   }
 
   private calculatePathArea(commands: PathCommand[]): number {
+    // Shoelace formula for area.
+    // See: https://en.wikipedia.org/wiki/Shoelace_formula
     let area = 0
     for (let i = 0; i < commands.length - 1; i++) {
       const p1 = commands[i].position

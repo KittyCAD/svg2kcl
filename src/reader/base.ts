@@ -156,7 +156,7 @@ export class SVGReader {
     return output
   }
 
-  private readString(content: string): SVG {
+  public readString(content: string): SVG {
     const parsed = this.xmlParser.parse(content)
 
     if (!parsed.svg) {

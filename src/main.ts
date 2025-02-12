@@ -4,20 +4,26 @@ import { KCLOptions } from './types/kcl'
 import { KCLWriter } from './writer/base'
 
 export async function convertSVGtoKCL(
-  inputPath: string,
-  outputPath: string,
+  input: File | string,
+  outputPath: string | null,
   options: KCLOptions = {}
-): Promise<void> {
-  // Read and parse SVG.
+): Promise<string> {
+  // Read SVG content.
+  const content = typeof input === 'string' ? await fs.readFile(input, 'utf8') : await input.text()
+
+  // Parse and convert.
   const svgReader = new SVGReader()
-  const svg = await svgReader.readFile(inputPath)
+  const svg = svgReader.readString(content)
 
-  // Convert to KCL.
   const writer = new KCLWriter(svg, options)
-  const kclContent = writer.write()
+  const result = writer.write()
 
-  // Write output file.
-  await fs.writeFile(outputPath, kclContent, 'utf8')
+  // Write to file if outputPath provided.
+  if (outputPath) {
+    await fs.writeFile(outputPath, result, 'utf8')
+  }
+
+  return result
 }
 
 async function main() {

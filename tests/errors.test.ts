@@ -16,7 +16,17 @@ describe('Validation of SVG', () => {
 
     // Run the conversion and expect an error to be thrown.
     await expect(convertSVGtoKCL(inputPath, outputPath, options)).rejects.toThrow(
-      'Unsupported SVG commands found in the input.'
+      'Unsupported path command:'
+    )
+  })
+
+  it('elliptse should be barked at', async () => {
+    const inputPath = path.join(dataDir, 'ellipse.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+
+    // Run the conversion and expect an error to be thrown.
+    await expect(convertSVGtoKCL(inputPath, outputPath, options)).rejects.toThrow(
+      'Unsupported shape type:'
     )
   })
 })

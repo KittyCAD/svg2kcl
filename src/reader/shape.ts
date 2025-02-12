@@ -88,16 +88,16 @@ export class ShapeReader {
 
   public read(element: RawSVGElement): Element {
     switch (element.type) {
-      case 'rect':
-        return this.readRectangle(element)
-      case 'circle':
+      case ElementType.Circle:
         return this.readCircle(element)
-      case 'line':
+      case ElementType.Line:
         return this.readLine(element)
-      case 'polyline':
+      case ElementType.Polyline:
         return this.readPolyline(element)
-      case 'polygon':
+      case ElementType.Polygon:
         return this.readPolygon(element)
+      case ElementType.Rectangle:
+        return this.readRectangle(element)
       default:
         throw new ShapeReadError(`Unsupported shape type: ${element.type}`)
     }

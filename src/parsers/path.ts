@@ -9,10 +9,10 @@ const UNSUPPORTED_COMMANDS = [
   PathCommandType.EllipticalArcRelative
 ]
 
-export class SVGParseError extends Error {
+export class PathParseError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'SVGParseError'
+    this.name = 'PathParseError'
   }
 }
 
@@ -100,7 +100,7 @@ export class SVGPathParser {
 
     // Check if this command is supported.
     if (UNSUPPORTED_COMMANDS.includes(command)) {
-      throw new SVGParseError('Unsupported SVG commands found in the input.')
+      throw new PathParseError(`Unsupported path command: ${command}`)
     }
 
     // 1. Push any pending value from previous command.

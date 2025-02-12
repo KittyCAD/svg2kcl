@@ -706,52 +706,27 @@ export class Converter {
     return operations
   }
 
-  public convertElement(elements: Element[], targetElement: Element): KclOperation[] {
-    if (targetElement.type === ElementType.Group) {
-      // For groups, just recurse to children without applying transforms.
-      const group = targetElement as GroupElement
-      return group.children.flatMap((child) => this.convertElement(elements, child))
-    }
-
-    // Only get combined transform when we hit a leaf node (renderable non-group element).
-    const combinedTransform = getCombinedTransform(elements, targetElement)
-
-    // Store the original transform.
-    const originalTransform = targetElement.transform
-
-    // Temporarily set the element's transform to the combined transform.
-    targetElement.transform = combinedTransform
-
-    let opList: KclOperation[] = []
-
-    switch (targetElement.type) {
+  public convertElement(element: Element): KclOperation[] {
+    switch (element.type) {
       case ElementType.Path:
-        opList = this.convertPathToKclOps(targetElement as PathElement)
-        break
+        return this.convertPathToKclOps(element as PathElement)
       case ElementType.Rectangle:
-        opList = this.convertRectangleToKclOps(targetElement as RectangleElement)
-        break
+        return this.convertRectangleToKclOps(element as RectangleElement)
       case ElementType.Circle:
-        opList = this.convertCircleToKclOps(targetElement as CircleElement)
-        break
+        return this.convertCircleToKclOps(element as CircleElement)
       case ElementType.Line:
-        opList = this.convertLineToKclOps(targetElement as LineElement)
-        break
+        return this.convertLineToKclOps(element as LineElement)
       case ElementType.Polyline:
-        opList = this.convertPolylineToKclOps(targetElement as PolylineElement)
-        break
+        return this.convertPolylineToKclOps(element as PolylineElement)
       case ElementType.Polygon:
-        opList = this.convertPolygonToKclOps(targetElement as PolygonElement)
-        break
+        return this.convertPolygonToKclOps(element as PolygonElement)
+      case ElementType.Group:
+        // Groups should never reach here since flattening happens in the writer.
+        return []
       default: {
-        const exhaustiveCheck: never = targetElement
-        throw new ConverterError(`Unsupported element type: ${(targetElement as any).type}`)
+        const exhaustiveCheck: never = element
+        throw new ConverterError(`Unsupported element type: ${(element as any).type}`)
       }
     }
-
-    // Restore the original transform
-    targetElement.transform = originalTransform
-
-    return opList
   }
 }

@@ -1,5 +1,7 @@
-import { KclOptions, KclOutput, KclShape } from '../types/kcl'
+import { Element, ElementType } from '../types/elements'
+import { KclOptions, KclOutput } from '../types/kcl'
 import { Svg } from '../types/svg'
+import { Transform, getCombinedTransform } from '../utils/transform'
 import { Converter } from './converter'
 import { Formatter } from './formatter'
 
@@ -11,7 +13,7 @@ export class KclWriteError extends Error {
 }
 
 export class KclWriter {
-  private variableCounter: number = 1
+  private variableCounter = 1
   private converter: Converter
   private formatter: Formatter
 
@@ -24,29 +26,49 @@ export class KclWriter {
     return `sketch${String(this.variableCounter++).padStart(3, '0')}`
   }
 
+  private flattenElements(elements: Element[]): Element[] {
+    // Flattens elements and combines their transforms correctly.
+    const flattened: Element[] = []
+
+    const processElement = (element: Element) => {
+      if (element.type === ElementType.Group) {
+        // Process each child of the group.
+        element.children.forEach((child) => processElement(child))
+      } else {
+        // Get combined transform using utility function.
+        const combinedTransform = getCombinedTransform(elements, element)
+
+        // Add the element with its combined transform.
+        flattened.push({
+          ...element,
+          transform: combinedTransform
+        })
+      }
+    }
+
+    // Process all root elements.
+    elements.forEach((element) => processElement(element))
+    return flattened
+  }
+
   public write(): string {
     try {
-      const output: KclOutput = {
-        shapes: []
-      }
+      const output: KclOutput = { shapes: [] }
+      const flatElements = this.flattenElements(this.svg.elements)
 
-      // Convert each element to KCL operation.
-      for (const element of this.svg.elements) {
-        const operations = this.converter.convertElement(this.svg.elements, element)
+      for (const element of flatElements) {
+        const operations = this.converter.convertElement(element)
         if (operations.length > 0) {
-          const shape: KclShape = {
+          output.shapes.push({
             operations,
             variable: this.generateVariableName()
-          }
-          output.shapes.push(shape)
+          })
         }
       }
-
-      // Format the output into KCL code
       return this.formatter.format(output)
     } catch (error) {
       throw new KclWriteError(
-        `Failed to write Kcl: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to write KCL: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
     }
   }

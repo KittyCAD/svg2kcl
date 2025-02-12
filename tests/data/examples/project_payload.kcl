@@ -73,7 +73,8 @@ sketch001 = startSketchAt([470.262, -76.412])
       to = [16.74, -2.187]
     }, %)
     |> close(), %)
-  startSketchAt([464.862, -163.512])
+
+sketch002 = startSketchAt([464.862, -163.512])
   |> bezierCurve({
       control1 = [-45.245, -1.412],
       control2 = [-68.823, -66.559],
@@ -90,7 +91,8 @@ sketch001 = startSketchAt([470.262, -76.412])
       to = [-65.38, 59.918]
     }, %)
   |> close()
-  startSketchAt([199.362, -269.112])
+
+sketch003 = startSketchAt([199.362, -269.112])
   |> bezierCurve({
       control1 = [-82.012, -19.314],
       control2 = [-148.281, -81.982],
@@ -117,7 +119,8 @@ sketch001 = startSketchAt([470.262, -76.412])
       to = [-30, -0.5]
     }, %)
   |> close()
-  startSketchAt([313.962, -350.012])
+
+sketch004 = startSketchAt([313.962, -350.012])
   |> bezierCurve({
       control1 = [-57.276, -43.246],
       control2 = [-100.426, -101.639],
@@ -139,7 +142,8 @@ sketch001 = startSketchAt([470.262, -76.412])
       to = [-11.488, 28.977]
     }, %)
   |> close()
-  startSketchAt([160.662, -404.412])
+
+sketch005 = startSketchAt([160.662, -404.412])
   |> bezierCurve({
       control1 = [-78.86, -46.751],
       control2 = [-116.179, -138.847],
@@ -176,7 +180,8 @@ sketch001 = startSketchAt([470.262, -76.412])
       to = [-19.7, 7.3]
     }, %)
   |> close()
-  startSketchAt([402.862, -456.712])
+
+sketch006 = startSketchAt([402.862, -456.712])
   |> bezierCurve({
       control1 = [-25.373, -24.56],
       control2 = [-81.399, -21.493],
@@ -203,7 +208,8 @@ sketch001 = startSketchAt([470.262, -76.412])
       to = [-14.989, -7.193]
     }, %)
   |> close()
-  startSketchAt([530.388, -49.962])
+
+sketch007 = startSketchAt([530.388, -49.962])
   |> bezierCurve({
       control1 = [38.324, -38.1],
       control2 = [76.648, -76.2],

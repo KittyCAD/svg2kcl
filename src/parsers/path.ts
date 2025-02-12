@@ -3,7 +3,7 @@ import { PathCommandType, SvgPathCommandMap } from '../types/path'
 import { Transform } from '../utils/transform'
 import { ParseError } from './exceptions'
 
-const DEFAULT_FILL_RULE = FillRule.EvenOdd
+const DEFAULT_FILL_RULE = FillRule.NonZero
 
 const UNSUPPORTED_COMMANDS = [
   PathCommandType.EllipticalArcAbsolute,

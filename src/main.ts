@@ -3,7 +3,7 @@ import { SvgReader } from './reader/base'
 import { KclOptions } from './types/kcl'
 import { KclWriter } from './writer/base'
 
-export async function convertSvgtoKcl(
+export async function convertSvgToKcl(
   input: File | string,
   outputPath: string | null,
   options: KclOptions = {}
@@ -35,7 +35,7 @@ async function main() {
   }
 
   try {
-    await convertSvgtoKcl(inputFile, outputFile, options)
+    await convertSvgToKcl(inputFile, outputFile, options)
     console.log(`Successfully converted ${inputFile} to ${outputFile}`)
   } catch (error) {
     console.error('Conversion failed:', error instanceof Error ? error.message : error)

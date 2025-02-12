@@ -134,66 +134,115 @@ export class WindingAnalyzer {
     convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
   ): KclOperation[] {
     const operations: KclOperation[] = []
+    const { openPaths, closedPaths } = this.separatePaths(subpaths)
 
-    // Split paths into open and closed.
-    const openPaths = subpaths.filter((path) => this.isOpenPath(path.commands))
-    const closedPaths = subpaths.filter((path) => !this.isOpenPath(path.commands))
+    // Handle open paths directly.
+    operations.push(...this.processOpenPaths(openPaths, transform, convertCommandsFn))
 
-    // Handle open paths directly - they're always independent shapes.
-    operations.push(...openPaths.flatMap((path) => convertCommandsFn(path.commands, transform)))
-
-    // If we have closed paths, process them with winding number analysis.
+    // Process closed paths if they exist.
     if (closedPaths.length > 0) {
-      const regions = this.findRegionBoundaries(closedPaths)
+      operations.push(...this.processClosedPaths(closedPaths, transform, convertCommandsFn))
+    }
 
-      if (regions.length > 0) {
-        const geometryGroups = new Map<string, WindingRegion[]>()
+    return operations
+  }
 
-        regions.forEach((region) => {
-          const key = JSON.stringify(
-            region.outline.map((cmd) => ({
-              x: cmd.position.x,
-              y: cmd.position.y
-            }))
-          )
+  private separatePaths(subpaths: { commands: PathCommand[]; isClockwise: boolean }[]) {
+    return {
+      openPaths: subpaths.filter((path) => this.isOpenPath(path.commands)),
+      closedPaths: subpaths.filter((path) => !this.isOpenPath(path.commands))
+    }
+  }
 
-          if (!geometryGroups.has(key)) {
-            geometryGroups.set(key, [])
-          }
-          geometryGroups.get(key)!.push(region)
+  private processOpenPaths(
+    openPaths: { commands: PathCommand[]; isClockwise: boolean }[],
+    transform: Transform,
+    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
+  ): KclOperation[] {
+    return openPaths.flatMap((path) => convertCommandsFn(path.commands, transform))
+  }
+
+  private processClosedPaths(
+    closedPaths: { commands: PathCommand[]; isClockwise: boolean }[],
+    transform: Transform,
+    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
+  ): KclOperation[] {
+    const operations: KclOperation[] = []
+    const regions = this.findRegionBoundaries(closedPaths)
+
+    if (regions.length === 0) return operations
+
+    const geometryGroups = this.groupRegionsByGeometry(regions)
+    const uniqueRegions = this.combineRegionGroups(geometryGroups)
+    const mainRegion = this.findMainRegion(uniqueRegions)
+
+    operations.push(...convertCommandsFn(mainRegion.outline, transform))
+    operations.push(
+      ...this.processSecondaryRegions(uniqueRegions, mainRegion, transform, convertCommandsFn)
+    )
+
+    return operations
+  }
+
+  private groupRegionsByGeometry(regions: WindingRegion[]): Map<string, WindingRegion[]> {
+    // Find regions with the same geometry but different winding numbers.
+    const geometryGroups = new Map<string, WindingRegion[]>()
+
+    regions.forEach((region) => {
+      const key = JSON.stringify(
+        region.outline.map((cmd) => ({
+          x: cmd.position.x,
+          y: cmd.position.y
+        }))
+      )
+
+      if (!geometryGroups.has(key)) {
+        geometryGroups.set(key, [])
+      }
+      geometryGroups.get(key)!.push(region)
+    })
+
+    return geometryGroups
+  }
+
+  private combineRegionGroups(geometryGroups: Map<string, WindingRegion[]>): WindingRegion[] {
+    // Unify regions with the same geometry but different winding numbers.
+    return Array.from(geometryGroups.values()).map((group) => ({
+      outline: group[0].outline,
+      windingNumber: group.reduce((sum, region) => sum + region.windingNumber, 0)
+    }))
+  }
+
+  private findMainRegion(regions: WindingRegion[]): WindingRegion {
+    return regions.reduce((outer, current) => {
+      const outerArea = this.calculatePathArea(outer.outline)
+      const currentArea = this.calculatePathArea(current.outline)
+      return currentArea > outerArea ? current : outer
+    }, regions[0])
+  }
+
+  private processSecondaryRegions(
+    uniqueRegions: WindingRegion[],
+    mainRegion: WindingRegion,
+    transform: Transform,
+    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
+  ): KclOperation[] {
+    // Handle all secondary regions, i.e. not the main region.
+    const operations: KclOperation[] = []
+
+    for (const region of uniqueRegions) {
+      if (region === mainRegion) continue
+
+      const isContained = this.isPathContainedInPath(region.outline, mainRegion.outline)
+      const regionOps = convertCommandsFn(region.outline, transform)
+
+      if (isContained && region.windingNumber * mainRegion.windingNumber < 0) {
+        operations.push({
+          type: KclOperationType.Hole,
+          params: { operations: regionOps }
         })
-
-        const uniqueRegions = Array.from(geometryGroups.values()).map((group) => {
-          const combinedWindingNumber = group.reduce((sum, region) => sum + region.windingNumber, 0)
-          return {
-            outline: group[0].outline,
-            windingNumber: combinedWindingNumber
-          }
-        })
-
-        const mainRegion = uniqueRegions.reduce((outer, current) => {
-          const outerArea = this.calculatePathArea(outer.outline)
-          const currentArea = this.calculatePathArea(current.outline)
-          return currentArea > outerArea ? current : outer
-        }, uniqueRegions[0])
-
-        operations.push(...convertCommandsFn(mainRegion.outline, transform))
-
-        for (const region of uniqueRegions) {
-          if (region === mainRegion) continue
-
-          const isContained = this.isPathContainedInPath(region.outline, mainRegion.outline)
-          const regionOps = convertCommandsFn(region.outline, transform)
-
-          if (isContained && region.windingNumber * mainRegion.windingNumber < 0) {
-            operations.push({
-              type: KclOperationType.Hole,
-              params: { operations: regionOps }
-            })
-          } else if (!this.arePathsEqual(region.outline, mainRegion.outline)) {
-            operations.push(...regionOps)
-          }
-        }
+      } else if (!this.arePathsEqual(region.outline, mainRegion.outline)) {
+        operations.push(...regionOps)
       }
     }
 

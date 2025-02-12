@@ -9,7 +9,7 @@ const options: KclOptions = {
 
 const dataDir = path.join(__dirname, 'data', 'errors')
 
-describe('Validation of Svg', () => {
+describe('Validation of SVG', () => {
   it('elliptical arc should be barked at', async () => {
     const inputPath = path.join(dataDir, 'elliptical_arc.svg')
     const outputPath = path.join(dataDir, 'output.kcl')

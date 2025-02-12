@@ -10,8 +10,8 @@ const options: KclOptions = {
 
 const dataDir = path.join(__dirname, 'data', 'examples')
 
-describe('Svg to Kcl Conversion', () => {
-  it('should correctly convert project_payload.svg to Kcl', async () => {
+describe('SVG to KCL Conversion', () => {
+  it('should correctly convert project_payload.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'project_payload.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'project_payload.kcl')

@@ -10,7 +10,7 @@ const options: KclOptions = {
 
 const dataDir = path.join(__dirname, 'data', 'elements')
 
-describe('Svg Basic Elements to Kcl Conversion', () => {
+describe('SVG Basic Elements to KCL Conversion', () => {
   // Actually a good test for fill rule.
   //   it('should correctly convert basic_path.svg to KCL', async () => {
   //     const inputPath = path.join(dataDir, 'basic_path.svg')
@@ -26,7 +26,7 @@ describe('Svg Basic Elements to Kcl Conversion', () => {
   //     expect(actualKCL.trim()).toBe(expectedKcl.trim())
   //   })
 
-  it('should correctly convert basic_rectangle.svg to Kcl', async () => {
+  it('should correctly convert basic_rectangle.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_rectangle.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_rectangle.kcl')
@@ -38,7 +38,7 @@ describe('Svg Basic Elements to Kcl Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_circle.svg to Kcl', async () => {
+  it('should correctly convert basic_circle.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_circle.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_circle.kcl')
@@ -50,7 +50,7 @@ describe('Svg Basic Elements to Kcl Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_line.svg to Kcl', async () => {
+  it('should correctly convert basic_line.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_line.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_line.kcl')
@@ -62,7 +62,7 @@ describe('Svg Basic Elements to Kcl Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_polyline.svg to Kcl', async () => {
+  it('should correctly convert basic_polyline.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_polyline.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_polyline.kcl')
@@ -74,7 +74,7 @@ describe('Svg Basic Elements to Kcl Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert basic_polygon.svg to Kcl', async () => {
+  it('should correctly convert basic_polygon.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_polygon.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_polygon.kcl')
@@ -87,8 +87,8 @@ describe('Svg Basic Elements to Kcl Conversion', () => {
   })
 })
 
-describe('Svg Group Elements to Kcl Conversion', () => {
-  it('should correctly convert basic_group.svg to Kcl', async () => {
+describe('Svg Group Elements to KCL Conversion', () => {
+  it('should correctly convert basic_group.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_group.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'basic_group.kcl')
@@ -100,7 +100,7 @@ describe('Svg Group Elements to Kcl Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert nested_group.svg to Kcl', async () => {
+  it('should correctly convert nested_group.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'nested_group.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'nested_group.kcl')
@@ -113,8 +113,8 @@ describe('Svg Group Elements to Kcl Conversion', () => {
   })
 })
 
-describe('Svg Complex Cases to Kcl Conversion', () => {
-  it('should correctly convert mixed_elements.svg to Kcl', async () => {
+describe('Svg Complex Cases to KCL Conversion', () => {
+  it('should correctly convert mixed_elements.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'mixed_elements.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'mixed_elements.kcl')
@@ -126,7 +126,7 @@ describe('Svg Complex Cases to Kcl Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert compound_path.svg to Kcl', async () => {
+  it('should correctly convert compound_path.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'compound_path.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'compound_path.kcl')

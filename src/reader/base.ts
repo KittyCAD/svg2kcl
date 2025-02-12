@@ -114,24 +114,6 @@ export class SVGReader {
     return [svgElement]
   }
 
-  private flattenGeometricElements(element: RawSVGElement): RawSVGElement[] {
-    let elements: RawSVGElement[] = []
-
-    // Add this element if it's a geometric element
-    if (this.isGeometricElement(element.type)) {
-      elements.push(element)
-    }
-
-    // Recursively process children
-    if (element.children) {
-      for (const child of element.children) {
-        elements = elements.concat(this.flattenGeometricElements(child))
-      }
-    }
-
-    return elements
-  }
-
   private readElement(element: RawSVGElement): Element {
     let output: Element
 

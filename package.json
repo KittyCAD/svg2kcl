@@ -5,9 +5,9 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "hack": "ts-node ./src/main.ts",
-    "generateExample": "ts-node main.ts",
-    "test": "jest"
+    "build": "tsc --module es2015 --target es2015 --outDir dist",
+    "test": "jest",
+    "convert": "ts-node ./src/main.ts"
   },
   "jest": {
     "preset": "ts-jest",

@@ -39,19 +39,19 @@ describe('SVG to KCL Conversion', () => {
     expect(actualKCL.trim()).toBe(expectedKCL.trim())
   })
 
-  // it('should correctly convert group_transform.svg to KCL', async () => {
-  //   const inputPath = path.join(dataDir, 'group_transform.svg')
-  //   const outputPath = path.join(dataDir, 'output.kcl')
-  //   const expectedKCLPath = path.join(dataDir, 'group_transform.kcl')
+  it('should correctly convert group_transform.svg to KCL', async () => {
+    const inputPath = path.join(dataDir, 'group_transform.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+    const expectedKCLPath = path.join(dataDir, 'group_transform.kcl')
 
-  //   // Run the conversion.
-  //   await convertSVGtoKCL(inputPath, outputPath, options)
-  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-  //   const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
+    // Run the conversion.
+    await convertSVGtoKCL(inputPath, outputPath, options)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKCL = await fsPromises.readFile(expectedKCLPath, 'utf8')
 
-  //   // Compare output with expected result.
-  //   expect(actualKCL.trim()).toBe(expectedKCL.trim())
-  // })
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(expectedKCL.trim())
+  })
 
   // it('should correctly convert nested_group_transform.svg to KCL', async () => {
   //   const inputPath = path.join(dataDir, 'nested_group_transform.svg')

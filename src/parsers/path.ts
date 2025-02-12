@@ -65,22 +65,6 @@ export class SVGPathParser {
     }
   }
 
-  private applyTransform(point: Point): Point {
-    if (!this.transform) return point
-
-    // TODO: Add an apply method to the Transform class.
-    return {
-      x:
-        this.transform.matrix.a * point.x +
-        this.transform.matrix.c * point.y +
-        this.transform.matrix.e,
-      y:
-        this.transform.matrix.b * point.x +
-        this.transform.matrix.d * point.y +
-        this.transform.matrix.f
-    }
-  }
-
   private isWhitespace(char: string): boolean {
     return [',', ' ', '\t', '\n', '\r'].includes(char)
   }
@@ -158,88 +142,40 @@ export class SVGPathParser {
     this.state.valueBuffer = ''
   }
 
-  private transformParameters(parameters: number[]): number[] {
-    // Don't transform if no transform matrix.
-    if (!this.transform) return parameters
-
-    // Transform pairs of coordinates.
-    const transformed: number[] = []
-    for (let i = 0; i < parameters.length; i += 2) {
-      if (i + 1 < parameters.length) {
-        // If we have a pair of coordinates, transform them.
-        const point = this.applyTransform({ x: parameters[i], y: parameters[i + 1] })
-        transformed.push(point.x, point.y)
-      } else {
-        // For single values (like in H/V commands), pass through.
-        transformed.push(parameters[i])
-      }
-    }
-    return transformed
-  }
-
   private processValues(parameters: number[]): void {
-    let transformedParameters = [...parameters]
-
-    // Transform absolute coordinates.
+    // Update currentPoint for absolute commands
     switch (this.state.command) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.LineAbsolute:
-      case PathCommandType.CubicBezierAbsolute:
-      case PathCommandType.QuadraticBezierAbsolute:
-      case PathCommandType.EllipticalArcAbsolute:
-        transformedParameters = this.transformParameters(parameters)
-        break
-      case PathCommandType.HorizontalLineAbsolute:
-        if (this.transform) {
-          // For H, transform considering current X.
-          transformedParameters = [
-            this.applyTransform({ x: parameters[0], y: this.state.currentPoint.y }).x
-          ]
-        }
-        break
-      case PathCommandType.VerticalLineAbsolute:
-        if (this.transform) {
-          // For V, transform considering current Y.
-          transformedParameters = [
-            this.applyTransform({ x: this.state.currentPoint.x, y: parameters[0] }).y
-          ]
-        }
-        break
-    }
-
-    // Update currentPoint for absolute commands.
-    switch (this.state.command) {
-      case PathCommandType.MoveAbsolute:
-      case PathCommandType.LineAbsolute:
-        this.state.currentPoint = { x: transformedParameters[0], y: transformedParameters[1] }
+        this.state.currentPoint = { x: parameters[0], y: parameters[1] }
         if (this.state.command === PathCommandType.MoveAbsolute && !this.path.commands.length) {
           this.path.startPosition = { ...this.state.currentPoint }
         }
         break
       case PathCommandType.HorizontalLineAbsolute:
-        this.state.currentPoint.x = transformedParameters[0]
+        this.state.currentPoint.x = parameters[0]
         break
       case PathCommandType.VerticalLineAbsolute:
-        this.state.currentPoint.y = transformedParameters[0]
+        this.state.currentPoint.y = parameters[0]
         break
       case PathCommandType.CubicBezierAbsolute:
-        this.state.currentPoint = { x: transformedParameters[4], y: transformedParameters[5] }
+        this.state.currentPoint = { x: parameters[4], y: parameters[5] }
         break
       case PathCommandType.QuadraticBezierAbsolute:
-        this.state.currentPoint = { x: transformedParameters[2], y: transformedParameters[3] }
+        this.state.currentPoint = { x: parameters[2], y: parameters[3] }
         break
       case PathCommandType.CubicBezierSmoothAbsolute:
-        this.state.currentPoint = { x: transformedParameters[2], y: transformedParameters[3] }
+        this.state.currentPoint = { x: parameters[2], y: parameters[3] }
         break
       case PathCommandType.QuadraticBezierSmoothAbsolute:
-        this.state.currentPoint = { x: transformedParameters[0], y: transformedParameters[1] }
+        this.state.currentPoint = { x: parameters[0], y: parameters[1] }
         break
       case PathCommandType.EllipticalArcAbsolute:
-        this.state.currentPoint = { x: transformedParameters[5], y: transformedParameters[6] }
+        this.state.currentPoint = { x: parameters[5], y: parameters[6] }
         break
     }
 
-    // Update currentPoint for relative commands.
+    // Update currentPoint for relative commands
     switch (this.state.command) {
       case PathCommandType.MoveRelative:
       case PathCommandType.LineRelative:
@@ -281,10 +217,10 @@ export class SVGPathParser {
         break
     }
 
-    // Push the command with transformed values for absolute commands.
+    // Push the command
     this.path.commands.push({
       type: this.state.command,
-      parameters: this.state.command.endsWith('Absolute') ? transformedParameters : parameters,
+      parameters,
       position: { ...this.state.currentPoint }
     })
   }

@@ -49,48 +49,39 @@ export class WindingAnalyzer {
   }
 
   private getPolygonWinding(points: Point[]): number {
-    if (points.length < 3) return 0
-
     let area = 0
-    for (let i = 0; i < points.length - 1; i++) {
+    for (let i = 0; i < points.length; i++) {
       const p1 = points[i]
-      const p2 = points[i + 1]
-      area += (p2.x - p1.x) * (p2.y + p1.y)
+      const p2 = points[(i + 1) % points.length]
+      area += p1.x * p2.y - p2.x * p1.y // Shoelace theorem.
     }
-
-    const first = points[0]
-    const last = points[points.length - 1]
-    area += (first.x - last.x) * (first.y + last.y)
-
-    return area > 0 ? 1 : -1
+    return area > 0 ? 1 : -1 // Anti-clockwise: positive, Clockwise: negative.
   }
 
   private isInsidePolygon(inner: Point[], outer: Point[]): boolean {
-    let containedPoints = 0
+    const outerWinding = this.getPolygonWinding(outer)
+    if (!this.isPointInsidePolygon(inner[0], outer)) return false
+    return this.getPolygonWinding(inner) !== outerWinding // Ensure opposite winding
+  }
 
-    for (const point of inner) {
-      let inside = false
-      let j = outer.length - 1
+  private isPointInsidePolygon(point: Point, polygon: Point[]): boolean {
+    // Determines if a point is inside a polygon using the ray-casting method.
+    let inside = false
+    let j = polygon.length - 1
 
-      for (let i = 0; i < outer.length; i++) {
-        const pi = outer[i]
-        const pj = outer[j]
+    for (let i = 0; i < polygon.length; i++) {
+      const pi = polygon[i]
+      const pj = polygon[j]
 
-        if (
-          pi.y > point.y !== pj.y > point.y &&
-          point.x < ((pj.x - pi.x) * (point.y - pi.y)) / (pj.y - pi.y) + pi.x
-        ) {
-          inside = !inside
-        }
-        j = i
+      if (
+        pi.y > point.y !== pj.y > point.y &&
+        point.x < ((pj.x - pi.x) * (point.y - pi.y)) / (pj.y - pi.y) + pi.x
+      ) {
+        inside = !inside
       }
-
-      if (inside) {
-        containedPoints++
-      }
+      j = i
     }
-
-    return containedPoints > inner.length / 2
+    return inside
   }
 
   public analyzeWindingNumbers(subpaths: { commands: PathCommand[] }[]): WindingRegion[] {

@@ -14,13 +14,18 @@ import { PathCommand, PathCommandType } from '../types/path'
 import { separateSubpaths } from '../utils/geometry'
 import { Transform } from '../utils/transform'
 import { WindingAnalyzer } from '../utils/winding'
-import { convertNonZeroPathsToKcl } from './winding'
 
 export class ConverterError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'ConverterError'
   }
+}
+
+interface AnalyzedPath {
+  commands: PathCommand[]
+  isHole: boolean
+  transform: Transform
 }
 
 export class Converter {
@@ -533,6 +538,11 @@ export class Converter {
     // Add closing line if needed.
     const result = [...commands]
 
+    // Trim out current close, if it exists.
+    if (last.type === PathCommandType.StopAbsolute || last.type === PathCommandType.StopRelative) {
+      result.pop()
+    }
+
     // If last point doesn't match first point, add line to close.
     if (last.position.x !== first.position.x || last.position.y !== first.position.y) {
       const dx = first.position.x - last.position.x
@@ -554,42 +564,72 @@ export class Converter {
     return result
   }
 
-  private convertPathToKclOps(path: PathElement): KclOperation[] {
-    const operations: KclOperation[] = []
-    const transform = path.transform!
+  private analyzeEvenOddPath(path: PathElement): AnalyzedPath[] {
+    const subpaths = separateSubpaths(path)
+    const [outline, ...holes] = subpaths
 
-    if (path.fillRule === FillRule.EvenOdd) {
-      const subpaths = separateSubpaths(path)
-      const [outline, ...holes] = subpaths
+    return [
+      { commands: outline.commands, isHole: false, transform: path.transform! },
+      ...holes.map((hole) => ({
+        commands: hole.commands,
+        isHole: true,
+        transform: path.transform!
+      }))
+    ]
+  }
 
-      operations.push(...this.convertPathCommandsToKclOps(outline.commands, transform))
+  private analyzeNonZeroPath(path: PathElement): AnalyzedPath[] {
+    // Sanitize the subpaths by separating them
+    const subpaths = this.sanitizeSubpaths(separateSubpaths(path))
 
-      holes.forEach((hole) => {
-        operations.push({
+    // Analyze the winding numbers of the subpaths
+    const windingAnalyzer = new WindingAnalyzer()
+    const regions = windingAnalyzer.analyzeWindingNumbers(subpaths)
+
+    // Sort regions by containment depth, in ascending order
+    const sortedRegions = [...regions].sort((a, b) => a.containedBy.length - b.containedBy.length)
+
+    return sortedRegions
+      .filter((region) => region.windingNumber !== 0) // Only consider non-zero winding numbers
+      .map((region) => {
+        const isHole = region.containedBy.length % 2 === 1 // Odd depth indicates a hole
+
+        // Ensure the path.transform exists or provide a fallback
+        const transform = path.transform ?? new Transform()
+
+        return {
+          commands: subpaths[region.pathIndex].commands,
+          isHole,
+          transform // Use the transform if it exists, otherwise undefined
+        }
+      })
+  }
+
+  private convertAnalyzedPathToKcl(analyzedPath: AnalyzedPath): KclOperation[] {
+    if (analyzedPath.isHole) {
+      return [
+        {
           type: KclOperationType.Hole,
           params: {
-            operations: this.convertPathCommandsToKclOps(hole.commands, transform)
+            operations: this.convertPathCommandsToKclOps(
+              analyzedPath.commands,
+              analyzedPath.transform
+            )
           }
-        })
-      })
+        }
+      ]
     } else {
-      const subpaths = this.sanitizeSubpaths(separateSubpaths(path))
-
-      // First do the geometric analysis.
-      const windingAnalyzer = new WindingAnalyzer()
-      const regions = windingAnalyzer.analyzeWindingNumbers(subpaths)
-
-      // Then convert to KCL operations.
-      const kclOps = convertNonZeroPathsToKcl(
-        regions,
-        subpaths,
-        transform,
-        this.convertPathCommandsToKclOps.bind(this)
-      )
-      operations.push(...kclOps)
+      return this.convertPathCommandsToKclOps(analyzedPath.commands, analyzedPath.transform)
     }
+  }
 
-    return operations
+  private convertPathToKclOps(path: PathElement): KclOperation[] {
+    const analyzedPaths =
+      path.fillRule === FillRule.EvenOdd
+        ? this.analyzeEvenOddPath(path)
+        : this.analyzeNonZeroPath(path)
+
+    return analyzedPaths.flatMap((analyzed) => this.convertAnalyzedPathToKcl(analyzed))
   }
 
   private convertRectangleToKclOps(rect: RectangleElement): KclOperation[] {

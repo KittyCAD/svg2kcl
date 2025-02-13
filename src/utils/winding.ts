@@ -112,7 +112,6 @@ export class WindingAnalyzer {
       for (let j = 0; j < regions.length; j++) {
         if (i !== j && this.isInsidePolygon(regions[i].points, regions[j].points)) {
           regions[i].containedBy.push(j)
-          regions[i].windingNumber += regions[j].windingNumber
         }
       }
     }

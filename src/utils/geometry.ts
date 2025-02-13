@@ -14,9 +14,8 @@ export function isClockwise(points: Point[]): boolean {
 
 export function separateSubpaths(path: PathElement): {
   commands: PathCommand[]
-  isClockwise: boolean
 }[] {
-  const subpaths: { commands: PathCommand[]; isClockwise: boolean }[] = []
+  const subpaths: { commands: PathCommand[] }[] = []
   let currentCommands: PathCommand[] = []
 
   path.commands.forEach((command) => {
@@ -26,8 +25,7 @@ export function separateSubpaths(path: PathElement): {
         command.type === PathCommandType.MoveRelative)
     ) {
       subpaths.push({
-        commands: currentCommands,
-        isClockwise: isClockwise(currentCommands.map((c) => c.position))
+        commands: currentCommands
       })
       currentCommands = []
     }
@@ -36,8 +34,7 @@ export function separateSubpaths(path: PathElement): {
 
   if (currentCommands.length > 0) {
     subpaths.push({
-      commands: currentCommands,
-      isClockwise: isClockwise(currentCommands.map((c) => c.position))
+      commands: currentCommands
     })
   }
 

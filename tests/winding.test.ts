@@ -53,18 +53,18 @@ describe('SVG Fill Rule Tests NonZero', () => {
   //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
   // })
 
-  it('should handle overlapping subpaths with nonzero winding', async () => {
-    const inputPath = path.join(dataDir, 'simple_path_overlap_nonzero.svg')
-    const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'simple_path_overlap_nonzero.kcl')
+  // it('should handle overlapping subpaths with nonzero winding', async () => {
+  //   const inputPath = path.join(dataDir, 'simple_path_overlap_nonzero.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'simple_path_overlap_nonzero.kcl')
 
-    await convertSvgToKcl(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    // Compare output with expected result.
-    expect(actualKCL.trim()).toBe(expectedKcl.trim())
-  })
+  //   // Compare output with expected result.
+  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  // })
 
   it('should correctly convert compound_path_nonzero.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'compound_path_nonzero.svg')

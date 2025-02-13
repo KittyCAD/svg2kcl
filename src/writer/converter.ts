@@ -3,7 +3,6 @@ import {
   CircleElement,
   Element,
   ElementType,
-  GroupElement,
   LineElement,
   PathElement,
   PolygonElement,
@@ -13,8 +12,9 @@ import {
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/path'
 import { separateSubpaths } from '../utils/geometry'
-import { getCombinedTransform, Transform } from '../utils/transform'
+import { Transform } from '../utils/transform'
 import { WindingAnalyzer } from '../utils/winding'
+import { convertNonZeroPathsToKcl } from './winding'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -502,23 +502,6 @@ export class Converter {
     })
 
     if (!operations.some((op) => op.type === KclOperationType.Close)) {
-      // Create explicit closing geometry.
-      // Get absolute positions
-      const firstPoint = commands[0].position
-      const lastPoint = commands[commands.length - 1].position
-
-      // Calculate relative movement needed to return to start.
-      const relativeX = firstPoint.x - lastPoint.x
-      const relativeY = firstPoint.y - lastPoint.y
-
-      // Add line back to start point using relative coordinates.
-      operations.push({
-        type: KclOperationType.Line,
-        params: {
-          point: [relativeX, relativeY]
-        }
-      })
-
       // Call close.
       operations.push({ type: KclOperationType.Close, params: null })
     }
@@ -526,12 +509,56 @@ export class Converter {
     return operations
   }
 
+  private sanitizeSubpaths(subpaths: { commands: PathCommand[] }[]): { commands: PathCommand[] }[] {
+    return subpaths.map((subpath) => ({
+      commands: this.ensureClosedCommands(subpath.commands)
+    }))
+  }
+
+  private ensureClosedCommands(commands: PathCommand[]): PathCommand[] {
+    if (commands.length === 0) return commands
+
+    const first = commands[0]
+    const last = commands[commands.length - 1]
+
+    // If already properly closed with a Stop command that matches start, return as is.
+    if (
+      (last.type === PathCommandType.StopAbsolute || last.type === PathCommandType.StopRelative) &&
+      last.position.x === first.position.x &&
+      last.position.y === first.position.y
+    ) {
+      return commands
+    }
+
+    // Add closing line if needed.
+    const result = [...commands]
+
+    // If last point doesn't match first point, add line to close.
+    if (last.position.x !== first.position.x || last.position.y !== first.position.y) {
+      const dx = first.position.x - last.position.x
+      const dy = first.position.y - last.position.y
+      result.push({
+        type: PathCommandType.LineRelative,
+        parameters: [dx, dy],
+        position: first.position
+      })
+    }
+
+    // Ensure it ends with a Stop command.
+    result.push({
+      type: PathCommandType.StopAbsolute,
+      parameters: [],
+      position: first.position
+    })
+
+    return result
+  }
+
   private convertPathToKclOps(path: PathElement): KclOperation[] {
     const operations: KclOperation[] = []
     const transform = path.transform!
 
     if (path.fillRule === FillRule.EvenOdd) {
-      // Keep existing even-odd implementation
       const subpaths = separateSubpaths(path)
       const [outline, ...holes] = subpaths
 
@@ -546,14 +573,20 @@ export class Converter {
         })
       })
     } else {
-      const subpaths = separateSubpaths(path)
-      operations.push(
-        ...this.windingAnalyzer.analyzeNonzeroPath(
-          subpaths,
-          transform,
-          this.convertPathCommandsToKclOps.bind(this)
-        )
+      const subpaths = this.sanitizeSubpaths(separateSubpaths(path))
+
+      // First do the geometric analysis.
+      const windingAnalyzer = new WindingAnalyzer()
+      const regions = windingAnalyzer.analyzeWindingNumbers(subpaths)
+
+      // Then convert to KCL operations.
+      const kclOps = convertNonZeroPathsToKcl(
+        regions,
+        subpaths,
+        transform,
+        this.convertPathCommandsToKclOps.bind(this)
       )
+      operations.push(...kclOps)
     }
 
     return operations

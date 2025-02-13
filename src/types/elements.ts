@@ -1,4 +1,4 @@
-import { ElementProperties, Point } from './base'
+import { ElementProperties, FillRule, Point } from './base'
 import { PathCommand } from './path'
 export enum ElementType {
   Circle = 'circle',
@@ -14,6 +14,7 @@ export enum ElementType {
 export interface PathElement extends ElementProperties {
   type: ElementType.Path
   commands: PathCommand[]
+  fillRule: FillRule
 }
 
 export interface RectangleElement extends ElementProperties {

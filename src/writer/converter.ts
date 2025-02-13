@@ -14,6 +14,7 @@ import { PathCommand, PathCommandType } from '../types/path'
 import { separateSubpaths } from '../utils/geometry'
 import { Transform } from '../utils/transform'
 import { WindingAnalyzer } from '../utils/winding'
+import { PathProcessor } from './path_processor'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -800,6 +801,9 @@ export class Converter {
   public convertElement(element: Element): KclOperation[] {
     switch (element.type) {
       case ElementType.Path:
+        const processor = new PathProcessor(element as PathElement)
+        const processedCommands = processor.process()
+
         return this.convertPathToKclOps(element as PathElement)
       case ElementType.Rectangle:
         return this.convertRectangleToKclOps(element as RectangleElement)

@@ -3,6 +3,7 @@ import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FillRule } from '../types/base'
 import { BezierUtils } from '../utils/bezier'
+import { findSelfIntersections } from '../utils/intersections'
 
 export class PathProcessor {
   // Input and output buffer.
@@ -161,6 +162,9 @@ export class PathProcessor {
 
     // Sample the curve.
     const samples = BezierUtils.sampleQuadraticBezier(p0, p1, p2)
+
+    // Split, if required.
+    const intersectionIndices = findSelfIntersections(samples)
 
     // Update output buffer.
     this.outputCommands.push(command)

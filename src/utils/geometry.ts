@@ -8,6 +8,10 @@ export interface Intersection {
   t1: number // Parameter value for first curve.
   t2: number // Parameter value for second curve.
 }
+export interface IndexValue {
+  index: number // Index in the samples array
+  t: number // Parameter value (0-1)
+}
 
 export function isClockwise(points: Point[]): boolean {
   let sum = 0
@@ -73,8 +77,31 @@ export function separateSubpaths(path: PathElement): {
   return finalSubpaths
 }
 
+export function indexToParametricValue(index: number, totalSamples: number): number {
+  if (totalSamples < 2) {
+    throw new Error('Need at least 2 samples to interpolate')
+  }
+  return index / (totalSamples - 1)
+}
+
+export function parametricValueToIndex(t: number, totalSamples: number): number {
+  if (totalSamples < 2) {
+    throw new Error('Need at least 2 samples to interpolate')
+  }
+  return Math.round(t * (totalSamples - 1))
+}
+
+export function findParametricValues(indices: number[], totalSamples: number): IndexValue[] {
+  return indices
+    .map((index) => ({
+      index,
+      t: indexToParametricValue(index, totalSamples)
+    }))
+    .sort((a, b) => a.t - b.t) // Sort by t value
+}
+
 // Returns t-values where bezier curve intersects itself
-function findSelfIntersections(points: Point[]): number[] {
+export function findSelfIntersections(points: Point[]): number[] {
   const intersections: number[] = []
   const segments = []
 

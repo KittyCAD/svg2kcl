@@ -3,7 +3,14 @@ import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FillRule } from '../types/base'
 import { BezierUtils } from '../utils/bezier'
-import { findSelfIntersections } from '../utils/intersections'
+import { findSelfIntersections } from '../utils/geometry'
+import { IntersectionInfo } from '../utils/geometry'
+
+interface PathSegment {
+  points: Point[]
+  command: PathCommand // Keep reference to original command.
+  startIndex: number // Index where this segment starts in flattened points.
+}
 
 export class PathProcessor {
   // Input and output buffer.
@@ -41,6 +48,12 @@ export class PathProcessor {
       return this.inputCommands
     }
 
+    // Build sampled path we'll use for self-intersection detection.
+    const segments = this.buildPath()
+    const allPoints = segments.flatMap((x) => x.points)
+    const pointCommands = segments.map((x) => x.command)
+    const intersections = findSelfIntersections(allPoints)
+
     // Otherwise... step across the input commands—simple for loop for debug easiness.
     for (let i = 0; i < this.inputCommands.length; i++) {
       const command = this.inputCommands[i]
@@ -48,6 +61,19 @@ export class PathProcessor {
     }
 
     return []
+  }
+
+  private findOriginalCommandsForIntersection(
+    segments: PathSegment[],
+    intersection: IntersectionInfo
+  ): { command1: PathCommand; command2: PathCommand } {
+    const segment1 = segments[intersection.segmentIndex1]
+    const segment2 = segments[intersection.segmentIndex2]
+
+    return {
+      command1: segment1.command,
+      command2: segment2.command
+    }
   }
 
   private getPreviousControlPoint(): Point {
@@ -138,6 +164,71 @@ export class PathProcessor {
     this.clearPreviousControlPoint()
   }
 
+  // Build the whole thing for self-intersection detection.
+  // -----------------------------------------------------------------------------------
+  private buildPath(): PathSegment[] {
+    const segments: PathSegment[] = []
+    let currentPoint = { x: 0, y: 0 }
+    let startIndex = 0
+
+    for (const command of this.inputCommands) {
+      let points: Point[] = []
+
+      switch (command.type) {
+        case PathCommandType.MoveAbsolute:
+        case PathCommandType.MoveRelative: {
+          // Just a single point for moves
+          points = [command.position]
+          currentPoint = command.position
+          break
+        }
+
+        case PathCommandType.LineAbsolute:
+        case PathCommandType.LineRelative:
+        case PathCommandType.HorizontalLineAbsolute:
+        case PathCommandType.HorizontalLineRelative:
+        case PathCommandType.VerticalLineAbsolute:
+        case PathCommandType.VerticalLineRelative: {
+          // Two points for lines
+          points = [currentPoint, command.position]
+          currentPoint = command.position
+          break
+        }
+
+        case PathCommandType.QuadraticBezierAbsolute:
+        case PathCommandType.QuadraticBezierRelative: {
+          // Get absolute control point
+          let [x1, y1] = command.parameters
+          if (command.type === PathCommandType.QuadraticBezierRelative) {
+            x1 += currentPoint.x
+            y1 += currentPoint.y
+          }
+
+          // Sample the curve
+          points = BezierUtils.sampleQuadraticBezier(
+            currentPoint,
+            { x: x1, y: y1 },
+            command.position
+          )
+
+          currentPoint = command.position
+          break
+        }
+      }
+
+      if (points.length > 0) {
+        segments.push({
+          points,
+          command,
+          startIndex
+        })
+        startIndex += points.length
+      }
+    }
+
+    return segments
+  }
+
   // The harder bits.
   // -----------------------------------------------------------------------------------
   private processQuadraticBezierCommand(command: PathCommand): void {
@@ -162,9 +253,6 @@ export class PathProcessor {
 
     // Sample the curve.
     const samples = BezierUtils.sampleQuadraticBezier(p0, p1, p2)
-
-    // Split, if required.
-    const intersectionIndices = findSelfIntersections(samples)
 
     // Update output buffer.
     this.outputCommands.push(command)

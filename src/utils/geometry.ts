@@ -3,14 +3,12 @@ import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/path'
 import { BezierUtils, SplitBezierResult } from './bezier'
 
-export interface Intersection {
-  point: Point
-  t1: number // Parameter value for first curve.
-  t2: number // Parameter value for second curve.
-}
-export interface IndexValue {
-  index: number // Index in the samples array
-  t: number // Parameter value (0-1)
+export interface IntersectionInfo {
+  segmentIndex1: number
+  segmentIndex2: number
+  intersectionPoint: Point
+  t1: number // Parametric value on segment 1
+  t2: number // Parametric value on segment 2
 }
 
 export function isClockwise(points: Point[]): boolean {
@@ -77,35 +75,11 @@ export function separateSubpaths(path: PathElement): {
   return finalSubpaths
 }
 
-export function indexToParametricValue(index: number, totalSamples: number): number {
-  if (totalSamples < 2) {
-    throw new Error('Need at least 2 samples to interpolate')
-  }
-  return index / (totalSamples - 1)
-}
-
-export function parametricValueToIndex(t: number, totalSamples: number): number {
-  if (totalSamples < 2) {
-    throw new Error('Need at least 2 samples to interpolate')
-  }
-  return Math.round(t * (totalSamples - 1))
-}
-
-export function findParametricValues(indices: number[], totalSamples: number): IndexValue[] {
-  return indices
-    .map((index) => ({
-      index,
-      t: indexToParametricValue(index, totalSamples)
-    }))
-    .sort((a, b) => a.t - b.t) // Sort by t value
-}
-
-// Returns t-values where bezier curve intersects itself
-export function findSelfIntersections(points: Point[]): number[] {
-  const intersections: number[] = []
+export function findSelfIntersections(points: Point[]): IntersectionInfo[] {
+  const intersections: IntersectionInfo[] = []
   const segments = []
 
-  // Break curve into segments for easier intersection testing
+  // Break path into segments
   for (let i = 0; i < points.length - 1; i++) {
     segments.push({
       start: points[i],
@@ -113,21 +87,18 @@ export function findSelfIntersections(points: Point[]): number[] {
     })
   }
 
-  // Test each segment pair for intersections
+  // Compare segment pairs (skip adjacent segments)
   for (let i = 0; i < segments.length - 1; i++) {
-    for (let j = i + 1; j < segments.length; j++) {
+    for (let j = i + 2; j < segments.length; j++) {
+      // Skip adjacent segments
       const seg1 = segments[i]
       const seg2 = segments[j]
 
-      // Skip adjacent segments as they naturally share an endpoint
-      if (j === i + 1) continue
-
-      // Line-line intersection test
       const denom =
         (seg2.end.y - seg2.start.y) * (seg1.end.x - seg1.start.x) -
         (seg2.end.x - seg2.start.x) * (seg1.end.y - seg1.start.y)
 
-      if (denom === 0) continue // Parallel lines
+      if (denom === 0) continue // Parallel lines, no intersection
 
       const ua =
         ((seg2.end.x - seg2.start.x) * (seg1.start.y - seg2.start.y) -
@@ -140,12 +111,23 @@ export function findSelfIntersections(points: Point[]): number[] {
 
       // Check if intersection lies within both segments
       if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
-        intersections.push(i + ua)
+        const intersectionPoint = {
+          x: seg1.start.x + ua * (seg1.end.x - seg1.start.x),
+          y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
+        }
+
+        intersections.push({
+          segmentIndex1: i,
+          segmentIndex2: j,
+          intersectionPoint,
+          t1: ua,
+          t2: ub
+        })
       }
     }
   }
 
-  return intersections.sort()
+  return intersections
 }
 
 // function splitPathAtIntersections(

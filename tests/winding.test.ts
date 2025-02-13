@@ -66,10 +66,24 @@ describe('SVG Fill Rule Tests NonZero', () => {
   //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
   // })
 
-  it('should correctly convert compound_path_nonzero.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'compound_path_nonzero.svg')
+  // it('should correctly convert compound_path_nonzero.svg to KCL', async () => {
+  //   const inputPath = path.join(dataDir, 'compound_path_nonzero.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'compound_path_nonzero.kcl')
+
+  //   // Run the conversion.
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+  //   // Compare output with expected result.
+  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  // })
+
+  it('should correctly convert self_intersecting.svg to KCL', async () => {
+    const inputPath = path.join(dataDir, 'self_intersecting.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'compound_path_nonzero.kcl')
+    const expectedKclPath = path.join(dataDir, 'self_intersecting.kcl')
 
     // Run the conversion.
     await convertSvgToKcl(inputPath, outputPath, options)

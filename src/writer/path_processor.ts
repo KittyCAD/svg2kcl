@@ -50,9 +50,25 @@ export class PathProcessor {
 
     // Build sampled path we'll use for self-intersection detection.
     const segments = this.buildPath()
+    const segmentStartIndices = segments.flatMap((x) => x.startIndex)
     const allPoints = segments.flatMap((x) => x.points)
-    const pointCommands = segments.map((x) => x.command)
+
     const intersections = findSelfIntersections(allPoints)
+
+    // Map intersections to original segments
+    for (const intersection of intersections) {
+      const segmentIndex1 = this.findSegmentIndexForPoint(
+        segmentStartIndices,
+        intersection.segmentIndex1
+      )
+      const segmentIndex2 = this.findSegmentIndexForPoint(
+        segmentStartIndices,
+        intersection.segmentIndex2
+      )
+
+      const command1 = segments[segmentIndex1].command
+      const command2 = segments[segmentIndex2].command
+    }
 
     // Otherwise... step across the input commands—simple for loop for debug easiness.
     for (let i = 0; i < this.inputCommands.length; i++) {
@@ -61,19 +77,6 @@ export class PathProcessor {
     }
 
     return []
-  }
-
-  private findOriginalCommandsForIntersection(
-    segments: PathSegment[],
-    intersection: IntersectionInfo
-  ): { command1: PathCommand; command2: PathCommand } {
-    const segment1 = segments[intersection.segmentIndex1]
-    const segment2 = segments[intersection.segmentIndex2]
-
-    return {
-      command1: segment1.command,
-      command2: segment2.command
-    }
   }
 
   private getPreviousControlPoint(): Point {
@@ -136,6 +139,16 @@ export class PathProcessor {
         // this.processStopCommand(command)
         break
     }
+  }
+
+  private findSegmentIndexForPoint(segmentStartIndices: number[], pointIndex: number): number {
+    // This could be binary search but meh.
+    for (let i = segmentStartIndices.length - 1; i >= 0; i--) {
+      if (segmentStartIndices[i] <= pointIndex) {
+        return i
+      }
+    }
+    return -1
   }
 
   // Straightforward commands where we can just update the output buffer.

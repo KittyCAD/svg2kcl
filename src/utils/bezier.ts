@@ -8,7 +8,7 @@ export interface SplitBezierResult {
 }
 
 export class BezierUtils {
-  private static readonly CURVE_SAMPLES = 20
+  private static readonly CURVE_SAMPLES = 50
 
   public static isBezierCommand(type: PathCommandType): boolean {
     return (
@@ -21,6 +21,29 @@ export class BezierUtils {
       type === PathCommandType.CubicBezierSmoothAbsolute ||
       type === PathCommandType.CubicBezierSmoothRelative
     )
+  }
+
+  public static sampleQuadraticBezier(
+    start: Point,
+    control: Point,
+    end: Point,
+    numSamples: number = BezierUtils.CURVE_SAMPLES
+  ): Point[] {
+    if (numSamples < 2) {
+      throw new Error('Number of samples must be at least 2')
+    }
+
+    const points: Point[] = [start] // Include start point
+
+    // Sample points along the curve
+    for (let i = 1; i < numSamples - 1; i++) {
+      const t = i / (numSamples - 1)
+      points.push(BezierUtils.evaluateQuadraticBezier(t, start, control, end))
+    }
+
+    points.push(end) // Include end point
+
+    return points
   }
 
   public static getBezierPoints(cmd: PathCommand): Point[] {

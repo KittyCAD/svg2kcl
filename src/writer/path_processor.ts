@@ -2,6 +2,7 @@ import { PathCommand, PathCommandType } from '../types/path'
 import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FillRule } from '../types/base'
+import { BezierUtils } from '../utils/bezier'
 
 export class PathProcessor {
   // Input and output buffer.
@@ -90,22 +91,22 @@ export class PathProcessor {
 
       case PathCommandType.QuadraticBezierSmoothAbsolute:
       case PathCommandType.QuadraticBezierSmoothRelative:
-        this.processQuadraticBezierSmoothCommand(command)
+        // this.processQuadraticBezierSmoothCommand(command)
         break
 
       case PathCommandType.CubicBezierAbsolute:
       case PathCommandType.CubicBezierRelative:
-        this.processCubicBezierCommand(command)
+        // this.processCubicBezierCommand(command)
         break
 
       case PathCommandType.CubicBezierSmoothAbsolute:
       case PathCommandType.CubicBezierSmoothRelative:
-        this.processCubicBezierSmoothCommand(command)
+        // this.processCubicBezierSmoothCommand(command)
         break
 
       case PathCommandType.StopAbsolute:
       case PathCommandType.StopRelative:
-        this.processStopCommand(command)
+        // this.processStopCommand(command)
         break
     }
   }
@@ -141,13 +142,31 @@ export class PathProcessor {
   private processQuadraticBezierCommand(command: PathCommand): void {
     const previousControl: Point = this.getPreviousControlPoint()
 
-    // Logic.
-    const [x1, y1, x, y] = command.parameters
+    // Pull SVG spec params: https://www.w3.org/TR/SVG2/paths.html#PathDataCubicBezierCommands
+    let [x1, y1, x, y] = command.parameters
+
+    if (command.type === PathCommandType.QuadraticBezierRelative) {
+      // We need absolute for self-intersection detection and splitting.
+      x1 += this.currentPoint.x
+      y1 += this.currentPoint.y
+    }
+
+    // Get our points.
+    const p0 = this.currentPoint
+    const p1 = {
+      x: x1,
+      y: y1
+    }
+    const p2 = command.position
+
+    // Sample the curve.
+    const samples = BezierUtils.sampleQuadraticBezier(p0, p1, p2)
 
     // Update output buffer.
     this.outputCommands.push(command)
 
-    // Update state.
+    // Update state: current point becomes our endpoint, previous control point becomes
+    // current control point.
     this.currentPoint = command.position
     this.setPreviousControlPoint({
       x: x1,

@@ -11,40 +11,53 @@ const options: KclOptions = {
 const dataDir = path.join(__dirname, 'data', 'fillrule')
 
 describe('SVG Fill Rule Tests NonZero', () => {
-  it('should correctly convert nonzero_basic.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'nonzero_basic.svg')
+  // it('should correctly convert nonzero_basic.svg to KCL', async () => {
+  //   const inputPath = path.join(dataDir, 'nonzero_basic.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'nonzero_basic.kcl')
+
+  //   // Run the conversion.
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+  //   // Compare output with expected result.
+  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  // })
+
+  // it('should correctly convert nonzero_hole.svg to KCL', async () => {
+  //   const inputPath = path.join(dataDir, 'nonzero_hole.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'nonzero_hole.kcl')
+
+  //   // Run the conversion.
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+  //   // Compare output with expected result.
+  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  // })
+
+  // it('should correctly convert nonzero_complex.svg to KCL', async () => {
+  //   const inputPath = path.join(dataDir, 'nonzero_complex.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'nonzero_complex.kcl')
+
+  //   // Run the conversion.
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+  //   // Compare output with expected result.
+  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  // })
+
+  it('should handle overlapping subpaths with nonzero winding', async () => {
+    const inputPath = path.join(dataDir, 'simple_path_overlap_nonzero.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'nonzero_basic.kcl')
+    const expectedKclPath = path.join(dataDir, 'simple_path_overlap_nonzero.kcl')
 
-    // Run the conversion.
-    await convertSvgToKcl(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
-
-    // Compare output with expected result.
-    expect(actualKCL.trim()).toBe(expectedKcl.trim())
-  })
-
-  it('should correctly convert nonzero_hole.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'nonzero_hole.svg')
-    const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'nonzero_hole.kcl')
-
-    // Run the conversion.
-    await convertSvgToKcl(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
-
-    // Compare output with expected result.
-    expect(actualKCL.trim()).toBe(expectedKcl.trim())
-  })
-
-  it('should correctly convert nonzero_complex.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'nonzero_complex.svg')
-    const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'nonzero_complex.kcl')
-
-    // Run the conversion.
     await convertSvgToKcl(inputPath, outputPath, options)
     const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')

@@ -3,75 +3,66 @@ import { PathCommand, PathCommandType } from '../types/path'
 import { KclOperation, KclOperationType } from '../types/kcl'
 import { Transform } from './transform'
 
-export enum WindingDirection {
-  CLOCKWISE = 1,
-  ANTICLOCKWISE = -1
-}
-
-export interface WindingRegion {
-  outline: PathCommand[]
-  windingNumber: number
-}
-
 export class WindingAnalyzer {
-  private isOpenPath(commands: PathCommand[]): boolean {
-    if (commands.length < 2) return true
-
-    // Path is closed if it ends with any kind of Stop command.
-    const lastCommand = commands[commands.length - 1]
-    return (
-      lastCommand.type !== PathCommandType.StopAbsolute &&
-      lastCommand.type !== PathCommandType.StopRelative
-    )
-  }
-
-  private calculateWindingNumber(
-    point: Point,
+  public analyzeNonzeroPath(
     subpaths: { commands: PathCommand[]; isClockwise: boolean }[],
-    currentPathIndex: number
-  ): number {
-    let windingNumber = 0
+    transform: Transform,
+    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
+  ): KclOperation[] {
+    const operations: KclOperation[] = []
 
-    // Only check if the point is inside the current path.
-    if (this.isPointInPath(point, subpaths[currentPathIndex].commands)) {
-      windingNumber = subpaths[currentPathIndex].isClockwise
-        ? WindingDirection.CLOCKWISE
-        : WindingDirection.ANTICLOCKWISE
+    // Sort paths by area (largest first)
+    const sortedPaths = [...subpaths].sort(
+      (a, b) => this.calculatePathArea(b.commands) - this.calculatePathArea(a.commands)
+    )
+
+    const processedPaths = new Set<number>()
+
+    for (let i = 0; i < sortedPaths.length; i++) {
+      if (processedPaths.has(i)) continue
+
+      const currentPath = sortedPaths[i]
+      const pathOps = convertCommandsFn(currentPath.commands, transform)
+
+      // Find holes for this path
+      const holes: KclOperation[] = []
+
+      for (let j = i + 1; j < sortedPaths.length; j++) {
+        if (processedPaths.has(j)) continue
+
+        const potentialHole = sortedPaths[j]
+        if (
+          this.isPathContainedInPath(potentialHole.commands, currentPath.commands) &&
+          currentPath.isClockwise !== potentialHole.isClockwise
+        ) {
+          holes.push({
+            type: KclOperationType.Hole,
+            params: {
+              operations: convertCommandsFn(potentialHole.commands, transform)
+            }
+          })
+          processedPaths.add(j)
+        }
+      }
+
+      operations.push(...pathOps, ...holes)
+      processedPaths.add(i)
     }
 
-    return windingNumber
+    return operations
   }
 
-  private findRegionBoundaries(
-    subpaths: { commands: PathCommand[]; isClockwise: boolean }[]
-  ): WindingRegion[] {
-    const regions: WindingRegion[] = []
-
-    // Process each subpath.
-    for (let i = 0; i < subpaths.length; i++) {
-      const subpath = subpaths[i]
-      const samplePoint = this.getSamplePointInsidePath(subpath.commands)
-      const windingNumber = this.calculateWindingNumber(samplePoint, subpaths, i)
-
-      if (windingNumber !== 0) {
-        regions.push({
-          outline: subpath.commands,
-          windingNumber
-        })
-      }
+  private calculatePathArea(commands: PathCommand[]): number {
+    let area = 0
+    for (let i = 0; i < commands.length - 1; i++) {
+      const p1 = commands[i].position
+      const p2 = commands[i + 1].position
+      area += p1.x * p2.y - p2.x * p1.y
     }
-
-    return regions
+    return Math.abs(area / 2)
   }
 
   private isPointInPath(point: Point, commands: PathCommand[]): boolean {
-    // Determines if a point lies inside a path using the ray-casting algorithm:
-    // 1: Casts a horizontal ray from the test point to the right (infinity).
-    // 2: Counts intersections with path segments.
-    // 3: First condition checks if the point's y is between the segment's endpoints.
-    // 4: Second condition uses point-slope form to find where ray intersects segment.
-    // 5: If ray intersects segment, toggles inside/outside state.
-    // 6: Odd number of intersections = point is inside the path.
     let inside = false
     let j = commands.length - 1
 
@@ -91,200 +82,7 @@ export class WindingAnalyzer {
     return inside
   }
 
-  private getSamplePointInsidePath(commands: PathCommand[]): Point {
-    // Calculate centroid first.
-    let sumX = 0,
-      sumY = 0,
-      count = 0
-    for (const cmd of commands) {
-      sumX += cmd.position.x
-      sumY += cmd.position.y
-      count++
-    }
-
-    const centroid = {
-      x: sumX / count,
-      y: sumY / count
-    }
-
-    // If centroid is inside, use it.
-    if (this.isPointInPath(centroid, commands)) {
-      return centroid
-    }
-
-    // Otherwise, try points slightly offset from vertices.
-    const PERTURB_OFFSET = 0.1
-    for (const cmd of commands) {
-      const offsetPoint = {
-        x: cmd.position.x + (centroid.x - cmd.position.x) * PERTURB_OFFSET,
-        y: cmd.position.y + (centroid.y - cmd.position.y) * PERTURB_OFFSET
-      }
-      if (this.isPointInPath(offsetPoint, commands)) {
-        return offsetPoint
-      }
-    }
-
-    // If all else fails, return centroid (though this shouldn't happen with valid paths).
-    return centroid
-  }
-
-  public analyzeNonzeroPath(
-    subpaths: { commands: PathCommand[]; isClockwise: boolean }[],
-    transform: Transform,
-    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
-  ): KclOperation[] {
-    const operations: KclOperation[] = []
-    const { openPaths, closedPaths } = this.separatePaths(subpaths)
-
-    // Handle open paths directly.
-    operations.push(...this.processOpenPaths(openPaths, transform, convertCommandsFn))
-
-    // Process closed paths if they exist.
-    if (closedPaths.length > 0) {
-      operations.push(...this.processClosedPaths(closedPaths, transform, convertCommandsFn))
-    }
-
-    return operations
-  }
-
-  private separatePaths(subpaths: { commands: PathCommand[]; isClockwise: boolean }[]) {
-    return {
-      openPaths: subpaths.filter((path) => this.isOpenPath(path.commands)),
-      closedPaths: subpaths.filter((path) => !this.isOpenPath(path.commands))
-    }
-  }
-
-  private processOpenPaths(
-    openPaths: { commands: PathCommand[]; isClockwise: boolean }[],
-    transform: Transform,
-    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
-  ): KclOperation[] {
-    return openPaths.flatMap((path) => convertCommandsFn(path.commands, transform))
-  }
-
-  private processClosedPaths(
-    closedPaths: { commands: PathCommand[]; isClockwise: boolean }[],
-    transform: Transform,
-    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
-  ): KclOperation[] {
-    const operations: KclOperation[] = []
-    const regions = this.findRegionBoundaries(closedPaths)
-
-    if (regions.length === 0) return operations
-
-    const geometryGroups = this.groupRegionsByGeometry(regions)
-    const uniqueRegions = this.combineRegionGroups(geometryGroups)
-    const mainRegion = this.findMainRegion(uniqueRegions)
-
-    operations.push(...convertCommandsFn(mainRegion.outline, transform))
-    operations.push(
-      ...this.processSecondaryRegions(uniqueRegions, mainRegion, transform, convertCommandsFn)
-    )
-
-    return operations
-  }
-
-  private groupRegionsByGeometry(regions: WindingRegion[]): Map<string, WindingRegion[]> {
-    // Find regions with the same geometry but different winding numbers.
-    const geometryGroups = new Map<string, WindingRegion[]>()
-
-    regions.forEach((region) => {
-      const key = JSON.stringify(
-        region.outline.map((cmd) => ({
-          x: cmd.position.x,
-          y: cmd.position.y
-        }))
-      )
-
-      if (!geometryGroups.has(key)) {
-        geometryGroups.set(key, [])
-      }
-      geometryGroups.get(key)!.push(region)
-    })
-
-    return geometryGroups
-  }
-
-  private combineRegionGroups(geometryGroups: Map<string, WindingRegion[]>): WindingRegion[] {
-    // Unify regions with the same geometry but different winding numbers.
-    return Array.from(geometryGroups.values()).map((group) => ({
-      outline: group[0].outline,
-      windingNumber: group.reduce((sum, region) => sum + region.windingNumber, 0)
-    }))
-  }
-
-  private findMainRegion(regions: WindingRegion[]): WindingRegion {
-    return regions.reduce((outer, current) => {
-      const outerArea = this.calculatePathArea(outer.outline)
-      const currentArea = this.calculatePathArea(current.outline)
-      return currentArea > outerArea ? current : outer
-    }, regions[0])
-  }
-
-  private processSecondaryRegions(
-    uniqueRegions: WindingRegion[],
-    mainRegion: WindingRegion,
-    transform: Transform,
-    convertCommandsFn: (commands: PathCommand[], transform: Transform) => KclOperation[]
-  ): KclOperation[] {
-    // Handle all secondary regions, i.e. not the main region.
-    const operations: KclOperation[] = []
-
-    for (const region of uniqueRegions) {
-      if (region === mainRegion) continue
-
-      const isContained = this.isPathContainedInPath(region.outline, mainRegion.outline)
-      const regionOps = convertCommandsFn(region.outline, transform)
-
-      if (isContained && region.windingNumber * mainRegion.windingNumber < 0) {
-        operations.push({
-          type: KclOperationType.Hole,
-          params: { operations: regionOps }
-        })
-      } else if (!this.arePathsEqual(region.outline, mainRegion.outline)) {
-        operations.push(...regionOps)
-      }
-    }
-
-    return operations
-  }
-
-  private arePathsEqual(path1: PathCommand[], path2: PathCommand[]): boolean {
-    if (path1.length !== path2.length) return false
-
-    return path1.every((cmd, i) => {
-      const cmd2 = path2[i]
-
-      // Check command type.
-      if (cmd.type !== cmd2.type) return false
-
-      // Check position.
-      if (cmd.position.x !== cmd2.position.x || cmd.position.y !== cmd2.position.y) return false
-
-      // Check parameters if they exist.
-      if (cmd.parameters && cmd2.parameters) {
-        if (cmd.parameters.length !== cmd2.parameters.length) return false
-        return cmd.parameters.every((param, j) => param === cmd2.parameters[j])
-      }
-
-      return true
-    })
-  }
-
-  private calculatePathArea(commands: PathCommand[]): number {
-    // Shoelace formula for area.
-    // See: https://en.wikipedia.org/wiki/Shoelace_formula
-    let area = 0
-    for (let i = 0; i < commands.length - 1; i++) {
-      const p1 = commands[i].position
-      const p2 = commands[i + 1].position
-      area += p1.x * p2.y - p2.x * p1.y
-    }
-    return Math.abs(area / 2)
-  }
-
   private isPathContainedInPath(inner: PathCommand[], outer: PathCommand[]): boolean {
-    // Test a point from the inner path (e.g., first vertex).
     return this.isPointInPath(inner[0].position, outer)
   }
 }

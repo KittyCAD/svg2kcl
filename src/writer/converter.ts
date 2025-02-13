@@ -27,9 +27,10 @@ export class Converter {
   private previousControlPoint: Point | null = null
   private currentPoint: Point = { x: 0, y: 0 }
   private readonly offsetCoords: Point
+  private readonly options: KclOptions
   private readonly windingAnalyzer: WindingAnalyzer
 
-  constructor(private options: KclOptions = {}, viewBox: ViewBox) {
+  constructor(options: KclOptions = {}, viewBox: ViewBox) {
     // Calculate offset coordinates for centering if requested.
     const xOffset = viewBox.xMin + viewBox.width / 2
     const yOffset = viewBox.yMin + viewBox.height / 2
@@ -501,6 +502,24 @@ export class Converter {
     })
 
     if (!operations.some((op) => op.type === KclOperationType.Close)) {
+      // Create explicit closing geometry.
+      // Get absolute positions
+      const firstPoint = commands[0].position
+      const lastPoint = commands[commands.length - 1].position
+
+      // Calculate relative movement needed to return to start.
+      const relativeX = firstPoint.x - lastPoint.x
+      const relativeY = firstPoint.y - lastPoint.y
+
+      // Add line back to start point using relative coordinates.
+      operations.push({
+        type: KclOperationType.Line,
+        params: {
+          point: [relativeX, relativeY]
+        }
+      })
+
+      // Call close.
       operations.push({ type: KclOperationType.Close, params: null })
     }
 
@@ -527,7 +546,6 @@ export class Converter {
         })
       })
     } else {
-      // Use new nonzero implementation
       const subpaths = separateSubpaths(path)
       operations.push(
         ...this.windingAnalyzer.analyzeNonzeroPath(

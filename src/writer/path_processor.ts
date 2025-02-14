@@ -439,16 +439,29 @@ export class PathProcessor {
       return tLocal
     }
 
-    /// For Bézier curves, we need to map from sample segment space (local) to curve
+    // For Bézier curves, we need to map from sample segment space (local) to curve
     // space (global).
+    // For example, if we have a sampled cubic Bézier with 5 points, and a point of
+    // intersection lying halfway between points 1 and 2:
+    //
+    // |---|---|---|---|
+    // 0   1 X 2   3   4
+    //
+    // Then we would expect a local t value of 0.5, and an iSegmentStart of 1.
+    //
+    // We need to map this to the curve's space, so we want to:
+    // 1. Work out how long the command is in terms of sampled points.
+    // 2. Work out how far along the command our intersection point is.
+    //
+    // We just need to 'localise' our starting point as our iSegmentStart could be
+    // some arbitrary value, not necessarily 0.
 
     // Get the length of the command as sampled.
     const lCommand = command.iLastPoint - command.iFirstPoint
 
-    // Then we want to work out how far along the command this point is. Note that
-    // we have to adjust for the fact that the first point of the command is not
-    // necessarily the first point of the big list of points.
-    const tGlobal = (iSegmentStart + tLocal - command.iFirstPoint) / lCommand
+    // Then we want to work out how far along the command this point is.
+    const lToIntersection = iSegmentStart - command.iFirstPoint + tLocal
+    const tGlobal = lToIntersection / lCommand
 
     return tGlobal
   }

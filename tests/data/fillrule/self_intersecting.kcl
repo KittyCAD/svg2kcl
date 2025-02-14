@@ -1,16 +1,16 @@
 sketch001 = startSketchAt([50, -150])
   |> bezierCurve({
-      control1 = [12.505, 20.842],
-      control2 = [25.011, 37.514],
-      to = [37.516, 50.016]
+      control1 = [37.584, 28.911],
+      control2 = [68.273, 49.672],
+      to = [92.066, 62.284]
     }, %)
   |> bezierCurve({
-      control1 = [37.495, 37.484],
-      control2 = [74.989, 37.479],
-      to = [112.484, -0.016]
+      control1 = [31.072, 16.47],
+      control2 = [50.383, 19.042],
+      to = [57.934, 7.716]
     }, %)
-  |> line(end = [-112.484, 0])
-  |> line(end = [-37.516, 0])
+  |> line(end = [-57.943, -7.726])
+  |> line(end = [-92.057, -12.274])
   |> line(end = [0, -50])
   |> close()
 
@@ -18,10 +18,10 @@ sketch002 = startSketchOn("XY")
   |> circle({ center = [50, -150], radius = 3 }, %)
 
 sketch003 = startSketchOn("XY")
-  |> circle({ center = [125, -25], radius = 3 }, %)
+  |> circle({ center = [180, -50], radius = 3 }, %)
 
 sketch004 = startSketchOn("XY")
-  |> circle({ center = [200, -100], radius = 3 }, %)
+  |> circle({ center = [200, -80], radius = 3 }, %)
 
 sketch005 = startSketchOn("XY")
   |> circle({ center = [50, -100], radius = 3 }, %)

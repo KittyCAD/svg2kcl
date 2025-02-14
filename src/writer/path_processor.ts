@@ -23,6 +23,7 @@ export class PathProcessor {
   // Some state tracking. We need previous control point to handle smoothed Beziers.
   private previousControlPoint: Point | null = null
   private currentPoint: Point = { x: 0, y: 0 }
+  private splitPlan: Map<number, number[]> = new Map()
 
   constructor(element: PathElement) {
     // Pull commands and fill rule.
@@ -42,6 +43,7 @@ export class PathProcessor {
     this.outputCommands = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
+    this.splitPlan = new Map()
 
     // Get out early for evenodd fill rule—no splitting required!
     if (this.fillRule === FillRule.EvenOdd) {
@@ -49,31 +51,52 @@ export class PathProcessor {
     }
 
     // Build sampled path we'll use for self-intersection detection.
-    const segments = this.buildPath()
-    const segmentStartIndices = segments.flatMap((x) => x.startIndex)
-    const allPoints = segments.flatMap((x) => x.points)
+    const commandSegments = this.buildPath() // One segment entry per command.
+    const segmentStartIndices = commandSegments.flatMap((x) => x.startIndex)
+    const sampledFullPath = commandSegments.flatMap((x) => x.points)
 
-    const intersections = findSelfIntersections(allPoints)
+    // Get the intersections. Note that segment index values here refer to the sampled
+    // path, not the original commands.
+    const intersections = findSelfIntersections(sampledFullPath)
 
-    // Map intersections to original segments
+    // Map from command index to array of t-values where it needs to be split.
+    let splitPlan = new Map<number, number[]>()
+
     for (const intersection of intersections) {
-      const segmentIndex1 = this.findSegmentIndexForPoint(
+      const commandAIndex = this.findSegmentIndexForPoint(
         segmentStartIndices,
         intersection.segmentIndex1
       )
-      const segmentIndex2 = this.findSegmentIndexForPoint(
+      const commandBIndex = this.findSegmentIndexForPoint(
         segmentStartIndices,
         intersection.segmentIndex2
       )
 
-      const command1 = segments[segmentIndex1].command
-      const command2 = segments[segmentIndex2].command
+      // Add t1 to command A's split points.
+      if (!splitPlan.has(commandAIndex)) {
+        splitPlan.set(commandAIndex, [])
+      }
+      splitPlan.get(commandAIndex)!.push(intersection.t1)
+
+      // Add t2 to command B's split points.
+      if (!splitPlan.has(commandBIndex)) {
+        splitPlan.set(commandBIndex, [])
+      }
+      splitPlan.get(commandBIndex)!.push(intersection.t2)
     }
+
+    // After collecting all splits, sort each command's t-values.
+    for (const tValues of splitPlan.values()) {
+      tValues.sort((a, b) => a - b)
+    }
+
+    // Set the split plan.
+    this.splitPlan = splitPlan
 
     // Otherwise... step across the input commands—simple for loop for debug easiness.
     for (let i = 0; i < this.inputCommands.length; i++) {
       const command = this.inputCommands[i]
-      this.processCommand(command)
+      this.processCommand(command, i)
     }
 
     return []
@@ -98,7 +121,11 @@ export class PathProcessor {
     this.previousControlPoint = null
   }
 
-  private processCommand(command: PathCommand): void {
+  private processCommand(command: PathCommand, iCommand: number): void {
+    // Check if we need to split this command.
+    const splitRequired = this.splitPlan.has(iCommand)
+    const splitData = this.splitPlan.get(iCommand)
+
     switch (command.type) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.MoveRelative:

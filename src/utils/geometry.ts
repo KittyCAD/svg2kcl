@@ -7,8 +7,8 @@ export interface IntersectionInfo {
   segmentIndex1: number
   segmentIndex2: number
   intersectionPoint: Point
-  t1: number // Parametric value on segment 1
-  t2: number // Parametric value on segment 2
+  t1: number // Parametric value on segment 1.
+  t2: number // Parametric value on segment 2.
 }
 
 export function isClockwise(points: Point[]): boolean {
@@ -87,30 +87,61 @@ export function findSelfIntersections(points: Point[]): IntersectionInfo[] {
     })
   }
 
-  // Compare segment pairs (skip adjacent segments)
+  // Compare each segment pair for intersections.
+  // Skip adjacent segments because these would always intersect.
+  // Segment 1: A----B
+  // Segment 2:      B----C
   for (let i = 0; i < segments.length - 1; i++) {
     for (let j = i + 2; j < segments.length; j++) {
-      // Skip adjacent segments
+      // Compare each segment pair for intersections.
+      // Skip adjacent segments because these would always intersect.
+      // Segment 1: A----B
+      // Segment 2:      B----C
       const seg1 = segments[i]
       const seg2 = segments[j]
 
-      const denom =
-        (seg2.end.y - seg2.start.y) * (seg1.end.x - seg1.start.x) -
-        (seg2.end.x - seg2.start.x) * (seg1.end.y - seg1.start.y)
+      // Cross product of AB and CD. Our vectors are 2D, so we only need the z component.
+      // https://www.mathsisfun.com/algebra/vectors-cross-product.html
+      // KA Stroud, Engineering Mathematics, 7th Edition, p535
+      const [abx, aby, ,] = [seg1.end.x - seg1.start.x, seg1.end.y - seg1.start.y, 0]
+      const [cdx, cdy, ,] = [seg2.end.x - seg2.start.x, seg2.end.y - seg2.start.y, 0]
 
-      if (denom === 0) continue // Parallel lines, no intersection
+      // const cx = aby * cdz - abz * cdy // Will always be zero.
+      // const cy = abz * cdx - abx * cdz // Will always be zero.
+      const cz = abx * cdy - aby * cdx
 
-      const ua =
-        ((seg2.end.x - seg2.start.x) * (seg1.start.y - seg2.start.y) -
-          (seg2.end.y - seg2.start.y) * (seg1.start.x - seg2.start.x)) /
-        denom
-      const ub =
-        ((seg1.end.x - seg1.start.x) * (seg1.start.y - seg2.start.y) -
-          (seg1.end.y - seg1.start.y) * (seg1.start.x - seg2.start.x)) /
-        denom
+      // Handily, cz is the determinant of the matrix:
+      const det = cz
 
-      // Check if intersection lies within both segments
-      if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+      // If A cross B is zero, then the two segments are parallel.
+      if (det === 0) continue
+
+      // Using parametric equations for the two lines, we can find intersection point.
+      // P(t) = P1 + t(P2 - P1)
+      // http://www.it.hiof.no/~borres/j3d/math/param/p-param.html
+      //
+      // This gives us a t value that increases as we move along the line; fraction
+      // into the segment where the intersection occurs.
+      //
+      // Do the actual solve with Cramer's Rule.
+      // https://en.wikipedia.org/wiki/Cramer%27s_rule
+      //
+      // Ax=b
+      // xi = det(Ai)/det(A) for i = 1:n, where Ai is A with column i replaced by b.
+      const detA1 =
+        (seg2.end.x - seg2.start.x) * (seg1.start.y - seg2.start.y) -
+        (seg2.end.y - seg2.start.y) * (seg1.start.x - seg2.start.x)
+      const ua = detA1 / det
+
+      const detA2 =
+        (seg1.end.x - seg1.start.x) * (seg1.start.y - seg2.start.y) -
+        (seg1.end.y - seg1.start.y) * (seg1.start.x - seg2.start.x)
+      const ub = detA2 / det
+
+      // Check if intersection lies within both segments, excluding endpoints.
+      const EPSILON_END = 1e-10
+
+      if (ua > EPSILON_END && ua < 1 - EPSILON_END && ub > EPSILON_END && ub < 1 - EPSILON_END) {
         const intersectionPoint = {
           x: seg1.start.x + ua * (seg1.end.x - seg1.start.x),
           y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
@@ -119,9 +150,9 @@ export function findSelfIntersections(points: Point[]): IntersectionInfo[] {
         intersections.push({
           segmentIndex1: i,
           segmentIndex2: j,
-          intersectionPoint,
-          t1: ua,
-          t2: ub
+          intersectionPoint, // Actual coordinates of the intersection.
+          t1: ua, // Fraction along segment1: ua.
+          t2: ub // Fraction along segment2: ub.
         })
       }
     }

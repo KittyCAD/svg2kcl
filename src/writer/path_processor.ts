@@ -51,7 +51,32 @@ import { FillRule } from '../types/base'
 import { BezierUtils } from '../utils/bezier'
 import { findSelfIntersections, Intersection, EnrichedCommand } from '../utils/geometry'
 import { interpolateLine } from '../utils/geometry'
+
+interface PathFragment {
+  // An internal, intermediate representation of a path 'fragment'. We may produce
+  // a bunch of these when splitting paths, but we need more context than would be
+  // provided by the sort of new PathCommand object we produce when re-emitting
+  // quasi-SVG.
+
+  // SVG paths are lines, Béziers or arcs. We don't support arcs, and we can simplify
+  // things by only considering absolute coordinates and mopping up smoothed
+  // (i.e. reflected control point) curves at the layer above this. So.. simple type.
+  type: 'line' | 'quad' | 'cubic'
+
+  // The main points for this geometry:
+  start: Point
+  end: Point
+
+  // Optionally store additional data for Bézier curves.
+  control1?: Point
+  control2?: Point
+
+  // Store a link to the original command index in our input path list.
+  commandIndex: number
+}
+
 interface PathSampleResult {
+  // Represents a sampled path for self-intersection detection.
   points: Point[]
   commands: EnrichedCommand[]
 }

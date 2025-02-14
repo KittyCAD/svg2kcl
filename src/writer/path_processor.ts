@@ -44,13 +44,17 @@
 //   - Order guarantees parent shapes exist before their holes
 //
 
-import { PathCommand, PathCommandType } from '../types/path'
-import { Point } from '../types/base'
+import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
-import { FillRule } from '../types/base'
+import { PathCommand, PathCommandType } from '../types/path'
 import { BezierUtils } from '../utils/bezier'
-import { findSelfIntersections, Intersection, EnrichedCommand } from '../utils/geometry'
-import { interpolateLine } from '../utils/geometry'
+import {
+  EnrichedCommand,
+  findSelfIntersections,
+  interpolateLine,
+  Intersection,
+  EPSILON_INTERSECT
+} from '../utils/geometry'
 
 interface PathFragment {
   // An internal, intermediate representation of a path 'fragment'. We may produce
@@ -542,6 +546,43 @@ export class PathProcessor {
 
     // ---------------------------------------------------------------------------------
 
-    let x = 1
+    // Let's do some subdivision.
+    const fragments: PathFragment[] = []
+    for (let i = 0; i < commands.length; i++) {
+      const cmd = commands[i]
+
+      // Pull out the t-values for this command, plus ensure 0 & 1 are included.
+      // This is so our later subdivide calls can see the whole thing.
+      const tVals = [...(splitPlan.get(i) || []), 0, 1]
+
+      // Sort.
+      tVals.sort((a, b) => a - b)
+
+      // For each adjacent pair of t-values, produce one fragment.
+      for (let j = 0; j < tVals.length - 1; j++) {
+        const tMin = tVals[j]
+        const tMax = tVals[j + 1]
+        if (tMax - tMin < EPSILON_INTERSECT) {
+          // Skip trivial zero-length splits from repeated t-values. Should hopefully
+          // not see any of this since the intersection finder should have removed them.
+          continue
+        }
+
+        // Subdivide this command from [tMin..tMax] into a PathFragment.
+        const fragment = this.subdivideCommand(cmd, points, tMin, tMax)
+        if (fragment) {
+          fragments.push(fragment)
+        }
+      }
+    }
+  }
+
+  private subdivideCommand(
+    command: EnrichedCommand,
+    points: Point[],
+    tMin: number,
+    tMax: number
+  ): PathFragment | null {
+    return null
   }
 }

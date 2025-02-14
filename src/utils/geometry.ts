@@ -3,6 +3,8 @@ import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/path'
 import { BezierUtils } from './bezier'
 
+export const EPSILON_INTERSECT = 1e-9
+
 export interface LineSegment {
   start: Point
   end: Point
@@ -151,9 +153,12 @@ export function findSelfIntersections(points: Point[]): Intersection[] {
       const ub = detA2 / det
 
       // Check if intersection lies within both segments, excluding endpoints.
-      const EPSILON_END = 1e-10
-
-      if (ua > EPSILON_END && ua < 1 - EPSILON_END && ub > EPSILON_END && ub < 1 - EPSILON_END) {
+      if (
+        ua > EPSILON_INTERSECT &&
+        ua < 1 - EPSILON_INTERSECT &&
+        ub > EPSILON_INTERSECT &&
+        ub < 1 - EPSILON_INTERSECT
+      ) {
         const intersectionPoint = {
           x: seg1.start.x + ua * (seg1.end.x - seg1.start.x),
           y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)

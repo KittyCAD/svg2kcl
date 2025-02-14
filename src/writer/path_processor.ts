@@ -49,13 +49,21 @@ import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FillRule } from '../types/base'
 import { BezierUtils } from '../utils/bezier'
-import { findSelfIntersections } from '../utils/geometry'
+import { findSelfIntersections, Intersection, SampledPathSegment } from '../utils/geometry'
 import { interpolateLine } from '../utils/geometry'
 
-interface PathSegment {
-  points: Point[]
-  command: PathCommand // Keep reference to original command.
-  startIndex: number // Index where this segment starts in flattened points.
+interface Region {
+  id: number
+  boundaryPoints: Point[] // Boundary points defining the region outline.
+  segments: SampledPathSegment[] // Segments that make up this region, in order.
+  intersections: Intersection[] // Intersections where this region begins/ends.
+  neighbors: Set<number> // IDs of regions that share boundaries with this one.
+
+  // Will be set in later passes.
+  windingNumber?: number
+  isFilled?: boolean
+  parentRegionId?: number
+  childRegionIds: Set<number>
 }
 
 export class PathProcessor {
@@ -70,6 +78,7 @@ export class PathProcessor {
   private previousControlPoint: Point | null = null
   private currentPoint: Point = { x: 0, y: 0 }
   private splitPlan: Map<number, number[]> = new Map()
+  private intersections: Intersection[] = []
 
   constructor(element: PathElement) {
     // Pull commands and fill rule.
@@ -111,24 +120,24 @@ export class PathProcessor {
     for (const intersection of intersections) {
       const commandAIndex = this.findSegmentIndexForPoint(
         segmentStartIndices,
-        intersection.segmentIndex1
+        intersection.segmentAIndex
       )
       const commandBIndex = this.findSegmentIndexForPoint(
         segmentStartIndices,
-        intersection.segmentIndex2
+        intersection.segmentBIndex
       )
 
       // Add t1 to command A's split points.
       if (!splitPlan.has(commandAIndex)) {
         splitPlan.set(commandAIndex, [])
       }
-      splitPlan.get(commandAIndex)!.push(intersection.t1)
+      splitPlan.get(commandAIndex)!.push(intersection.tA)
 
       // Add t2 to command B's split points.
       if (!splitPlan.has(commandBIndex)) {
         splitPlan.set(commandBIndex, [])
       }
-      splitPlan.get(commandBIndex)!.push(intersection.t2)
+      splitPlan.get(commandBIndex)!.push(intersection.tB)
     }
 
     // After collecting all splits, sort each command's t-values.
@@ -278,8 +287,8 @@ export class PathProcessor {
   }
   // Build the whole thing for self-intersection detection.
   // -----------------------------------------------------------------------------------
-  private buildPath(): PathSegment[] {
-    const segments: PathSegment[] = []
+  private buildPath(): SampledPathSegment[] {
+    const segments: SampledPathSegment[] = []
     let currentPoint = { x: 0, y: 0 }
     let startIndex = 0
 
@@ -331,7 +340,7 @@ export class PathProcessor {
       if (points.length > 0) {
         segments.push({
           points,
-          command,
+          sourceCommand: command,
           startIndex
         })
         startIndex += points.length
@@ -419,5 +428,47 @@ export class PathProcessor {
       x: current.x + (current.x - prevControl.x),
       y: current.y + (current.y - prevControl.y)
     }
+  }
+
+  // First pass.
+  // -----------------------------------------------------------------------------------
+  private analyzePath(): void {}
+
+  private findAllIntersections(): void {
+    const segments = this.buildPath()
+    const points = segments.flatMap((s) => s.points)
+    const segmentStartIndices = segments.map((s) => s.startIndex)
+
+    // Get raw intersections.
+    const rawIntersections = findSelfIntersections(points)
+
+    // Enhance the intersections with segment information.
+    this.intersections = rawIntersections.map((intersection) => {
+      const segmentAIndex = this.findSegmentIndexForPoint(
+        segmentStartIndices,
+        intersection.segmentAIndex
+      )
+      const segmentBIndex = this.findSegmentIndexForPoint(
+        segmentStartIndices,
+        intersection.segmentBIndex
+      )
+
+      // Enrich the intersection with segment information.
+      return {
+        ...intersection,
+        segments: {
+          a: segments[segmentAIndex],
+          b: segments[segmentBIndex]
+        }
+      }
+    })
+
+    // Sort intersections by t-value within each segment.
+    this.intersections.sort((a, b) => {
+      if (a.segments!.a === b.segments!.a) {
+        return a.tA - b.tA
+      }
+      return a.segments!.a.startIndex - b.segments!.a.startIndex
+    })
   }
 }

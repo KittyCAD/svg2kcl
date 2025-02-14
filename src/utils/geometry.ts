@@ -1,14 +1,30 @@
 import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/path'
-import { BezierUtils, SplitBezierResult } from './bezier'
+import { BezierUtils } from './bezier'
 
-export interface IntersectionInfo {
-  segmentIndex1: number
-  segmentIndex2: number
+export interface LineSegment {
+  start: Point
+  end: Point
+}
+
+export interface SampledPathSegment {
+  points: Point[]
+  sourceCommand: PathCommand // Keep reference to original command.
+  startIndex: number // Index where this segment starts in flattened points.
+}
+
+export interface Intersection {
+  segmentAIndex: number
+  segmentBIndex: number
   intersectionPoint: Point
-  t1: number // Parametric value on segment 1.
-  t2: number // Parametric value on segment 2.
+  tA: number // Parametric value on segment A.
+  tB: number // Parametric value on segment B.
+
+  segments?: {
+    a: SampledPathSegment
+    b: SampledPathSegment
+  }
 }
 
 export function isClockwise(points: Point[]): boolean {
@@ -75,16 +91,16 @@ export function separateSubpaths(path: PathElement): {
   return finalSubpaths
 }
 
-export function findSelfIntersections(points: Point[]): IntersectionInfo[] {
-  const intersections: IntersectionInfo[] = []
-  const segments = []
+export function findSelfIntersections(points: Point[]): Intersection[] {
+  const intersections: Intersection[] = []
+  const segments: LineSegment[] = []
 
   // Break path into segments
   for (let i = 0; i < points.length - 1; i++) {
     segments.push({
       start: points[i],
       end: points[i + 1]
-    })
+    } as LineSegment)
   }
 
   // Compare each segment pair for intersections.
@@ -148,11 +164,11 @@ export function findSelfIntersections(points: Point[]): IntersectionInfo[] {
         }
 
         intersections.push({
-          segmentIndex1: i,
-          segmentIndex2: j,
+          segmentAIndex: i,
+          segmentBIndex: j,
           intersectionPoint, // Actual coordinates of the intersection.
-          t1: ua, // Fraction along segment1: ua.
-          t2: ub // Fraction along segment2: ub.
+          tA: ua, // Fraction along segment A: ua.
+          tB: ub // Fraction along segment B: ub.
         })
       }
     }

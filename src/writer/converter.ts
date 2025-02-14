@@ -804,7 +804,13 @@ export class Converter {
         const processor = new PathProcessor(element as PathElement)
         const processedCommands = processor.process()
 
-        return this.convertPathToKclOps(element as PathElement)
+        // Create a new path element with the processed commands.
+        const processedPath: PathElement = {
+          ...(element as PathElement),
+          commands: processedCommands
+        }
+
+        return this.convertPathToKclOps(processedPath as PathElement)
       case ElementType.Rectangle:
         return this.convertRectangleToKclOps(element as RectangleElement)
       case ElementType.Circle:

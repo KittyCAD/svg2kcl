@@ -161,6 +161,13 @@ export function findSelfIntersections(points: Point[]): IntersectionInfo[] {
   return intersections
 }
 
+export function interpolateLine(p0: Point, p1: Point, t: number): Point {
+  return {
+    x: (1 - t) * p0.x + t * p1.x,
+    y: (1 - t) * p0.y + t * p1.y
+  }
+}
+
 // function splitPathAtIntersections(
 //   commands: PathCommand[],
 //   intersections: number[]

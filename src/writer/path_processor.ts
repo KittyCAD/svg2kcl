@@ -4,7 +4,7 @@ import { PathElement } from '../types/elements'
 import { FillRule } from '../types/base'
 import { BezierUtils } from '../utils/bezier'
 import { findSelfIntersections } from '../utils/geometry'
-import { IntersectionInfo } from '../utils/geometry'
+import { interpolateLine } from '../utils/geometry'
 
 interface PathSegment {
   points: Point[]
@@ -99,7 +99,7 @@ export class PathProcessor {
       this.processCommand(command, i)
     }
 
-    return []
+    return this.outputCommands
   }
 
   private getPreviousControlPoint(): Point {
@@ -122,10 +122,6 @@ export class PathProcessor {
   }
 
   private processCommand(command: PathCommand, iCommand: number): void {
-    // Check if we need to split this command.
-    const splitRequired = this.splitPlan.has(iCommand)
-    const splitData = this.splitPlan.get(iCommand)
-
     switch (command.type) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.MoveRelative:
@@ -138,12 +134,12 @@ export class PathProcessor {
       case PathCommandType.HorizontalLineRelative:
       case PathCommandType.VerticalLineAbsolute:
       case PathCommandType.VerticalLineRelative:
-        this.processLineCommand(command)
+        this.processLineCommand(command, iCommand)
         break
 
       case PathCommandType.QuadraticBezierAbsolute:
       case PathCommandType.QuadraticBezierRelative:
-        this.processQuadraticBezierCommand(command)
+        this.processQuadraticBezierCommand(command, iCommand)
         break
 
       case PathCommandType.QuadraticBezierSmoothAbsolute:
@@ -178,17 +174,9 @@ export class PathProcessor {
     return -1
   }
 
-  // Straightforward commands where we can just update the output buffer.
+  // More straightforward commands.
   // -----------------------------------------------------------------------------------
   private processMoveCommand(command: PathCommand): void {
-    this.currentPoint = command.position
-    this.outputCommands.push(command)
-
-    // Not a curve.
-    this.clearPreviousControlPoint()
-  }
-
-  private processLineCommand(command: PathCommand): void {
     this.currentPoint = command.position
     this.outputCommands.push(command)
 
@@ -204,6 +192,44 @@ export class PathProcessor {
     this.clearPreviousControlPoint()
   }
 
+  private processLineCommand(command: PathCommand, iCommand: number): void {
+    const splitRequired = this.splitPlan.has(iCommand)
+    const splitData = this.splitPlan.get(iCommand) || []
+
+    if (!splitRequired) {
+      // No splitting needed, push the original line command.
+      this.outputCommands.push(command)
+    } else {
+      // Sort t-values to ensure they are processed in order.
+      splitData.sort((a, b) => a - b)
+
+      let startPoint = this.currentPoint
+
+      for (const t of splitData) {
+        const midPoint = interpolateLine(startPoint, command.position, t)
+
+        // All line segments become LineAbsolute since we have absolute coords.
+        this.outputCommands.push({
+          type: PathCommandType.LineAbsolute,
+          parameters: [midPoint.x, midPoint.y],
+          position: midPoint
+        })
+
+        startPoint = midPoint
+      }
+
+      // Final segment.
+      this.outputCommands.push({
+        type: PathCommandType.LineAbsolute,
+        parameters: [command.position.x, command.position.y],
+        position: command.position
+      })
+    }
+
+    // Update state.
+    this.currentPoint = command.position
+    this.clearPreviousControlPoint()
+  }
   // Build the whole thing for self-intersection detection.
   // -----------------------------------------------------------------------------------
   private buildPath(): PathSegment[] {
@@ -271,39 +297,70 @@ export class PathProcessor {
 
   // The harder bits.
   // -----------------------------------------------------------------------------------
-  private processQuadraticBezierCommand(command: PathCommand): void {
-    const previousControl: Point = this.getPreviousControlPoint()
+  private processQuadraticBezierCommand(command: PathCommand, iCommand: number): void {
+    const splitRequired = this.splitPlan.has(iCommand)
+    const splitData = this.splitPlan.get(iCommand) || []
 
-    // Pull SVG spec params: https://www.w3.org/TR/SVG2/paths.html#PathDataCubicBezierCommands
+    // Get absolute control point
     let [x1, y1, x, y] = command.parameters
 
     if (command.type === PathCommandType.QuadraticBezierRelative) {
-      // We need absolute for self-intersection detection and splitting.
       x1 += this.currentPoint.x
       y1 += this.currentPoint.y
     }
 
     // Get our points.
     const p0 = this.currentPoint
-    const p1 = {
-      x: x1,
-      y: y1
-    }
+    const p1 = { x: x1, y: y1 }
     const p2 = command.position
 
-    // Sample the curve.
-    const samples = BezierUtils.sampleQuadraticBezier(p0, p1, p2)
+    if (!splitRequired) {
+      // No splits, just push the original command.
+      this.outputCommands.push(command)
+    } else {
+      // Sort the split points just in case they are out of order.
+      splitData.sort((a, b) => a - b)
 
-    // Update output buffer.
-    this.outputCommands.push(command)
+      let startPoint = { x: p0.x, y: p0.y }
+      let controlPoint = { x: p1.x, y: p1.y }
+      let endPoint = { x: p2.x, y: p2.y }
 
-    // Update state: current point becomes our endpoint, previous control point becomes
-    // current control point.
-    this.currentPoint = command.position
-    this.setPreviousControlPoint({
-      x: x1,
-      y: y1
-    })
+      for (const t of splitData) {
+        const splitResult = BezierUtils.splitQuadraticBezier(
+          { start: startPoint, control: controlPoint, end: endPoint },
+          t
+        )
+
+        // Push first half.
+        // Parameters are control point and end point.
+        const parameters = [
+          splitResult.first[1].x,
+          splitResult.first[1].y,
+          splitResult.first[2].x,
+          splitResult.first[2].y
+        ]
+        this.outputCommands.push({
+          type: PathCommandType.QuadraticBezierAbsolute,
+          parameters: parameters,
+          position: splitResult.first[2] // End point.
+        })
+
+        // Update start point for the next segment.
+        startPoint = splitResult.second[0]
+        controlPoint = splitResult.second[1]
+      }
+
+      // Push last segment.
+      this.outputCommands.push({
+        type: PathCommandType.QuadraticBezierAbsolute,
+        parameters: [controlPoint.x, controlPoint.y, endPoint.x, endPoint.y],
+        position: endPoint
+      })
+    }
+
+    // Update state.
+    this.currentPoint = p2
+    this.setPreviousControlPoint(p1)
   }
 
   // Some utilities.

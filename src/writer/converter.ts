@@ -633,7 +633,7 @@ export class Converter {
     const processor = new PathProcessor(path as PathElement)
 
     // TODO - TAKE THIS OUT, JUST TESTING.
-    // processor.analyzePath()
+    processor.analyzePath()
 
     const processedCommands = processor.process()
 

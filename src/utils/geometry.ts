@@ -11,8 +11,9 @@ export interface LineSegment {
 }
 
 export interface EnrichedCommand extends PathCommand {
-  iFirstPoint: number
-  iLastPoint: number
+  iFirstPoint: number // Index of the first point of this command in the global path sample array.
+  iLastPoint: number // Index of the last point of this command in the global path sample array.
+  iCommand: number // Index of this command in the global path command array.
 }
 
 export interface Intersection {

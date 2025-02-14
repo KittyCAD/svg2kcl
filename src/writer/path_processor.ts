@@ -306,7 +306,10 @@ export class PathProcessor {
     const commands: EnrichedCommand[] = []
     let currentPoint = { x: 0, y: 0 }
 
-    for (const command of this.inputCommands) {
+    // Loop over each of our original input commands.
+    for (let i = 0; i < this.inputCommands.length; i++) {
+      const command = this.inputCommands[i]
+
       // Get the (global point set) index of this command's first point.
       const iFirstPoint = points.length
 
@@ -357,7 +360,8 @@ export class PathProcessor {
       commands.push({
         ...command,
         iFirstPoint,
-        iLastPoint
+        iLastPoint,
+        iCommand: i
       })
     }
 
@@ -590,7 +594,7 @@ export class PathProcessor {
     // We only handle lines, quadratics, and cubics here.
     // If other commands (Move, Arc, etc.) appear, return null or handle them as needed.
     if (command.type.includes('Line')) {
-      return this.subdivideLine(command, points, tMin, tMax)
+      return this.subdivideLine(command, tMin, tMax)
     } else if (command.type.includes('QuadraticBezier')) {
       //   return this.subdivideQuadratic(command, points, tMin, tMax)
     } else if (command.type.includes('CubicBezier')) {
@@ -600,23 +604,16 @@ export class PathProcessor {
     return null
   }
 
-  private subdivideLine(
-    cmd: EnrichedCommand,
-    points: Point[],
-    tMin: number,
-    tMax: number
-  ): PathFragment {
+  private subdivideLine(cmd: EnrichedCommand, tMin: number, tMax: number): PathFragment {
     // Line absolute is draw from current point to the specified coords.
-    const currentPoint = cmd.endPositionAbsolute
-
-    const startPt = { x: 0, y: 0 }
-    const endPt = { x: 0, y: 0 }
+    const startPoint = interpolateLine(cmd.startPositionAbsolute, cmd.endPositionAbsolute, tMin)
+    const endPoint = interpolateLine(cmd.startPositionAbsolute, cmd.endPositionAbsolute, tMax)
 
     return {
       type: 'line',
-      start: startPt,
-      end: endPt,
-      commandIndex: cmd.iFirstPoint // or cmd.commandIndex if you track that
+      start: startPoint,
+      end: endPoint,
+      commandIndex: cmd.iCommand
     }
   }
 }

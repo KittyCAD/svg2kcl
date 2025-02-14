@@ -86,6 +86,25 @@ export class PathProcessor {
     this.fillRule = element.fillRule as FillRule
   }
 
+  private getPreviousControlPoint(): Point {
+    if (this.previousControlPoint === null) {
+      return this.currentPoint
+    }
+
+    return this.previousControlPoint
+  }
+
+  private setPreviousControlPoint(point: Point): void {
+    this.previousControlPoint = {
+      x: point.x,
+      y: point.y
+    }
+  }
+
+  private clearPreviousControlPoint(): void {
+    this.previousControlPoint = null
+  }
+
   public process(): PathCommand[] {
     // Process will be:
     // Step across the input commands.
@@ -155,25 +174,6 @@ export class PathProcessor {
     }
 
     return this.outputCommands
-  }
-
-  private getPreviousControlPoint(): Point {
-    if (this.previousControlPoint === null) {
-      return this.currentPoint
-    }
-
-    return this.previousControlPoint
-  }
-
-  private setPreviousControlPoint(point: Point): void {
-    this.previousControlPoint = {
-      x: point.x,
-      y: point.y
-    }
-  }
-
-  private clearPreviousControlPoint(): void {
-    this.previousControlPoint = null
   }
 
   private processCommand(command: PathCommand, iCommand: number): void {

@@ -14,11 +14,13 @@ export interface EnrichedCommand extends PathCommand {
 }
 
 export interface Intersection {
+  // Describes an intersection between two segments, with segments produced by
+  // sampling a path.
   intersectionPoint: Point // Intersection coordinates.
-  segmentAIndex: number // Index of segment A in the input array.
-  segmentBIndex: number // Index of segment B in the input array.
-  tA: number // Parametric value on command A's curve
-  tB: number // Parametric value on command B's curve
+  iSegmentA: number // Index of segment A in the segment array.
+  iSegmentB: number // Index of segment B in the segment array.
+  tA: number // How far into segment A the intersection is, [0, 1].
+  tB: number // How far into segment B the intersection is, [0, 1].
 }
 
 export function isClockwise(points: Point[]): boolean {
@@ -158,8 +160,8 @@ export function findSelfIntersections(points: Point[]): Intersection[] {
         }
 
         intersections.push({
-          segmentAIndex: i,
-          segmentBIndex: j,
+          iSegmentA: i,
+          iSegmentB: j,
           intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
           tA: ua, // Fraction along segment A: ua.
           tB: ub // Fraction along segment B: ub.

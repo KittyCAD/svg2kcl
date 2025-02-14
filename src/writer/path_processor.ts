@@ -129,28 +129,28 @@ export class PathProcessor {
     for (const intersection of intersections) {
       // Pull the sampled path segment indices for the intersecting segments. These
       // are the indices in the sampled path (output of buildPath()).
-      const segmentAIndex = intersection.segmentAIndex
-      const segmentBIndex = intersection.segmentBIndex
+      const iSegmentA = intersection.iSegmentA
+      const iSegmentB = intersection.iSegmentB
 
       // Get the commands that 'own' these points.
-      const commandAIndex = this.findCommandIndexForPoint(commands, segmentAIndex)
-      const commandBIndex = this.findCommandIndexForPoint(commands, segmentBIndex)
+      const iCommandA = this.findCommandIndexForPoint(commands, iSegmentA)
+      const iCommandB = this.findCommandIndexForPoint(commands, iSegmentB)
 
       // Convert segment-relative t-values into original command t-values.
-      const tA = this.convertSegmentTtoCommandT(commands, segmentAIndex, intersection.tA)
-      const tB = this.convertSegmentTtoCommandT(commands, segmentBIndex, intersection.tB)
+      const tA = this.convertSegmentTtoCommandT(commands, iSegmentA, intersection.tA)
+      const tB = this.convertSegmentTtoCommandT(commands, iSegmentB, intersection.tB)
 
       // Add t1 to command A's split points.
-      if (!splitPlan.has(commandAIndex)) {
-        splitPlan.set(commandAIndex, [])
+      if (!splitPlan.has(iCommandA)) {
+        splitPlan.set(iCommandA, [])
       }
-      splitPlan.get(commandAIndex)!.push(tA)
+      splitPlan.get(iCommandA)!.push(tA)
 
       // Add t2 to command B's split points.
-      if (!splitPlan.has(commandBIndex)) {
-        splitPlan.set(commandBIndex, [])
+      if (!splitPlan.has(iCommandB)) {
+        splitPlan.set(iCommandB, [])
       }
-      splitPlan.get(commandBIndex)!.push(tB)
+      splitPlan.get(iCommandB)!.push(tB)
     }
 
     // After collecting all splits, sort each command's t-values.
@@ -414,15 +414,15 @@ export class PathProcessor {
     }
   }
 
-  private findCommandIndexForPoint(commands: EnrichedCommand[], pointIndex: number): number {
+  private findCommandIndexForPoint(commands: EnrichedCommand[], iPoint: number): number {
     // Look through commands to find which one contains this point index.
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i]
-      if (pointIndex >= command.iFirstPoint && pointIndex <= command.iLastPoint) {
+      if (iPoint >= command.iFirstPoint && iPoint <= command.iLastPoint) {
         return i
       }
     }
-    throw new Error(`No command found containing point index ${pointIndex}`)
+    throw new Error(`No command found containing point index ${iPoint}`)
   }
 
   private convertSegmentTtoCommandT(
@@ -430,9 +430,11 @@ export class PathProcessor {
     iSegmentStart: number,
     tLocal: number
   ): number {
+    // Converts a localised segment T value to a global (command scope) T value.
+
     // Find the command that owns this segment.
-    const commandIndex = this.findCommandIndexForPoint(commands, iSegmentStart)
-    const command = commands[commandIndex]
+    const iCommand = this.findCommandIndexForPoint(commands, iSegmentStart)
+    const command = commands[iCommand]
 
     // If it's a line, segment t is already correct.
     if (command.type.includes('Line') || command.type.includes('Move')) {

@@ -2,6 +2,7 @@ import { FillRule, Point } from '../types/base'
 import { PathCommandType, SvgPathCommandMap } from '../types/path'
 import { Transform } from '../utils/transform'
 import { ParseError } from './exceptions'
+import { PathCommand } from '../types/path'
 
 const DEFAULT_FILL_RULE = FillRule.NonZero
 
@@ -10,14 +11,8 @@ const UNSUPPORTED_COMMANDS = [
   PathCommandType.EllipticalArcRelative
 ]
 
-export interface ParsedCommand {
-  type: PathCommandType
-  parameters: number[]
-  position: Point
-}
-
 export interface ParsedPath {
-  commands: ParsedCommand[]
+  commands: PathCommand[]
   startPosition: Point
   fillRule: FillRule
 }
@@ -137,6 +132,9 @@ export class SvgPathParser {
   }
 
   private processValues(parameters: number[]): void {
+    // Pull current (soon to be previous) command point.
+    const previousPoint = { ...this.state.currentPoint }
+
     // Update currentPoint for absolute commands
     switch (this.state.command) {
       case PathCommandType.MoveAbsolute:
@@ -215,7 +213,8 @@ export class SvgPathParser {
     this.path.commands.push({
       type: this.state.command,
       parameters,
-      position: { ...this.state.currentPoint }
+      startPositionAbsolute: previousPoint,
+      endPositionAbsolute: { ...this.state.currentPoint }
     })
   }
 

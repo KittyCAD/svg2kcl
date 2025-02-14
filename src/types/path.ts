@@ -27,7 +27,8 @@ export enum PathCommandType {
 export interface PathCommand {
   type: PathCommandType
   parameters: number[]
-  position: Point // Absolute position after the command is executed.
+  startPositionAbsolute: Point // Absolute position before the command is executed.
+  endPositionAbsolute: Point // Absolute position after the command is executed.
 }
 
 // The SVG path commands and our nicer names.

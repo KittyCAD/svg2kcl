@@ -78,7 +78,7 @@ export class Converter {
   private createNewSketchOp(command: PathCommand, transform: Transform): KclOperation {
     // Set the 'currentPoint' to be the position of the first point. Relative
     // commands will add to this point.
-    this.currentPoint = command.position
+    this.currentPoint = command.endPositionAbsolute
 
     // Transform the start point.
     const transformedStart = transform.transformPoint(this.currentPoint)
@@ -530,8 +530,8 @@ export class Converter {
     // If already properly closed with a Stop command that matches start, return as is.
     if (
       (last.type === PathCommandType.StopAbsolute || last.type === PathCommandType.StopRelative) &&
-      last.position.x === first.position.x &&
-      last.position.y === first.position.y
+      last.endPositionAbsolute.x === first.endPositionAbsolute.x &&
+      last.endPositionAbsolute.y === first.endPositionAbsolute.y
     ) {
       return commands
     }
@@ -545,13 +545,17 @@ export class Converter {
     }
 
     // If last point doesn't match first point, add line to close.
-    if (last.position.x !== first.position.x || last.position.y !== first.position.y) {
-      const dx = first.position.x - last.position.x
-      const dy = first.position.y - last.position.y
+    if (
+      last.endPositionAbsolute.x !== first.endPositionAbsolute.x ||
+      last.endPositionAbsolute.y !== first.endPositionAbsolute.y
+    ) {
+      const dx = first.endPositionAbsolute.x - last.endPositionAbsolute.x
+      const dy = first.endPositionAbsolute.y - last.endPositionAbsolute.y
       result.push({
         type: PathCommandType.LineRelative,
         parameters: [dx, dy],
-        position: first.position
+        startPositionAbsolute: last.endPositionAbsolute,
+        endPositionAbsolute: first.endPositionAbsolute
       })
     }
 
@@ -559,7 +563,8 @@ export class Converter {
     result.push({
       type: PathCommandType.StopAbsolute,
       parameters: [],
-      position: first.position
+      startPositionAbsolute: first.endPositionAbsolute,
+      endPositionAbsolute: first.endPositionAbsolute
     })
 
     return result
@@ -628,7 +633,7 @@ export class Converter {
     const processor = new PathProcessor(path as PathElement)
 
     // TODO - TAKE THIS OUT, JUST TESTING.
-    processor.analyzePath()
+    // processor.analyzePath()
 
     const processedCommands = processor.process()
 

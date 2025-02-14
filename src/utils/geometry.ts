@@ -63,7 +63,7 @@ export function separateSubpaths(path: PathElement): {
 
   for (const subpath of subpaths) {
     const points = []
-    let currentPoint = subpath.commands[0].position
+    let currentPoint = subpath.commands[0].endPositionAbsolute
 
     // Collect all points including bezier curve points
     for (const command of subpath.commands) {
@@ -71,7 +71,7 @@ export function separateSubpaths(path: PathElement): {
       if (BezierUtils.isBezierCommand(command.type)) {
         points.push(...BezierUtils.getBezierPoints(command))
       }
-      currentPoint = command.position
+      currentPoint = command.endPositionAbsolute
     }
 
     finalSubpaths.push(subpath)

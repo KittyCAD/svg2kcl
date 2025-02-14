@@ -47,9 +47,8 @@ export class BezierUtils {
   }
 
   public static getBezierPoints(cmd: PathCommand): Point[] {
-    throw new Error('THIS IS BORKED')
     const points: Point[] = []
-    const start = cmd.position // THIS IS WRONG.
+    const start = cmd.startPositionAbsolute
 
     switch (cmd.type) {
       case PathCommandType.QuadraticBezierAbsolute:

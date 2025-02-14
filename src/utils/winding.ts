@@ -15,7 +15,7 @@ export class WindingAnalyzer {
     if (commands.length === 0) return []
 
     const points: Point[] = []
-    let currentPosition = commands[0].position
+    let currentPosition = commands[0].endPositionAbsolute
 
     for (let i = 0; i < commands.length; i++) {
       const cmd = commands[i]
@@ -32,17 +32,17 @@ export class WindingAnalyzer {
       // Update current position.
       if (cmd.type === PathCommandType.StopAbsolute) {
         // For StopAbsolute, use its explicit position.
-        currentPosition = cmd.position
+        currentPosition = cmd.endPositionAbsolute
       } else if (nextCmd) {
         // For other commands, use the next command's position.
-        currentPosition = nextCmd.position
+        currentPosition = nextCmd.endPositionAbsolute
       }
     }
 
     // Ensure the path is properly closed if it ends with StopAbsolute.
     const lastCmd = commands[commands.length - 1]
     if (lastCmd.type === PathCommandType.StopAbsolute) {
-      points.push(lastCmd.position)
+      points.push(lastCmd.endPositionAbsolute)
     }
 
     return points

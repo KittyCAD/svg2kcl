@@ -244,7 +244,7 @@ export class PathProcessor {
   // More straightforward commands.
   // -----------------------------------------------------------------------------------
   private processMoveCommand(command: PathCommand): void {
-    this.currentPoint = command.position
+    this.currentPoint = command.endPositionAbsolute
     this.outputCommands.push(command)
 
     // Not a curve.
@@ -252,7 +252,7 @@ export class PathProcessor {
   }
 
   private processStopCommand(command: PathCommand): void {
-    this.currentPoint = command.position
+    this.currentPoint = command.endPositionAbsolute
     this.outputCommands.push(command)
 
     // Not a curve.
@@ -273,13 +273,14 @@ export class PathProcessor {
       let startPoint = this.currentPoint
 
       for (const t of splitData) {
-        const midPoint = interpolateLine(startPoint, command.position, t)
+        const midPoint = interpolateLine(startPoint, command.endPositionAbsolute, t)
 
         // All line segments become LineAbsolute since we have absolute coords.
         this.outputCommands.push({
           type: PathCommandType.LineAbsolute,
           parameters: [midPoint.x, midPoint.y],
-          position: midPoint
+          startPositionAbsolute: startPoint,
+          endPositionAbsolute: midPoint
         })
 
         startPoint = midPoint
@@ -288,13 +289,14 @@ export class PathProcessor {
       // Final segment.
       this.outputCommands.push({
         type: PathCommandType.LineAbsolute,
-        parameters: [command.position.x, command.position.y],
-        position: command.position
+        parameters: [command.endPositionAbsolute.x, command.endPositionAbsolute.y],
+        startPositionAbsolute: startPoint, // We updated this in the loop.
+        endPositionAbsolute: command.endPositionAbsolute
       })
     }
 
     // Update state.
-    this.currentPoint = command.position
+    this.currentPoint = command.endPositionAbsolute
     this.clearPreviousControlPoint()
   }
   // Build the whole thing for self-intersection detection.
@@ -311,8 +313,8 @@ export class PathProcessor {
       switch (command.type) {
         case PathCommandType.MoveAbsolute:
         case PathCommandType.MoveRelative: {
-          points.push(command.position)
-          currentPoint = command.position
+          points.push(command.endPositionAbsolute)
+          currentPoint = command.endPositionAbsolute
           break
         }
 
@@ -322,8 +324,8 @@ export class PathProcessor {
         case PathCommandType.HorizontalLineRelative:
         case PathCommandType.VerticalLineAbsolute:
         case PathCommandType.VerticalLineRelative: {
-          points.push(currentPoint, command.position)
-          currentPoint = command.position
+          points.push(currentPoint, command.endPositionAbsolute)
+          currentPoint = command.endPositionAbsolute
           break
         }
 
@@ -340,10 +342,10 @@ export class PathProcessor {
           const sampledPoints = BezierUtils.sampleQuadraticBezier(
             currentPoint,
             { x: x1, y: y1 },
-            command.position
+            command.endPositionAbsolute
           )
           points.push(...sampledPoints)
-          currentPoint = command.position
+          currentPoint = command.endPositionAbsolute
           break
         }
       }
@@ -379,7 +381,7 @@ export class PathProcessor {
     // Get our points.
     const p0 = this.currentPoint
     const p1 = { x: x1, y: y1 }
-    const p2 = command.position
+    const p2 = command.endPositionAbsolute
 
     if (!splitRequired) {
       // No splits, just push the original command.
@@ -409,7 +411,8 @@ export class PathProcessor {
         this.outputCommands.push({
           type: PathCommandType.QuadraticBezierAbsolute,
           parameters: parameters,
-          position: splitResult.first[2] // End point.
+          startPositionAbsolute: splitResult.first[0], // Start point.
+          endPositionAbsolute: splitResult.first[2] // End point.
         })
 
         // Update start point for the next segment.
@@ -421,7 +424,8 @@ export class PathProcessor {
       this.outputCommands.push({
         type: PathCommandType.QuadraticBezierAbsolute,
         parameters: [controlPoint.x, controlPoint.y, endPoint.x, endPoint.y],
-        position: endPoint
+        startPositionAbsolute: startPoint, // We updated this in the loop.
+        endPositionAbsolute: endPoint
       })
     }
 
@@ -603,7 +607,7 @@ export class PathProcessor {
     tMax: number
   ): PathFragment {
     // Line absolute is draw from current point to the specified coords.
-    const currentPoint = cmd.position
+    const currentPoint = cmd.endPositionAbsolute
 
     const startPt = { x: 0, y: 0 }
     const endPt = { x: 0, y: 0 }

@@ -1,3 +1,40 @@
+// So I think the broad process here will involve three passes:
+//
+// First Pass - Path Analysis:
+// - Walk path collecting all points/commands using buildPath().
+// - Find all self-intersections using findSelfIntersections().
+// - Create list of path segments between intersections.
+// - Create region graph where each closed region has:
+//   - Boundary points.
+//   - Contributing path segments with references to original commands.
+//   - References to neighboring regions.
+//   - Initial fill status (unset).
+//
+// Second Pass - Winding Calculation:
+// - For each region:
+//   - Pick a test point inside the region (e.g., centroid).
+//   - Cast ray to right from test point.
+//   - Walk original path in order, counting signed crossings:
+//     - +1 for upward crossing with point on left.
+//     - -1 for downward crossing with point on right.
+//   - Store winding number for region.
+//   - Set fill status based on winding number (!= 0 means fill, hence 'nonzero').
+//
+// Third Pass - Region Processing:
+// - Create list of filled regions (winding number != 0).
+// - Create list of unfilled regions (winding number == 0).
+// - For each region:
+//   - Generate appropriate output commands based on original path commands.
+//   - If filled -> generate sketch commands.
+//   - If unfilled -> generate hole commands.
+//   - Ensure proper ordering (outer shapes before holes).
+//
+// Finally:
+// - Return processed commands that will:
+//   - Create main shapes from filled regions.
+//   - Cut holes from unfilled regions.
+//   - Produce equivalent visual result to SVG nonzero fill rule.
+
 import { PathCommand, PathCommandType } from '../types/path'
 import { Point } from '../types/base'
 import { PathElement } from '../types/elements'

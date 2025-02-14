@@ -583,6 +583,36 @@ export class PathProcessor {
     tMin: number,
     tMax: number
   ): PathFragment | null {
+    // We only handle lines, quadratics, and cubics here.
+    // If other commands (Move, Arc, etc.) appear, return null or handle them as needed.
+    if (command.type.includes('Line')) {
+      return this.subdivideLine(command, points, tMin, tMax)
+    } else if (command.type.includes('QuadraticBezier')) {
+      //   return this.subdivideQuadratic(command, points, tMin, tMax)
+    } else if (command.type.includes('CubicBezier')) {
+      //   return this.subdivideCubic(command, points, tMin, tMax)
+    }
+
     return null
+  }
+
+  private subdivideLine(
+    cmd: EnrichedCommand,
+    points: Point[],
+    tMin: number,
+    tMax: number
+  ): PathFragment {
+    // Line absolute is draw from current point to the specified coords.
+    const currentPoint = cmd.position
+
+    const startPt = { x: 0, y: 0 }
+    const endPt = { x: 0, y: 0 }
+
+    return {
+      type: 'line',
+      start: startPt,
+      end: endPt,
+      commandIndex: cmd.iFirstPoint // or cmd.commandIndex if you track that
+    }
   }
 }

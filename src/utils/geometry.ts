@@ -8,23 +8,17 @@ export interface LineSegment {
   end: Point
 }
 
-export interface SampledPathSegment {
-  points: Point[]
-  sourceCommand: PathCommand // Keep reference to original command.
-  startIndex: number // Index where this segment starts in flattened points.
+export interface EnrichedCommand extends PathCommand {
+  iFirstPoint: number
+  iLastPoint: number
 }
 
 export interface Intersection {
-  segmentAIndex: number
-  segmentBIndex: number
-  intersectionPoint: Point
-  tA: number // Parametric value on segment A.
-  tB: number // Parametric value on segment B.
-
-  segments?: {
-    a: SampledPathSegment
-    b: SampledPathSegment
-  }
+  intersectionPoint: Point // Intersection coordinates.
+  segmentAIndex: number // Index of segment A in the input array.
+  segmentBIndex: number // Index of segment B in the input array.
+  tA: number // Parametric value on command A's curve
+  tB: number // Parametric value on command B's curve
 }
 
 export function isClockwise(points: Point[]): boolean {
@@ -93,9 +87,9 @@ export function separateSubpaths(path: PathElement): {
 
 export function findSelfIntersections(points: Point[]): Intersection[] {
   const intersections: Intersection[] = []
-  const segments: LineSegment[] = []
+  const segments: LineSegment[] = [] // Segments composed two points.
 
-  // Break path into segments
+  // Break path into segments.
   for (let i = 0; i < points.length - 1; i++) {
     segments.push({
       start: points[i],
@@ -166,7 +160,7 @@ export function findSelfIntersections(points: Point[]): Intersection[] {
         intersections.push({
           segmentAIndex: i,
           segmentBIndex: j,
-          intersectionPoint, // Actual coordinates of the intersection.
+          intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
           tA: ua, // Fraction along segment A: ua.
           tB: ub // Fraction along segment B: ub.
         })

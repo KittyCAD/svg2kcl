@@ -626,6 +626,10 @@ export class Converter {
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
     const processor = new PathProcessor(path as PathElement)
+
+    // TODO - TAKE THIS OUT, JUST TESTING.
+    // processor.analyzePath()
+
     const processedCommands = processor.process()
 
     // Create a new path element with the processed commands.

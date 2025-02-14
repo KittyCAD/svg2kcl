@@ -49,21 +49,11 @@ import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FillRule } from '../types/base'
 import { BezierUtils } from '../utils/bezier'
-import { findSelfIntersections, Intersection, SampledPathSegment } from '../utils/geometry'
+import { findSelfIntersections, Intersection, EnrichedCommand } from '../utils/geometry'
 import { interpolateLine } from '../utils/geometry'
-
-interface Region {
-  id: number
-  boundaryPoints: Point[] // Boundary points defining the region outline.
-  segments: SampledPathSegment[] // Segments that make up this region, in order.
-  intersections: Intersection[] // Intersections where this region begins/ends.
-  neighbors: Set<number> // IDs of regions that share boundaries with this one.
-
-  // Will be set in later passes.
-  windingNumber?: number
-  isFilled?: boolean
-  parentRegionId?: number
-  childRegionIds: Set<number>
+interface PathSampleResult {
+  points: Point[]
+  commands: EnrichedCommand[]
 }
 
 export class PathProcessor {
@@ -125,38 +115,42 @@ export class PathProcessor {
     }
 
     // Build sampled path we'll use for self-intersection detection.
-    const commandSegments = this.buildPath() // One segment entry per command.
-    const segmentStartIndices = commandSegments.flatMap((x) => x.startIndex)
-    const sampledFullPath = commandSegments.flatMap((x) => x.points)
+    const { points, commands } = this.buildPath()
 
     // Get the intersections. Note that segment index values here refer to the sampled
     // path, not the original commands.
-    const intersections = findSelfIntersections(sampledFullPath)
+    const intersections = findSelfIntersections(points)
+
+    // -> CONVERT INTERSECTION DATA TO COMMAND SPACE
 
     // Map from command index to array of t-values where it needs to be split.
     let splitPlan = new Map<number, number[]>()
 
     for (const intersection of intersections) {
-      const commandAIndex = this.findSegmentIndexForPoint(
-        segmentStartIndices,
-        intersection.segmentAIndex
-      )
-      const commandBIndex = this.findSegmentIndexForPoint(
-        segmentStartIndices,
-        intersection.segmentBIndex
-      )
+      // Pull the sampled path segment indices for the intersecting segments. These
+      // are the indices in the sampled path (output of buildPath()).
+      const segmentAIndex = intersection.segmentAIndex
+      const segmentBIndex = intersection.segmentBIndex
+
+      // Get the commands that 'own' these points.
+      const commandAIndex = this.findCommandIndexForPoint(commands, segmentAIndex)
+      const commandBIndex = this.findCommandIndexForPoint(commands, segmentBIndex)
+
+      // Convert segment-relative t-values into original command t-values.
+      const tA = this.convertSegmentTtoCommandT(commands, segmentAIndex, intersection.tA)
+      const tB = this.convertSegmentTtoCommandT(commands, segmentBIndex, intersection.tB)
 
       // Add t1 to command A's split points.
       if (!splitPlan.has(commandAIndex)) {
         splitPlan.set(commandAIndex, [])
       }
-      splitPlan.get(commandAIndex)!.push(intersection.tA)
+      splitPlan.get(commandAIndex)!.push(tA)
 
       // Add t2 to command B's split points.
       if (!splitPlan.has(commandBIndex)) {
         splitPlan.set(commandBIndex, [])
       }
-      splitPlan.get(commandBIndex)!.push(intersection.tB)
+      splitPlan.get(commandBIndex)!.push(tB)
     }
 
     // After collecting all splits, sort each command's t-values.
@@ -219,16 +213,6 @@ export class PathProcessor {
     }
   }
 
-  private findSegmentIndexForPoint(segmentStartIndices: number[], pointIndex: number): number {
-    // This could be binary search but meh.
-    for (let i = segmentStartIndices.length - 1; i >= 0; i--) {
-      if (segmentStartIndices[i] <= pointIndex) {
-        return i
-      }
-    }
-    return -1
-  }
-
   // More straightforward commands.
   // -----------------------------------------------------------------------------------
   private processMoveCommand(command: PathCommand): void {
@@ -287,19 +271,19 @@ export class PathProcessor {
   }
   // Build the whole thing for self-intersection detection.
   // -----------------------------------------------------------------------------------
-  private buildPath(): SampledPathSegment[] {
-    const segments: SampledPathSegment[] = []
+  private buildPath(): PathSampleResult {
+    const points: Point[] = []
+    const commands: EnrichedCommand[] = []
     let currentPoint = { x: 0, y: 0 }
-    let startIndex = 0
 
     for (const command of this.inputCommands) {
-      let points: Point[] = []
+      // Get the (global point set) index of this command's first point.
+      const iFirstPoint = points.length
 
       switch (command.type) {
         case PathCommandType.MoveAbsolute:
         case PathCommandType.MoveRelative: {
-          // Just a single point for moves
-          points = [command.position]
+          points.push(command.position)
           currentPoint = command.position
           break
         }
@@ -310,44 +294,44 @@ export class PathProcessor {
         case PathCommandType.HorizontalLineRelative:
         case PathCommandType.VerticalLineAbsolute:
         case PathCommandType.VerticalLineRelative: {
-          // Two points for lines
-          points = [currentPoint, command.position]
+          points.push(currentPoint, command.position)
           currentPoint = command.position
           break
         }
 
         case PathCommandType.QuadraticBezierAbsolute:
         case PathCommandType.QuadraticBezierRelative: {
-          // Get absolute control point
+          // Get absolute control point.
           let [x1, y1] = command.parameters
           if (command.type === PathCommandType.QuadraticBezierRelative) {
             x1 += currentPoint.x
             y1 += currentPoint.y
           }
 
-          // Sample the curve
-          points = BezierUtils.sampleQuadraticBezier(
+          // Sample the curve.
+          const sampledPoints = BezierUtils.sampleQuadraticBezier(
             currentPoint,
             { x: x1, y: y1 },
             command.position
           )
-
+          points.push(...sampledPoints)
           currentPoint = command.position
           break
         }
       }
 
-      if (points.length > 0) {
-        segments.push({
-          points,
-          sourceCommand: command,
-          startIndex
-        })
-        startIndex += points.length
-      }
+      // Get the (global point set) index of this command's last point.
+      const iLastPoint = points.length - 1
+
+      // Append to our enriched commands.
+      commands.push({
+        ...command,
+        iFirstPoint,
+        iLastPoint
+      })
     }
 
-    return segments
+    return { points, commands }
   }
 
   // The harder bits.
@@ -430,45 +414,50 @@ export class PathProcessor {
     }
   }
 
+  private findCommandIndexForPoint(commands: EnrichedCommand[], pointIndex: number): number {
+    // Look through commands to find which one contains this point index.
+    for (let i = 0; i < commands.length; i++) {
+      const command = commands[i]
+      if (pointIndex >= command.iFirstPoint && pointIndex <= command.iLastPoint) {
+        return i
+      }
+    }
+    throw new Error(`No command found containing point index ${pointIndex}`)
+  }
+
+  private convertSegmentTtoCommandT(
+    commands: EnrichedCommand[],
+    iSegmentStart: number,
+    tLocal: number
+  ): number {
+    // Find the command that owns this segment.
+    const commandIndex = this.findCommandIndexForPoint(commands, iSegmentStart)
+    const command = commands[commandIndex]
+
+    // If it's a line, segment t is already correct.
+    if (command.type.includes('Line') || command.type.includes('Move')) {
+      return tLocal
+    }
+
+    /// For Bézier curves, we need to map from sample segment space (local) to curve
+    // space (global).
+
+    // Get the length of the command as sampled.
+    const lCommand = command.iLastPoint - command.iFirstPoint
+
+    // Then we want to work out how far along the command this point is. Note that
+    // we have to adjust for the fact that the first point of the command is not
+    // necessarily the first point of the big list of points.
+    const tGlobal = (iSegmentStart + tLocal - command.iFirstPoint) / lCommand
+
+    return tGlobal
+  }
+
   // First pass.
   // -----------------------------------------------------------------------------------
-  private analyzePath(): void {}
-
-  private findAllIntersections(): void {
-    const segments = this.buildPath()
-    const points = segments.flatMap((s) => s.points)
-    const segmentStartIndices = segments.map((s) => s.startIndex)
-
-    // Get raw intersections.
-    const rawIntersections = findSelfIntersections(points)
-
-    // Enhance the intersections with segment information.
-    this.intersections = rawIntersections.map((intersection) => {
-      const segmentAIndex = this.findSegmentIndexForPoint(
-        segmentStartIndices,
-        intersection.segmentAIndex
-      )
-      const segmentBIndex = this.findSegmentIndexForPoint(
-        segmentStartIndices,
-        intersection.segmentBIndex
-      )
-
-      // Enrich the intersection with segment information.
-      return {
-        ...intersection,
-        segments: {
-          a: segments[segmentAIndex],
-          b: segments[segmentBIndex]
-        }
-      }
-    })
-
-    // Sort intersections by t-value within each segment.
-    this.intersections.sort((a, b) => {
-      if (a.segments!.a === b.segments!.a) {
-        return a.tA - b.tA
-      }
-      return a.segments!.a.startIndex - b.segments!.a.startIndex
-    })
+  public analyzePath(): void {
+    // Get all points along the path.
+    const sampledPathSegments = this.buildPath()
+    let x = 1
   }
 }

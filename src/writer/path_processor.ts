@@ -20,20 +20,29 @@
 //   - Store winding number for region.
 //   - Set fill status based on winding number (!= 0 means fill, hence 'nonzero').
 //
-// Third Pass - Region Processing:
-// - Create list of filled regions (winding number != 0).
-// - Create list of unfilled regions (winding number == 0).
-// - For each region:
-//   - Generate appropriate output commands based on original path commands.
-//   - If filled -> generate sketch commands.
-//   - If unfilled -> generate hole commands.
-//   - Ensure proper ordering (outer shapes before holes).
+// Third Pass - Region Relationship Analysis:
+// Because our kcl `hole` command is a hole in _something_, we need to know about
+// parent-child relationships between regions. So:
+// - For each unfilled region (wn = 0):
+//   - Find all neighboring filled regions.
+//   - Determine which filled region this is a hole in.
+//   - Store parent-child relationship between regions.
+//
+// Fourth Pass - Region Processing:
+// - Process regions in correct order:
+//   - Start with outermost filled regions.
+//   - For each filled region:
+//     - Generate its sketch commands.
+//     - Generate hole commands for all holes belonging to this region.
+//     - Ensure each hole command references its parent sketch.
+//   - Move to next filled region.
 //
 // Finally:
-// - Return processed commands that will:
-//   - Create main shapes from filled regions.
-//   - Cut holes from unfilled regions.
-//   - Produce equivalent visual result to SVG nonzero fill rule.
+// - Return processed commands where:
+//   - Each hole is properly associated with its parent shape
+//   - Holes are cut from the correct shapes
+//   - Order guarantees parent shapes exist before their holes
+//
 
 import { PathCommand, PathCommandType } from '../types/path'
 import { Point } from '../types/base'

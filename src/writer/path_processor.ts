@@ -121,9 +121,8 @@ export class PathProcessor {
     // path, not the original commands.
     const intersections = findSelfIntersections(points)
 
-    // -> CONVERT INTERSECTION DATA TO COMMAND SPACE
-
-    // Map from command index to array of t-values where it needs to be split.
+    // Start building the split plan. This is a map of command indices to arrays of
+    // t-values where the command should be split.
     let splitPlan = new Map<number, number[]>()
 
     for (const intersection of intersections) {
@@ -471,8 +470,53 @@ export class PathProcessor {
   // First pass.
   // -----------------------------------------------------------------------------------
   public analyzePath(): void {
-    // Get all points along the path.
-    const sampledPathSegments = this.buildPath()
+    // Build sampled path we'll use for self-intersection detection.
+    const { points, commands } = this.buildPath()
+
+    // Get the intersections. Note that segment index values here refer to the sampled
+    // path, not the original commands.
+    this.intersections = findSelfIntersections(points)
+
+    // Start building the split plan. This is a map of command indices to arrays of
+    // t-values where the command should be split.
+    let splitPlan = new Map<number, number[]>()
+
+    for (const intersection of this.intersections) {
+      // Each intersection has two colliding segments: A and B. Pull the sampled path
+      // segment indices for these intersecting segments
+      const iSegmentA = intersection.iSegmentA
+      const iSegmentB = intersection.iSegmentB
+
+      // Find the index of the original commands that 'own' segmentA and segmentB.
+      const iCommandA = this.findCommandIndexForPoint(commands, iSegmentA)
+      const iCommandB = this.findCommandIndexForPoint(commands, iSegmentB)
+
+      // Convert segment-relative t-values into original command t-values.
+      const tA = this.convertSegmentTtoCommandT(commands, iSegmentA, intersection.tA)
+      const tB = this.convertSegmentTtoCommandT(commands, iSegmentB, intersection.tB)
+
+      // Store in splitPlan. Each command index gets a list of T-values to split at.
+      if (!splitPlan.has(iCommandA)) {
+        splitPlan.set(iCommandA, [])
+      }
+      splitPlan.get(iCommandA)!.push(tA)
+
+      if (!splitPlan.has(iCommandB)) {
+        splitPlan.set(iCommandB, [])
+      }
+      splitPlan.get(iCommandB)!.push(tB)
+    }
+
+    // After collecting all splits, sort each command's t-values.
+    for (const tValues of splitPlan.values()) {
+      tValues.sort((a, b) => a - b)
+    }
+
+    // Set the split plan.
+    this.splitPlan = splitPlan
+
+    // ---------------------------------------------------------------------------------
+
     let x = 1
   }
 }

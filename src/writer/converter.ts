@@ -625,10 +625,19 @@ export class Converter {
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
+    const processor = new PathProcessor(path as PathElement)
+    const processedCommands = processor.process()
+
+    // Create a new path element with the processed commands.
+    const processedPath: PathElement = {
+      ...(path as PathElement),
+      commands: processedCommands
+    }
+
     const analyzedPaths =
-      path.fillRule === FillRule.EvenOdd
-        ? this.analyzeEvenOddPath(path)
-        : this.analyzeNonZeroPath(path)
+      processedPath.fillRule === FillRule.EvenOdd
+        ? this.analyzeEvenOddPath(processedPath)
+        : this.analyzeNonZeroPath(processedPath)
 
     return analyzedPaths.flatMap((analyzed) => this.convertAnalyzedPathToKcl(analyzed))
   }
@@ -801,16 +810,7 @@ export class Converter {
   public convertElement(element: Element): KclOperation[] {
     switch (element.type) {
       case ElementType.Path:
-        const processor = new PathProcessor(element as PathElement)
-        const processedCommands = processor.process()
-
-        // Create a new path element with the processed commands.
-        const processedPath: PathElement = {
-          ...(element as PathElement),
-          commands: processedCommands
-        }
-
-        return this.convertPathToKclOps(processedPath as PathElement)
+        return this.convertPathToKclOps(element as PathElement)
       case ElementType.Rectangle:
         return this.convertRectangleToKclOps(element as RectangleElement)
       case ElementType.Circle:

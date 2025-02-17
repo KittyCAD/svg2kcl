@@ -27,7 +27,7 @@ export async function convertSvgToKcl(
 }
 
 async function main() {
-  const inputFile = './tests/data/project_payload.svg'
+  const inputFile = process.argv[2]
   const outputFile = './output.kcl'
 
   const options: KclOptions = {
@@ -38,8 +38,8 @@ async function main() {
     await convertSvgToKcl(inputFile, outputFile, options)
     console.log(`Successfully converted ${inputFile} to ${outputFile}`)
   } catch (error) {
-    console.error('Conversion failed:', error instanceof Error ? error.message : error)
+    console.error('Conversion failed:', error)
   }
 }
 
-// main()
+main()

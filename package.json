@@ -9,7 +9,7 @@
     "test": "jest",
     "dev": "http-server .",
     "start": "npm run build && npm run dev",
-    "convert": "ts-node ./src/main.ts"
+    "convert": "node --loader ts-node/esm ./src/main.ts"
   },
   "jest": {
     "preset": "ts-jest",

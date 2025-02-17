@@ -702,24 +702,7 @@ export class PathProcessor {
           detectedRegions,
           fragmentRegionMap
         )
-
-        // Try backward direction - start from the connection and try to get back to start
-        // this.tryFindRegion(
-        //   startConnection.fragmentId,
-        //   startFragment.id,
-        //   detectedRegions,
-        //   fragmentRegionMap
-        // )
       }
-    }
-
-    // The fragments we should see as connected are 1-2
-
-    // Print fragment start and end coords.
-    for (const fragment of fragments) {
-      console.log(
-        `Fragment | (${fragment.start.x}, ${fragment.start.y}) to (${fragment.end.x}, ${fragment.end.y})`
-      )
     }
 
     return detectedRegions

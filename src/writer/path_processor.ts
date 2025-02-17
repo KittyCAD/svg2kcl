@@ -59,6 +59,16 @@ import {
   Intersection
 } from '../utils/geometry'
 
+interface PathRegion {
+  id: string
+  fragmentIds: string[] // List of IDs of path fragments forming the region.
+  boundingBox: { xMin: number; yMin: number; xMax: number; yMax: number } // Region bounding box.
+  testPoint: Point // A point inside the region for winding calculation.
+  isHole: boolean // True if this is a hole.
+  windingNumber: number // Computed winding number.
+  parentRegionId?: string // ID of the parent region (if it's a hole).
+}
+
 class PathFragment {
   // An internal, intermediate representation of a path 'fragment'. We may produce
   // a bunch of these when splitting paths, but we need more context than would be
@@ -137,6 +147,10 @@ export class PathProcessor {
 
   // Self-intersection data.
   private intersections: Intersection[] = []
+
+  // Post-splitting fragments.
+  private fragments: PathFragment[] = []
+  private fragmentMap: Map<string, PathFragment> = new Map()
 
   constructor(element: PathElement) {
     // Pull commands and fill rule.
@@ -626,6 +640,12 @@ export class PathProcessor {
       }
     }
 
+    // Build the fragment map.
+    this.fragments = fragments
+    for (const fragment of fragments) {
+      this.fragmentMap.set(fragment.id, fragment)
+    }
+
     // ---------------------------------------------------------------------------------
 
     // We now want to walk the fragment list and build a set that tells us which
@@ -633,7 +653,86 @@ export class PathProcessor {
     // closed regions later on.
     this.connectFragments(fragments)
 
+    // Get regions...
+    const regions = this.identifyClosedRegions(fragments)
+
     let x = 1
+  }
+
+  private identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {
+    const visited = new Set<string>() // Track visited fragment IDs
+    const regions: PathRegion[] = [] // Store identified regions
+
+    for (const fragment of fragments) {
+      if (visited.has(fragment.id)) continue // Skip already visited fragments
+
+      const regionFragmentIds: string[] = []
+      const stack = [fragment.id] // DFS stack with fragment IDs
+
+      while (stack.length > 0) {
+        const currentId = stack.pop()!
+        if (visited.has(currentId)) continue
+
+        visited.add(currentId)
+        regionFragmentIds.push(currentId)
+
+        const currentFragment = this.fragmentMap.get(currentId)
+        if (!currentFragment) continue
+
+        for (const connection of currentFragment.connectedFragments!) {
+          if (!visited.has(connection.fragmentId)) {
+            stack.push(connection.fragmentId)
+          }
+        }
+      }
+
+      if (regionFragmentIds.length > 2) {
+        // Ignore stray edges.
+        regions.push({
+          id: uuidv4(),
+          fragmentIds: regionFragmentIds,
+          boundingBox: this.calculateBoundingBox(regionFragmentIds),
+          testPoint: this.calculateTestPoint(regionFragmentIds),
+          isHole: false,
+          windingNumber: 0
+        })
+      }
+    }
+
+    return regions
+  }
+
+  private calculateBoundingBox(fragmentIds: string[]): {
+    xMin: number
+    yMin: number
+    xMax: number
+    yMax: number
+  } {
+    let xMin = Infinity,
+      yMin = Infinity,
+      xMax = -Infinity,
+      yMax = -Infinity
+
+    for (const id of fragmentIds) {
+      const fragment = this.fragmentMap.get(id)
+      if (!fragment) continue
+
+      xMin = Math.min(xMin, fragment.start.x, fragment.end.x)
+      yMin = Math.min(yMin, fragment.start.y, fragment.end.y)
+      xMax = Math.max(xMax, fragment.start.x, fragment.end.x)
+      yMax = Math.max(yMax, fragment.start.y, fragment.end.y)
+    }
+
+    return { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax }
+  }
+
+  private calculateTestPoint(fragmentIds: string[]): Point {
+    // Use centroid of bounding box as a simple approximation.
+    const bbox = this.calculateBoundingBox(fragmentIds)
+    return {
+      x: (bbox.xMin + bbox.xMax) / 2,
+      y: (bbox.yMin + bbox.yMax) / 2
+    }
   }
 
   private calculateConnectionAngle(from: PathFragment, to: PathFragment): number {

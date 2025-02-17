@@ -689,105 +689,60 @@ export class PathProcessor {
   }
 
   private identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {
-    // Identfy closed regions in the path. Walk the set of path fragments and look for
-    // closed loops.
+    const detectedRegions: PathRegion[] = []
+    const processedChains = new Set<string>()
 
-    // Basic process is:
-    // 1: For each fragment, start traversing connected fragments (depth-first).
-    // 2: At each step, check if the current connected fragment is connected to the
-    //    start point. If so, we have a closed loop.
-    // 3: Store the loop as a region, and mark all fragments in the loop as part of
-    //    this region.
-    // 4: Check for duplicate regions (i.e., regions that share the same set of
-    //    fragments). We only want to store unique regions.
-    // 5: Continue until all fragments have been visited.
-
-    // Note that fragments can be part of multiple regions, e.g., if we have a hole
-    // inside a shape.
-
-    const detectedRegions: PathRegion[] = [] // Stores all identified closed regions.
-    const fragmentRegionMap = new Map<string, string[]>() // Maps fragment ID to region IDs.
-
-    // Iterate over all fragments to attempt forming closed regions.
     for (const startFragment of fragments) {
-      const startConnections = startFragment.connectedFragments || [] // Get connected fragments.
+      const startConnections = startFragment.connectedFragments || []
 
-      // Try to walk a closed cycle starting from each connected fragment.
       for (const startConnection of startConnections) {
-        const fragmentsInRegion: string[] = [startFragment.id] // Track fragments forming this region.
-        const visited = new Set<string>() // Prevent re-visiting within the same region.
-        const fragmentStack = [startConnection.fragmentId] // Start DFS traversal.
-        let isClosedRegion = false // Flag to determine if we find a loop.
+        // Generate a unique key for this path to avoid duplicate processing.
+        const chainKey = [startFragment.id, startConnection.fragmentId].sort().join('-')
+        if (processedChains.has(chainKey)) continue
 
-        // Perform DFS to find a closed path.
-        while (fragmentStack.length > 0) {
-          const currentFragmentId = fragmentStack.pop()!
+        // Track the fragments forming the current loop path.
+        const currentChain: string[] = [startFragment.id]
+        const visitedPoints: Point[] = [startFragment.start, startFragment.end]
+        let currentFragmentId: string | null = startConnection.fragmentId
 
-          // If we return to the start fragment, we have found a closed loop.
-          if (currentFragmentId === startFragment.id) {
-            isClosedRegion = true
+        while (currentFragmentId) {
+          const currentFragment = this.fragmentMap.get(currentFragmentId)
+          if (!currentFragment) break
+
+          const { start, end } = currentFragment
+
+          // A valid loop exists when we return to our starting fragment’s start point.
+          if (computePointToPointDistance(end, startFragment.start) < EPSILON_INTERSECT) {
+            // Extract only the fragments that form this loop.
+            const loopFragments = [...currentChain, currentFragmentId]
+
+            // Prevent merging separate loops.
+            const loopKey = [...loopFragments].sort().join(',')
+            if (!processedChains.has(loopKey)) {
+              detectedRegions.push({
+                id: uuidv4(),
+                fragmentIds: loopFragments,
+                boundingBox: this.calculateBoundingBox(loopFragments),
+                testPoint: this.calculateTestPoint(loopFragments),
+                isHole: false,
+                windingNumber: 0
+              })
+              processedChains.add(loopKey)
+            }
+
+            // Stop immediately when a loop is detected.
             break
           }
 
-          // If already visited in this search, skip to prevent infinite loops.
-          if (visited.has(currentFragmentId)) {
-            continue
-          }
+          currentChain.push(currentFragmentId)
+          visitedPoints.push(start, end)
 
-          visited.add(currentFragmentId)
-          fragmentsInRegion.push(currentFragmentId) // Add this fragment to the current region.
-
-          // Get connected fragments of the current fragment.
-          const currentFragment = this.fragmentMap.get(currentFragmentId)
-          if (!currentFragment?.connectedFragments) continue
-
-          // Traverse each connected fragment to continue the region.
-          for (const connection of currentFragment.connectedFragments) {
-            const connectedFragment = this.fragmentMap.get(connection.fragmentId)
-            if (!connectedFragment) continue
-
-            // Ensure this connection represents an actual **continuation of the path**.
-            const isEndToStartConnected = this.areFragmentsConnected(
-              currentFragment,
-              connectedFragment
-            )
-
-            // If valid, push to stack for further traversal.
-            if (isEndToStartConnected && !visited.has(connection.fragmentId)) {
-              fragmentStack.push(connection.fragmentId)
-            }
-          }
-        }
-
-        // If we found a valid closed region, ensure it's unique before storing.
-        if (isClosedRegion && fragmentsInRegion.length > 2) {
-          const regionKey = [...fragmentsInRegion].sort().join(',') // Sort to check for uniqueness.
-          const regionExists = detectedRegions.some(
-            (region) => [...region.fragmentIds].sort().join(',') === regionKey
+          // Find the next unvisited connection.
+          const nextConnection = currentFragment.connectedFragments?.find(
+            (conn) => !currentChain.includes(conn.fragmentId)
           )
 
-          // Only store new regions (ignore duplicates).
-          if (!regionExists) {
-            const regionId = uuidv4()
-            const region: PathRegion = {
-              id: regionId,
-              fragmentIds: fragmentsInRegion,
-              boundingBox: this.calculateBoundingBox(fragmentsInRegion),
-              testPoint: this.calculateTestPoint(fragmentsInRegion),
-              isHole: false,
-              windingNumber: 0
-            }
-
-            detectedRegions.push(region)
-
-            // Update mapping: Track which fragments belong to which regions.
-            for (const fragmentId of fragmentsInRegion) {
-              if (!fragmentRegionMap.has(fragmentId)) {
-                fragmentRegionMap.set(fragmentId, [])
-              }
-              fragmentRegionMap.get(fragmentId)!.push(regionId)
-            }
-          }
+          currentFragmentId = nextConnection ? nextConnection.fragmentId : null
         }
       }
     }

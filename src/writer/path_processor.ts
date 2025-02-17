@@ -3,7 +3,9 @@
 // First Pass - Path Analysis:
 // - Walk path collecting all points/commands using buildPath().
 // - Find all self-intersections using findSelfIntersections().
-// - Create list of path segments between intersections.
+// - Create list of path segments/fragments between intersections.
+//   - These mean path fragments are aware of which other fragments they connect to,
+//     and by walking these fragments, we can identify closed regions.
 // - Create region graph where each closed region has:
 //   - Boundary points.
 //   - Contributing path segments with references to original commands.
@@ -44,19 +46,20 @@
 //   - Order guarantees parent shapes exist before their holes
 //
 
+import { v4 as uuidv4 } from 'uuid'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/path'
 import { BezierUtils } from '../utils/bezier'
 import {
   EnrichedCommand,
+  EPSILON_INTERSECT,
   findSelfIntersections,
   interpolateLine,
-  Intersection,
-  EPSILON_INTERSECT
+  Intersection
 } from '../utils/geometry'
 
-interface PathFragment {
+class PathFragment {
   // An internal, intermediate representation of a path 'fragment'. We may produce
   // a bunch of these when splitting paths, but we need more context than would be
   // provided by the sort of new PathCommand object we produce when re-emitting
@@ -65,6 +68,8 @@ interface PathFragment {
   // SVG paths are lines, Béziers or arcs. We don't support arcs, and we can simplify
   // things by only considering absolute coordinates and mopping up smoothed
   // (i.e. reflected control point) curves at the layer above this. So.. simple type.
+  id: string
+
   type: 'line' | 'quad' | 'cubic'
 
   // The main points for this geometry:
@@ -76,13 +81,38 @@ interface PathFragment {
   control2?: Point
 
   // Store a link to the original command index in our input path list.
-  commandIndex: number
+  iCommand: number
+
+  // Store a list of fragments that are connected to this one.
+  connectedFragments?: {
+    fragmentId: string
+    angle: number // ? For direction, maybe.
+  }[]
+
+  constructor(params: {
+    type: 'line' | 'quad' | 'cubic'
+    start: Point
+    end: Point
+    commandIndex: number
+    control1?: Point
+    control2?: Point
+    connectedFragments?: { fragmentId: string; angle: number }[]
+  }) {
+    this.id = uuidv4()
+    this.type = params.type
+    this.start = params.start
+    this.end = params.end
+    this.iCommand = params.commandIndex
+    this.control1 = params.control1
+    this.control2 = params.control2
+    this.connectedFragments = params.connectedFragments
+  }
 }
 
 interface PathSampleResult {
   // Represents a sampled path for self-intersection detection.
-  points: Point[]
-  commands: EnrichedCommand[]
+  pathSamplePoints: Point[] // Sampled points for the full path.
+  pathCommands: EnrichedCommand[] // Set of enriched commands for the full path
 }
 
 export class PathProcessor {
@@ -96,7 +126,16 @@ export class PathProcessor {
   // Some state tracking. We need previous control point to handle smoothed Beziers.
   private previousControlPoint: Point | null = null
   private currentPoint: Point = { x: 0, y: 0 }
+
+  // Sampled points and the enriched command set for the path.
+  private fullPathSamplePoints: Point[] = []
+  private fullPathCommandSet: EnrichedCommand[] = []
+
+  // Split plan. This is a map of command indices to arrays of t-values where the
+  // command should be split.
   private splitPlan: Map<number, number[]> = new Map()
+
+  // Self-intersection data.
   private intersections: Intersection[] = []
 
   constructor(element: PathElement) {
@@ -144,11 +183,11 @@ export class PathProcessor {
     }
 
     // Build sampled path we'll use for self-intersection detection.
-    const { points, commands } = this.buildPath()
+    const { pathSamplePoints: pathSamplePoints, pathCommands: pathCommands } = this.buildPath()
 
     // Get the intersections. Note that segment index values here refer to the sampled
     // path, not the original commands.
-    const intersections = findSelfIntersections(points)
+    const intersections = findSelfIntersections(pathSamplePoints)
 
     // Start building the split plan. This is a map of command indices to arrays of
     // t-values where the command should be split.
@@ -161,12 +200,12 @@ export class PathProcessor {
       const iSegmentB = intersection.iSegmentB
 
       // Get the commands that 'own' these points.
-      const iCommandA = this.findCommandIndexForPoint(commands, iSegmentA)
-      const iCommandB = this.findCommandIndexForPoint(commands, iSegmentB)
+      const iCommandA = this.findCommandIndexForPoint(pathCommands, iSegmentA)
+      const iCommandB = this.findCommandIndexForPoint(pathCommands, iSegmentB)
 
       // Convert segment-relative t-values into original command t-values.
-      const tA = this.convertSegmentTtoCommandT(commands, iSegmentA, intersection.tA)
-      const tB = this.convertSegmentTtoCommandT(commands, iSegmentB, intersection.tB)
+      const tA = this.convertSegmentTtoCommandT(pathCommands, iSegmentA, intersection.tA)
+      const tB = this.convertSegmentTtoCommandT(pathCommands, iSegmentB, intersection.tB)
 
       // Add t1 to command A's split points.
       if (!splitPlan.has(iCommandA)) {
@@ -365,7 +404,7 @@ export class PathProcessor {
       })
     }
 
-    return { points, commands }
+    return { pathSamplePoints: points, pathCommands: commands }
   }
 
   // The harder bits.
@@ -508,11 +547,14 @@ export class PathProcessor {
   // -----------------------------------------------------------------------------------
   public analyzePath(): void {
     // Build sampled path we'll use for self-intersection detection.
-    const { points, commands } = this.buildPath()
+    const { pathSamplePoints: pathSamplePoints, pathCommands: pathCommands } = this.buildPath()
+
+    this.fullPathCommandSet = pathCommands
+    this.fullPathSamplePoints = pathSamplePoints
 
     // Get the intersections. Note that segment index values here refer to the sampled
     // path, not the original commands.
-    this.intersections = findSelfIntersections(points)
+    this.intersections = findSelfIntersections(pathSamplePoints)
 
     // Start building the split plan. This is a map of command indices to arrays of
     // t-values where the command should be split.
@@ -525,12 +567,12 @@ export class PathProcessor {
       const iSegmentB = intersection.iSegmentB
 
       // Find the index of the original commands that 'own' segmentA and segmentB.
-      const iCommandA = this.findCommandIndexForPoint(commands, iSegmentA)
-      const iCommandB = this.findCommandIndexForPoint(commands, iSegmentB)
+      const iCommandA = this.findCommandIndexForPoint(pathCommands, iSegmentA)
+      const iCommandB = this.findCommandIndexForPoint(pathCommands, iSegmentB)
 
       // Convert segment-relative t-values into original command t-values.
-      const tA = this.convertSegmentTtoCommandT(commands, iSegmentA, intersection.tA)
-      const tB = this.convertSegmentTtoCommandT(commands, iSegmentB, intersection.tB)
+      const tA = this.convertSegmentTtoCommandT(pathCommands, iSegmentA, intersection.tA)
+      const tB = this.convertSegmentTtoCommandT(pathCommands, iSegmentB, intersection.tB)
 
       // Store in splitPlan. Each command index gets a list of T-values to split at.
       if (!splitPlan.has(iCommandA)) {
@@ -556,8 +598,8 @@ export class PathProcessor {
 
     // Let's do some subdivision.
     let fragments: PathFragment[] = []
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i]
+    for (let i = 0; i < pathCommands.length; i++) {
+      const cmd = pathCommands[i]
 
       // Pull out the t-values for this command, plus ensure 0 & 1 are included.
       // This is so our later subdivide calls can see the whole thing.
@@ -577,20 +619,137 @@ export class PathProcessor {
         }
 
         // Subdivide this command from [tMin..tMax] into a PathFragment.
-        const fragment = this.subdivideCommand(cmd, points, tMin, tMax)
+        const fragment = this.subdivideCommand(cmd, tMin, tMax)
         if (fragment) {
           fragments.push(fragment)
         }
       }
     }
 
-    // Check fragments...
-    const x = 1
+    // ---------------------------------------------------------------------------------
+
+    // We now want to walk the fragment list and build a set that tells us which
+    // fragments are connected to which other fragments. This will allow us to build
+    // closed regions later on.
+    this.connectFragments(fragments)
+
+    let x = 1
+  }
+
+  private calculateConnectionAngle(from: PathFragment, to: PathFragment): number {
+    // We need to compute the angle between the two fragments, i.e.
+    // the angle between a line tangent to the end of 'from' and a line tangent to the
+    // start of 'to'. We could use our sampled points or do this by actually
+    // computing the tangent.
+    // Actual tangent of a Bezier:
+    // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
+
+    // Get tangents.
+    const tangentFrom = this.getFragmentTangent(from, 1)
+    const tangentTo = this.getFragmentTangent(to, 0)
+
+    // I need the _signed_ angle between these two vectors.
+    // https://wumbo.net/formulas/angle-between-two-vectors-2d/
+
+    // Compute cross and dot products.
+    const cross = tangentFrom.x * tangentTo.y - tangentFrom.y * tangentTo.x
+    const dot = tangentFrom.x * tangentTo.x + tangentFrom.y * tangentTo.y
+
+    // Compute signed angle in radians (range [-π, π])
+    const theta = Math.atan2(cross, dot)
+
+    // I _think_ positive is anticlockwise, negative is clockwise.
+
+    return theta
+  }
+
+  private getFragmentTangent(fragment: PathFragment, t: number): Point {
+    if (fragment.type === 'line') {
+      // Line tangent is just the difference vector.
+      return {
+        x: fragment.end.x - fragment.start.x,
+        y: fragment.end.y - fragment.start.y
+      }
+    } else if (fragment.type === 'quad') {
+      // Quadratic Bézier derivative.
+      // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
+      const { start, control1, end } = fragment
+      return {
+        x: 2 * (1 - t) * (control1!.x - start.x) + 2 * t * (end.x - control1!.x),
+        y: 2 * (1 - t) * (control1!.y - start.y) + 2 * t * (end.y - control1!.y)
+      }
+    } else if (fragment.type === 'cubic') {
+      // Cubic Bézier derivative.
+      // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
+      // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
+      const { start, control1, control2, end } = fragment
+      return {
+        x:
+          3 * (1 - t) ** 2 * (control1!.x - start.x) +
+          6 * (1 - t) * t * (control2!.x - control1!.x) +
+          3 * t ** 2 * (end.x - control2!.x),
+        y:
+          3 * (1 - t) ** 2 * (control1!.y - start.y) +
+          6 * (1 - t) * t * (control2!.y - control1!.y) +
+          3 * t ** 2 * (end.y - control2!.y)
+      }
+    }
+
+    throw new Error(`Unsupported fragment type: ${fragment.type}`)
+  }
+
+  private connectFragments(fragments: PathFragment[]): void {
+    // Map points to connected fragments.
+    const pointToFragments = new Map<string, PathFragment[]>()
+
+    for (const fragment of fragments) {
+      // Create keys for start and end points.
+      const startKey = `${fragment.start.x},${fragment.start.y}`
+      const endKey = `${fragment.end.x},${fragment.end.y}`
+
+      // Add fragment to map for both its start and end points.
+      if (!pointToFragments.has(startKey)) {
+        pointToFragments.set(startKey, [])
+      }
+      if (!pointToFragments.has(endKey)) {
+        pointToFragments.set(endKey, [])
+      }
+
+      pointToFragments.get(startKey)!.push(fragment)
+      pointToFragments.get(endKey)!.push(fragment)
+    }
+
+    // Now connect fragments that share points.
+    for (const fragment of fragments) {
+      const endKey = `${fragment.end.x},${fragment.end.y}`
+
+      // Find all fragments that share this endpoint.
+      const connectedFrags = pointToFragments
+        .get(endKey)!
+        .filter((other) => other !== fragment)
+        // Only consider fragments where our end connects to their start.
+        .filter((other) => {
+          // Do Euclidean distance check.
+          const dx = other.start.x - fragment.end.x
+          const dy = other.start.y - fragment.end.y
+          const distanceSquared = dx ** 2 + dy ** 2
+          return distanceSquared < EPSILON_INTERSECT ** 2
+        })
+        .map((other) => ({
+          fragmentId: other.id,
+          angle: this.calculateConnectionAngle(fragment, other)
+        }))
+
+      // Sort by angle.
+      connectedFrags.sort((a, b) => a.angle - b.angle)
+
+      // Assign to fragment.
+      fragment.connectedFragments = connectedFrags
+    }
   }
 
   private subdivideCommand(
     command: EnrichedCommand,
-    points: Point[],
     tMin: number,
     tMax: number
   ): PathFragment | null {
@@ -623,12 +782,12 @@ export class PathProcessor {
     const startOut = interpolateLine(startPoint, endPoint, tMin)
     const endOut = interpolateLine(startPoint, endPoint, tMax)
 
-    let result: PathFragment = {
+    let result = new PathFragment({
       type: 'line',
       start: startOut,
       end: endOut,
       commandIndex: cmd.iCommand
-    }
+    })
 
     return result
   }
@@ -671,13 +830,13 @@ export class PathProcessor {
     let controlOut = splitResult.range[1]
     let endOut = splitResult.range[2]
 
-    let result: PathFragment = {
+    let result = new PathFragment({
       type: 'quad',
       start: startOut,
       control1: controlOut,
       end: endOut,
       commandIndex: cmd.iCommand
-    }
+    })
 
     return result
   }

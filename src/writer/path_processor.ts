@@ -640,6 +640,36 @@ export class PathProcessor {
       }
     }
 
+    // We need to account for an implicit close; SVG renderers do this for fills.
+    // https://www.w3.org/TR/SVG/painting.html#FillProperties
+    // The fill operation fills open subpaths by performing the fill operation as if an
+    // additional "closepath" command were added to the path to connect the last point
+    // of the subpath with the first point of the subpath. Thus, fill operations apply
+    // to both open subpaths within ‘path’ elements
+    // (i.e., subpaths without a closepath command) and ‘polyline’ elements.
+
+    // Check if path is closed. Let's just check if points are close.
+    // TODO: Do this by inspecting raw commands and existing fragment stack...
+    if (fragments.length > 1) {
+      const firstPoint = fragments[0].start
+      const lastPoint = fragments[fragments.length - 1].end
+      const dx = firstPoint.x - lastPoint.x
+      const dy = firstPoint.y - lastPoint.y
+      const dMag = Math.sqrt(dx ** 2 + dy ** 2)
+
+      if (dMag > EPSILON_INTERSECT) {
+        // Path is not closed; add a final fragment to close it.
+        const fragment = new PathFragment({
+          type: 'line',
+          start: lastPoint,
+          end: firstPoint,
+          commandIndex: this.fullPathCommandSet.length - 1 // Bolt on to final command?
+        })
+
+        fragments.push(fragment)
+      }
+    }
+
     // Build the fragment map.
     this.fragments = fragments
     for (const fragment of fragments) {
@@ -653,10 +683,8 @@ export class PathProcessor {
     // closed regions later on.
     this.connectFragments(fragments)
 
-    // Get regions...
+    // Build regions; these can be closed or open.
     const regions = this.identifyClosedRegions(fragments)
-
-    let x = 1
   }
 
   private identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {

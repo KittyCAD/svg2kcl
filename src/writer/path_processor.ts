@@ -687,98 +687,112 @@ export class PathProcessor {
   }
 
   private identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {
-    // A region consists of fragments that form a fully enclosed loop.
-    // We walk the fragment graph to group together fragments that form these.
-    //
-    // A fragment could be present in more than one region, e.g. two back to back
-    // squares, so we can't flag a fragment as 'done' once it's in a region.
-
     const detectedRegions: PathRegion[] = []
     const fragmentRegionMap = new Map<string, string[]>()
 
-    // Try starting from each fragment - we need to try all because
-    // a fragment could be part of multiple regions.
     for (const startFragment of fragments) {
-      // For each start fragment, we'll try following each of its connections
-      // to find different possible regions.
       const startConnections = startFragment.connectedFragments || []
 
+      // Try both directions for each connection
       for (const startConnection of startConnections) {
-        const fragmentsInRegion: string[] = [startFragment.id]
-        const visited = new Set<string>()
-        const fragmentStack = [startConnection.fragmentId]
-        let isClosedRegion = false
+        // Try forward direction
+        this.tryFindRegion(
+          startFragment.id,
+          startConnection.fragmentId,
+          detectedRegions,
+          fragmentRegionMap
+        )
 
-        while (fragmentStack.length > 0) {
-          const currentFragmentId = fragmentStack.pop()!
+        // Try backward direction - start from the connection and try to get back to start
+        this.tryFindRegion(
+          startConnection.fragmentId,
+          startFragment.id,
+          detectedRegions,
+          fragmentRegionMap
+        )
+      }
+    }
 
-          // If we've returned to our start fragment, we've found a region.
-          if (currentFragmentId === startFragment.id) {
-            isClosedRegion = true
-            break
-          }
+    // The fragments we should see as connected are 1-2
 
-          // Skip if we've seen this fragment in current traversal.
-          if (visited.has(currentFragmentId)) {
-            continue
-          }
+    // Print fragment start and end coords.
+    for (const fragment of fragments) {
+      console.log(
+        `Fragment | (${fragment.start.x}, ${fragment.start.y}) to (${fragment.end.x}, ${fragment.end.y})`
+      )
+    }
 
-          visited.add(currentFragmentId)
-          fragmentsInRegion.push(currentFragmentId)
+    return detectedRegions
+  }
 
-          const currentFragment = this.fragmentMap.get(currentFragmentId)
-          if (!currentFragment?.connectedFragments) continue
+  private tryFindRegion(
+    startId: string,
+    firstConnectionId: string,
+    detectedRegions: PathRegion[],
+    fragmentRegionMap: Map<string, string[]>
+  ): void {
+    const fragmentsInRegion: string[] = [startId]
+    const visited = new Set<string>()
+    const fragmentStack = [firstConnectionId]
+    let isClosedRegion = false
 
-          for (const connection of currentFragment.connectedFragments) {
-            const connectedFragment = this.fragmentMap.get(connection.fragmentId)
-            if (!connectedFragment) continue
+    while (fragmentStack.length > 0) {
+      const currentFragmentId = fragmentStack.pop()!
 
-            // Verify true end-to-start connectivity.
-            const isEndToStartConnected = this.areFragmentsConnected(
-              currentFragment,
-              connectedFragment
-            )
+      if (currentFragmentId === startId) {
+        isClosedRegion = true
+        break
+      }
 
-            if (isEndToStartConnected && !visited.has(connection.fragmentId)) {
-              fragmentStack.push(connection.fragmentId)
-            }
-          }
-        }
+      if (visited.has(currentFragmentId)) {
+        continue
+      }
 
-        // Only create region if we found a closed loop.
-        if (isClosedRegion && fragmentsInRegion.length > 2) {
-          // Check if we've already found this exact region.
-          const regionKey = [...fragmentsInRegion].sort().join(',')
-          const regionExists = detectedRegions.some(
-            (region) => [...region.fragmentIds].sort().join(',') === regionKey
-          )
+      visited.add(currentFragmentId)
+      fragmentsInRegion.push(currentFragmentId)
 
-          if (!regionExists) {
-            const regionId = uuidv4()
-            const region: PathRegion = {
-              id: regionId,
-              fragmentIds: fragmentsInRegion,
-              boundingBox: this.calculateBoundingBox(fragmentsInRegion),
-              testPoint: this.calculateTestPoint(fragmentsInRegion),
-              isHole: false,
-              windingNumber: 0
-            }
+      const currentFragment = this.fragmentMap.get(currentFragmentId)
+      if (!currentFragment?.connectedFragments) continue
 
-            detectedRegions.push(region)
+      for (const connection of currentFragment.connectedFragments) {
+        const connectedFragment = this.fragmentMap.get(connection.fragmentId)
+        if (!connectedFragment) continue
 
-            // Update fragment-to-region mappings.
-            for (const fragmentId of fragmentsInRegion) {
-              if (!fragmentRegionMap.has(fragmentId)) {
-                fragmentRegionMap.set(fragmentId, [])
-              }
-              fragmentRegionMap.get(fragmentId)!.push(regionId)
-            }
-          }
+        const isEndToStartConnected = this.areFragmentsConnected(currentFragment, connectedFragment)
+
+        if (isEndToStartConnected && !visited.has(connection.fragmentId)) {
+          fragmentStack.push(connection.fragmentId)
         }
       }
     }
 
-    return detectedRegions
+    if (isClosedRegion && fragmentsInRegion.length > 2) {
+      const regionKey = [...fragmentsInRegion].sort().join(',')
+      const regionExists = detectedRegions.some(
+        (region) => [...region.fragmentIds].sort().join(',') === regionKey
+      )
+
+      if (!regionExists) {
+        const regionId = uuidv4()
+        const region: PathRegion = {
+          id: regionId,
+          fragmentIds: fragmentsInRegion,
+          boundingBox: this.calculateBoundingBox(fragmentsInRegion),
+          testPoint: this.calculateTestPoint(fragmentsInRegion),
+          isHole: false,
+          windingNumber: 0
+        }
+
+        detectedRegions.push(region)
+
+        for (const fragmentId of fragmentsInRegion) {
+          if (!fragmentRegionMap.has(fragmentId)) {
+            fragmentRegionMap.set(fragmentId, [])
+          }
+          fragmentRegionMap.get(fragmentId)!.push(regionId)
+        }
+      }
+    }
   }
 
   private areFragmentsConnected(f1: PathFragment, f2: PathFragment): boolean {
@@ -887,44 +901,21 @@ export class PathProcessor {
   }
 
   private connectFragments(fragments: PathFragment[]): void {
-    // Map points to connected fragments.
-    const pointToFragments = new Map<string, PathFragment[]>()
-
     for (const fragment of fragments) {
-      // Create keys for start and end points.
-      const startKey = `${fragment.start.x},${fragment.start.y}`
-      const endKey = `${fragment.end.x},${fragment.end.y}`
+      const connectedFrags: Array<{ fragmentId: string; angle: number }> = []
 
-      // Add fragment to map for both its start and end points.
-      if (!pointToFragments.has(startKey)) {
-        pointToFragments.set(startKey, [])
+      // Check this fragment's end point against every other fragment's start point.
+      for (const other of fragments) {
+        if (other === fragment) continue
+
+        const distance = computePointToPointDistance(fragment.end, other.start)
+        if (distance < EPSILON_INTERSECT) {
+          connectedFrags.push({
+            fragmentId: other.id,
+            angle: this.calculateConnectionAngle(fragment, other)
+          })
+        }
       }
-      if (!pointToFragments.has(endKey)) {
-        pointToFragments.set(endKey, [])
-      }
-
-      pointToFragments.get(startKey)!.push(fragment)
-      pointToFragments.get(endKey)!.push(fragment)
-    }
-
-    // Now connect fragments that share points.
-    for (const fragment of fragments) {
-      const endKey = `${fragment.end.x},${fragment.end.y}`
-
-      // Find all fragments that share this endpoint.
-      const connectedFrags = pointToFragments
-        .get(endKey)!
-        .filter((other) => other !== fragment)
-        // Only consider fragments where our end connects to their start.
-        .filter((other) => {
-          // Do Euclidean distance check.
-          const distance = computePointToPointDistance(fragment.end, other.start)
-          return distance < EPSILON_INTERSECT
-        })
-        .map((other) => ({
-          fragmentId: other.id,
-          angle: this.calculateConnectionAngle(fragment, other)
-        }))
 
       // Sort by angle.
       connectedFrags.sort((a, b) => a.angle - b.angle)

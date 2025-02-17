@@ -3,7 +3,8 @@ import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/path'
 import { BezierUtils } from './bezier'
 
-export const EPSILON_INTERSECT = 1e-9
+// TODO: Find a good value for this.
+export const EPSILON_INTERSECT = 1e-4
 
 export interface LineSegment {
   start: Point

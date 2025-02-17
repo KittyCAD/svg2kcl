@@ -16,7 +16,8 @@ export interface SplitBezierRangeResult {
 }
 
 export class BezierUtils {
-  private static readonly CURVE_SAMPLES = 50
+  // TODO: Find a good value for this. Needs to play nicely with our epsilon value.
+  private static readonly CURVE_SAMPLES = 10000
 
   public static isBezierCommand(type: PathCommandType): boolean {
     return (

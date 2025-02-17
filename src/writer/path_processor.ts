@@ -61,7 +61,7 @@ import {
   computePointToPointDistance
 } from '../utils/geometry'
 
-let DELETE_ME_COUNTER = 0
+// let DELETE_ME_COUNTER = 0
 
 interface PathRegion {
   id: string
@@ -124,8 +124,8 @@ class PathFragment {
   }
 
   private getNextFragmentId(): string {
-    // return uuidv4()
-    return `frag-${DELETE_ME_COUNTER++}`
+    return uuidv4()
+    // return `frag-${DELETE_ME_COUNTER++}`
   }
 }
 
@@ -695,6 +695,8 @@ export class PathProcessor {
     // even if its subregions are also included. This _should_ be captured by
     // winding number analysis later on.
     const regions = this.identifyClosedRegions(fragments)
+
+    // TODO: Winding.
   }
 
   public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {

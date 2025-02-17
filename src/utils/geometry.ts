@@ -185,3 +185,7 @@ export function interpolateLine(p0: Point, p1: Point, t: number): Point {
     y: (1 - t) * p0.y + t * p1.y
   }
 }
+
+export function computePointToPointDistance(p1: Point, p2: Point) {
+  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+}

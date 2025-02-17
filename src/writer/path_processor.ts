@@ -704,12 +704,12 @@ export class PathProcessor {
         )
 
         // Try backward direction - start from the connection and try to get back to start
-        this.tryFindRegion(
-          startConnection.fragmentId,
-          startFragment.id,
-          detectedRegions,
-          fragmentRegionMap
-        )
+        // this.tryFindRegion(
+        //   startConnection.fragmentId,
+        //   startFragment.id,
+        //   detectedRegions,
+        //   fragmentRegionMap
+        // )
       }
     }
 

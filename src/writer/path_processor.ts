@@ -555,7 +555,7 @@ export class PathProcessor {
     // ---------------------------------------------------------------------------------
 
     // Let's do some subdivision.
-    const fragments: PathFragment[] = []
+    let fragments: PathFragment[] = []
     for (let i = 0; i < commands.length; i++) {
       const cmd = commands[i]
 
@@ -583,6 +583,9 @@ export class PathProcessor {
         }
       }
     }
+
+    // Check fragments...
+    const x = 1
   }
 
   private subdivideCommand(
@@ -593,12 +596,19 @@ export class PathProcessor {
   ): PathFragment | null {
     // We only handle lines, quadratics, and cubics here.
     // If other commands (Move, Arc, etc.) appear, return null or handle them as needed.
-    if (command.type.includes('Line')) {
-      return this.subdivideLine(command, tMin, tMax)
-    } else if (command.type.includes('QuadraticBezier')) {
-      //   return this.subdivideQuadratic(command, points, tMin, tMax)
-    } else if (command.type.includes('CubicBezier')) {
-      //   return this.subdivideCubic(command, points, tMin, tMax)
+    switch (command.type) {
+      case PathCommandType.LineAbsolute:
+      case PathCommandType.LineRelative:
+      case PathCommandType.HorizontalLineAbsolute:
+      case PathCommandType.HorizontalLineRelative:
+      case PathCommandType.VerticalLineAbsolute:
+      case PathCommandType.VerticalLineRelative:
+        return this.subdivideLine(command, tMin, tMax)
+        break
+      case PathCommandType.QuadraticBezierAbsolute:
+      case PathCommandType.QuadraticBezierRelative:
+        return this.subdivideQuadratic(command, tMin, tMax)
+        break
     }
 
     return null
@@ -606,14 +616,69 @@ export class PathProcessor {
 
   private subdivideLine(cmd: EnrichedCommand, tMin: number, tMax: number): PathFragment {
     // Line absolute is draw from current point to the specified coords.
-    const startPoint = interpolateLine(cmd.startPositionAbsolute, cmd.endPositionAbsolute, tMin)
-    const endPoint = interpolateLine(cmd.startPositionAbsolute, cmd.endPositionAbsolute, tMax)
+    const startPoint = cmd.startPositionAbsolute
+    const endPoint = cmd.endPositionAbsolute
 
-    return {
+    // Interpolate.
+    const startOut = interpolateLine(startPoint, endPoint, tMin)
+    const endOut = interpolateLine(startPoint, endPoint, tMax)
+
+    let result: PathFragment = {
       type: 'line',
-      start: startPoint,
-      end: endPoint,
+      start: startOut,
+      end: endOut,
       commandIndex: cmd.iCommand
     }
+
+    return result
+  }
+
+  private subdivideQuadratic(cmd: EnrichedCommand, tMin: number, tMax: number): PathFragment {
+    // Get relative flag.
+    const isRelative = cmd.type === PathCommandType.QuadraticBezierRelative
+
+    // Pull relevant points.
+    const startPoint = cmd.startPositionAbsolute
+    const x1 = cmd.parameters[0]
+    const y1 = cmd.parameters[1]
+    const x = cmd.parameters[2]
+    const y = cmd.parameters[3]
+
+    let controlPoint = { x: x1, y: y1 }
+    let endPoint = { x: x, y: y }
+
+    // Convert to absolute if needed.
+    if (isRelative) {
+      controlPoint = {
+        x: x1 + startPoint.x,
+        y: y1 + startPoint.y
+      }
+      endPoint = {
+        x: x + startPoint.x,
+        y: y + startPoint.y
+      }
+    }
+
+    // Split.
+    const splitResult = BezierUtils.splitQuadraticBezierRange(
+      { start: startPoint, control: controlPoint, end: endPoint },
+      tMin,
+      tMax
+    )
+
+    // Pull results — only the curve fragment in our range.
+    let startOut = splitResult.range[0]
+    let controlOut = splitResult.range[1]
+    let endOut = splitResult.range[2]
+
+    let result: PathFragment = {
+      type: 'quad',
+      start: startOut,
+      control1: controlOut,
+      end: endOut,
+      commandIndex: cmd.iCommand
+    }
+
+    return result
   }
 }

@@ -7,6 +7,14 @@ export interface SplitBezierResult {
   splitPoint: Point // Point where curve was split.
 }
 
+export interface SplitBezierRangeResult {
+  before: Point[] // Curve segment before t0.
+  range: Point[] // Curve segment between t0 and t1.
+  after: Point[] // Curve segment after t1.
+  splitPoint1: Point // Point at t1.
+  splitPoint2: Point // Point at t2.
+}
+
 export class BezierUtils {
   private static readonly CURVE_SAMPLES = 50
 
@@ -95,98 +103,6 @@ export class BezierUtils {
     }
   }
 
-  // public static splitQuadraticBezier(points: Point[], t: number): SplitBezierResult {
-  //   const p0 = points[0]
-  //   const p1 = points[1]
-  //   const p2 = points[2]
-
-  //   // Calculate split point using de Casteljau's algorithm
-  //   const p01 = {
-  //     x: p0.x + t * (p1.x - p0.x),
-  //     y: p0.y + t * (p1.y - p0.y)
-  //   }
-  //   const p11 = {
-  //     x: p1.x + t * (p2.x - p1.x),
-  //     y: p1.y + t * (p2.y - p1.y)
-  //   }
-  //   const splitPoint = {
-  //     x: p01.x + t * (p11.x - p01.x),
-  //     y: p01.y + t * (p11.y - p01.y)
-  //   }
-
-  //   // Each curve needs 3 points: start, control, end
-  //   let first = [
-  //     p0, // Start point of first curve
-  //     p01, // Control point of first curve
-  //     splitPoint // End point of first curve
-  //   ]
-
-  //   let second = [
-  //     splitPoint, // Start point of second curve
-  //     p11, // Control point of second curve
-  //     p2 // End point of second curve
-  //   ]
-
-  //   return {
-  //     first: first,
-  //     second: second,
-  //     splitPoint
-  //   }
-  // }
-
-  // public static splitCubicBezier(points: Point[], t: number): SplitBezierResult {
-  //   const p0 = points[0]
-  //   const p1 = points[1]
-  //   const p2 = points[2]
-  //   const p3 = points[3]
-
-  //   // Calculate split points using de Casteljau's algorithm
-  //   const p01 = {
-  //     x: p0.x + t * (p1.x - p0.x),
-  //     y: p0.y + t * (p1.y - p0.y)
-  //   }
-  //   const p11 = {
-  //     x: p1.x + t * (p2.x - p1.x),
-  //     y: p1.y + t * (p2.y - p1.y)
-  //   }
-  //   const p21 = {
-  //     x: p2.x + t * (p3.x - p2.x),
-  //     y: p2.y + t * (p3.y - p2.y)
-  //   }
-  //   const p02 = {
-  //     x: p01.x + t * (p11.x - p01.x),
-  //     y: p01.y + t * (p11.y - p01.y)
-  //   }
-  //   const p12 = {
-  //     x: p11.x + t * (p21.x - p11.x),
-  //     y: p11.y + t * (p21.y - p11.y)
-  //   }
-  //   const splitPoint = {
-  //     x: p02.x + t * (p12.x - p02.x),
-  //     y: p02.y + t * (p12.y - p02.y)
-  //   }
-
-  //   let first = [
-  //     p0, // Start point
-  //     p01, // First control point
-  //     p02, // Second control point
-  //     splitPoint // End point
-  //   ]
-
-  //   let second = [
-  //     splitPoint, // Start point
-  //     p12, // First control point
-  //     p21, // Second control point
-  //     p3 // End point
-  //   ]
-
-  //   return {
-  //     first: first,
-  //     second: second,
-  //     splitPoint
-  //   }
-  // }
-
   public static splitQuadraticBezier(
     { start, control, end }: { start: Point; control: Point; end: Point },
     t: number
@@ -205,9 +121,43 @@ export class BezierUtils {
     }
 
     return {
-      first: [start, p01, splitPoint],
-      second: [splitPoint, p11, end],
+      first: [start, p01, splitPoint], // Start, control, end (split).
+      second: [splitPoint, p11, end], // Start (split), control, end.
       splitPoint
+    }
+  }
+
+  public static splitQuadraticBezierRange(
+    { start, control, end }: { start: Point; control: Point; end: Point },
+    t1: number,
+    t2: number
+  ): SplitBezierRangeResult {
+    if (t1 > t2) {
+      throw new Error('Invalid split parameters: t1 must be less than t2.')
+    }
+
+    // First split at t2 (point further along the curve).
+    const splitT2 = BezierUtils.splitQuadraticBezier({ start, control, end }, t2)
+    const beforeT2 = splitT2.first
+    const afterT2 = splitT2.second
+
+    // Then split the first portion at t1/t2 to get the range.
+    const relativeT1 = t1 / t2 // Normalize t1 relative to t2.
+    const splitT1 = BezierUtils.splitQuadraticBezier(
+      {
+        start: beforeT2[0],
+        control: beforeT2[1],
+        end: beforeT2[2]
+      },
+      relativeT1
+    )
+
+    return {
+      before: splitT1.first, // Curve segment [0, t1].
+      range: splitT1.second, // Curve segment [t1, t2].
+      after: afterT2, // Curve segment [t2, 1].
+      splitPoint1: splitT1.splitPoint, // Point at t1.
+      splitPoint2: splitT2.splitPoint // Point at t2.
     }
   }
 

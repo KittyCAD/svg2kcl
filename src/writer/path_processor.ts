@@ -60,6 +60,8 @@ import {
   computePointToPointDistance
 } from '../utils/geometry'
 
+let DELETE_ME_COUNTER = 0
+
 interface PathRegion {
   id: string
   fragmentIds: string[] // List of IDs of path fragments forming the region.
@@ -109,7 +111,7 @@ class PathFragment {
     control2?: Point
     connectedFragments?: { fragmentId: string; angle: number }[]
   }) {
-    this.id = uuidv4()
+    this.id = this.getNextFragmentId()
     this.type = params.type
     this.start = params.start
     this.end = params.end
@@ -117,6 +119,11 @@ class PathFragment {
     this.control1 = params.control1
     this.control2 = params.control2
     this.connectedFragments = params.connectedFragments
+  }
+
+  private getNextFragmentId(): string {
+    // return uuidv4()
+    return `frag-${DELETE_ME_COUNTER++}`
   }
 }
 
@@ -688,66 +695,61 @@ export class PathProcessor {
     const x = 1
   }
 
-  private identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {
+  public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {
     const detectedRegions: PathRegion[] = []
-    const processedChains = new Set<string>()
+    const processedLoops = new Set<string>()
 
     for (const startFragment of fragments) {
       const startConnections = startFragment.connectedFragments || []
 
       for (const startConnection of startConnections) {
-        // Generate a unique key for this path to avoid duplicate processing.
-        const chainKey = [startFragment.id, startConnection.fragmentId].sort().join('-')
-        if (processedChains.has(chainKey)) continue
+        // Start the path with just our first fragment, and follow the specific connection
+        const loop = this.dfsFindLoop(startConnection.fragmentId, startFragment.start, [
+          startFragment.id
+        ])
 
-        // Track the fragments forming the current loop path.
-        const currentChain: string[] = [startFragment.id]
-        const visitedPoints: Point[] = [startFragment.start, startFragment.end]
-        let currentFragmentId: string | null = startConnection.fragmentId
-
-        while (currentFragmentId) {
-          const currentFragment = this.fragmentMap.get(currentFragmentId)
-          if (!currentFragment) break
-
-          const { start, end } = currentFragment
-
-          // A valid loop exists when we return to our starting fragment’s start point.
-          if (computePointToPointDistance(end, startFragment.start) < EPSILON_INTERSECT) {
-            // Extract only the fragments that form this loop.
-            const loopFragments = [...currentChain, currentFragmentId]
-
-            // Prevent merging separate loops.
-            const loopKey = [...loopFragments].sort().join(',')
-            if (!processedChains.has(loopKey)) {
-              detectedRegions.push({
-                id: uuidv4(),
-                fragmentIds: loopFragments,
-                boundingBox: this.calculateBoundingBox(loopFragments),
-                testPoint: this.calculateTestPoint(loopFragments),
-                isHole: false,
-                windingNumber: 0
-              })
-              processedChains.add(loopKey)
-            }
-
-            // Stop immediately when a loop is detected.
-            break
+        if (loop) {
+          const loopKey = [...loop].sort().join(',')
+          if (!processedLoops.has(loopKey)) {
+            detectedRegions.push({
+              id: uuidv4(),
+              fragmentIds: loop,
+              boundingBox: this.calculateBoundingBox(loop),
+              testPoint: this.calculateTestPoint(loop),
+              isHole: false,
+              windingNumber: 0
+            })
+            processedLoops.add(loopKey)
           }
-
-          currentChain.push(currentFragmentId)
-          visitedPoints.push(start, end)
-
-          // Find the next unvisited connection.
-          const nextConnection = currentFragment.connectedFragments?.find(
-            (conn) => !currentChain.includes(conn.fragmentId)
-          )
-
-          currentFragmentId = nextConnection ? nextConnection.fragmentId : null
         }
       }
     }
 
     return detectedRegions
+  }
+
+  private dfsFindLoop(currentId: string, startPoint: Point, path: string[]): string[] | null {
+    const fragment = this.fragmentMap.get(currentId)
+    if (!fragment) return null
+
+    // Check if we've made it back to start
+    if (computePointToPointDistance(fragment.end, startPoint) < EPSILON_INTERSECT) {
+      return [...path, currentId]
+    }
+
+    // Continue exploring only if we haven't visited this fragment
+    if (path.includes(currentId)) return null
+
+    // Add current fragment to path
+    path = [...path, currentId]
+
+    // Try each connection
+    for (const connection of fragment.connectedFragments || []) {
+      const result = this.dfsFindLoop(connection.fragmentId, startPoint, path)
+      if (result) return result
+    }
+
+    return null
   }
 
   private areFragmentsConnected(f1: PathFragment, f2: PathFragment): boolean {

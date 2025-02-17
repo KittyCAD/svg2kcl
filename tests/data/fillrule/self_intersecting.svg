@@ -3,8 +3,8 @@
     <path d="M 50,150 Q 180,50 200,80 L 50,100" />
 
     <!-- Key points -->
-    <circle cx="50" cy="150" r="3" fill="red" />
+    <!-- <circle cx="50" cy="150" r="3" fill="red" />
     <circle cx="180" cy="50" r="3" fill="blue" />
     <circle cx="200" cy="80" r="3" fill="green" />
-    <circle cx="50" cy="100" r="3" fill="purple" />
+    <circle cx="50" cy="100" r="3" fill="purple" /> -->
 </svg>

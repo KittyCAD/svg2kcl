@@ -9,7 +9,8 @@
 // - Create region graph where each closed region has:
 //   - Boundary points.
 //   - Contributing path segments with references to original commands.
-//   - References to neighboring regions.
+//   - References to neighbouring regions (optional, but would make subsequent steps
+//     for hole identification more efficient).
 //   - Initial fill status (unset).
 //
 // Second Pass - Winding Calculation:
@@ -70,6 +71,7 @@ interface PathRegion {
   isHole: boolean // True if this is a hole.
   windingNumber: number // Computed winding number.
   parentRegionId?: string // ID of the parent region (if it's a hole).
+  neighborRegionIds?: Set<string> // IDs of neighboring regions.
 }
 
 class PathFragment {
@@ -689,10 +691,10 @@ export class PathProcessor {
     // closed regions later on.
     this.connectFragments(fragments)
 
-    // Find closed regions.
+    // Find closed regions. Note that the outer boundary of the shape may be included
+    // even if its subregions are also included. This _should_ be captured by
+    // winding number analysis later on.
     const regions = this.identifyClosedRegions(fragments)
-
-    const x = 1
   }
 
   public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {
@@ -725,6 +727,33 @@ export class PathProcessor {
       }
     }
 
+    // Build fragment to region map.
+    const fragmentToRegions = new Map<string, string[]>()
+
+    for (const region of detectedRegions) {
+      for (const fragmentId of region.fragmentIds) {
+        if (!fragmentToRegions.has(fragmentId)) {
+          fragmentToRegions.set(fragmentId, [])
+        }
+        fragmentToRegions.get(fragmentId)?.push(region.id)
+      }
+    }
+
+    // Now we need to find the neighbors of each region.
+    for (const region of detectedRegions) {
+      for (const fragmentId of region.fragmentIds) {
+        const neighborRegions = fragmentToRegions.get(fragmentId) || []
+        for (const neighborId of neighborRegions) {
+          if (neighborId !== region.id) {
+            if (!region.neighborRegionIds) {
+              region.neighborRegionIds = new Set()
+            }
+            region.neighborRegionIds.add(neighborId)
+          }
+        }
+      }
+    }
+
     return detectedRegions
   }
 
@@ -746,7 +775,9 @@ export class PathProcessor {
     // Try each connection
     for (const connection of fragment.connectedFragments || []) {
       const result = this.dfsFindLoop(connection.fragmentId, startPoint, path)
-      if (result) return result
+      if (result) {
+        return result
+      }
     }
 
     return null

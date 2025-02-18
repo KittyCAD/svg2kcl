@@ -995,6 +995,16 @@ export class PathProcessor {
   }
 
   private connectFragments(fragments: PathFragment[]): void {
+    // The scenarios under which we would 'connect' fragments are:
+    // - A given fragment's endpoint is coincident with the 'next' ordered fragment's
+    //   start point, but that coincident point is not an intersection.
+    // - A given fragment's endpoint is coincident with an intersection point, and there
+    //   exists a fragment starting at that intersection point. This implies that
+    //   this fragment was 'created' by a split operation.
+    //
+    // If we were to connect sequential fragments where start/end points are coincident
+    // with an intersection point, we would be double-counting some geometry.
+
     // Process each fragment in order
     for (let i = 0; i < fragments.length; i++) {
       const fragment = fragments[i]
@@ -1063,8 +1073,6 @@ export class PathProcessor {
       connectedFrags.sort((a, b) => a.angle - b.angle)
       fragment.connectedFragments = connectedFrags
     }
-
-    let x = 1
   }
 
   private subdivideCommand(

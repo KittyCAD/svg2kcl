@@ -56,6 +56,8 @@ import {
   EnrichedCommand,
   EPSILON_INTERSECT,
   findSelfIntersections,
+  findIntersectionsBetweenSubpaths,
+  Subpath,
   interpolateLine,
   Intersection,
   computePointToPointDistance
@@ -568,6 +570,112 @@ export class PathProcessor {
     return tGlobal
   }
 
+  private identifySubpaths(commands: EnrichedCommand[], samplePoints: Point[]): Subpath[] {
+    const subpaths: Subpath[] = []
+    let currentStart = 0
+    let currentSampleStart = 0
+
+    for (let i = 0; i < commands.length; i++) {
+      const command = commands[i]
+
+      // Check for move commands that start new subpaths
+      if (
+        i > 0 &&
+        (command.type === PathCommandType.MoveAbsolute ||
+          command.type === PathCommandType.MoveRelative)
+      ) {
+        // End previous subpath
+        subpaths.push({
+          startIndex: currentStart,
+          endIndex: i - 1,
+          commands: commands.slice(currentStart, i),
+          samplePoints: samplePoints.slice(currentSampleStart, command.iFirstPoint)
+        })
+
+        currentStart = i
+        currentSampleStart = command.iFirstPoint
+      }
+    }
+
+    // Add final subpath
+    if (currentStart < commands.length) {
+      subpaths.push({
+        startIndex: currentStart,
+        endIndex: commands.length - 1,
+        commands: commands.slice(currentStart),
+        samplePoints: samplePoints.slice(currentSampleStart)
+      })
+    }
+
+    return subpaths
+  }
+
+  private findAllIntersections(subpaths: Subpath[]): Intersection[] {
+    const allIntersections: Intersection[] = []
+
+    // Find intersections within each subpath
+    for (const subpath of subpaths) {
+      const internalIntersections = findSelfIntersections(subpath.samplePoints)
+      allIntersections.push(...internalIntersections)
+    }
+
+    // Find intersections between different subpaths
+    for (let i = 0; i < subpaths.length; i++) {
+      for (let j = i + 1; j < subpaths.length; j++) {
+        const intersections = findIntersectionsBetweenSubpaths(subpaths[i], subpaths[j])
+        allIntersections.push(...intersections)
+      }
+    }
+
+    return allIntersections
+  }
+
+  private createFragmentsForSubpath(
+    commands: EnrichedCommand[],
+    splitPlan: Map<number, number[]>
+  ): PathFragment[] {
+    const fragments: PathFragment[] = []
+
+    for (let i = 0; i < commands.length; i++) {
+      const cmd = commands[i]
+      const tVals = [...(splitPlan.get(cmd.iCommand) || []), 0, 1].sort((a, b) => a - b)
+
+      for (let j = 0; j < tVals.length - 1; j++) {
+        const tMin = tVals[j]
+        const tMax = tVals[j + 1]
+
+        if (tMax - tMin < EPSILON_INTERSECT) continue
+
+        const fragment = this.subdivideCommand(cmd, tMin, tMax)
+        if (fragment) fragments.push(fragment)
+      }
+    }
+
+    return fragments
+  }
+
+  private ensureSubpathClosure(fragments: PathFragment[]): PathFragment[] {
+    if (fragments.length < 1) return fragments
+
+    const firstPoint = fragments[0].start
+    const lastPoint = fragments[fragments.length - 1].end
+    const dMag = computePointToPointDistance(firstPoint, lastPoint)
+
+    if (dMag > EPSILON_INTERSECT) {
+      // Add closing fragment
+      const closingFragment = new PathFragment({
+        type: 'line',
+        start: lastPoint,
+        end: firstPoint,
+        commandIndex: fragments[fragments.length - 1].iCommand
+      })
+
+      return [...fragments, closingFragment]
+    }
+
+    return fragments
+  }
+
   // First pass.
   // -----------------------------------------------------------------------------------
   public analyzePath(): void {
@@ -577,9 +685,12 @@ export class PathProcessor {
     this.fullPathCommandSet = pathCommands
     this.fullPathSamplePoints = pathSamplePoints
 
+    // Immediately identify subpaths
+    const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
+
     // Get the intersections. Note that segment index values here refer to the sampled
     // path, not the original commands.
-    this.intersections = findSelfIntersections(pathSamplePoints)
+    this.intersections = this.findAllIntersections(subpaths)
 
     // Start building the split plan. This is a map of command indices to arrays of
     // t-values where the command should be split.
@@ -621,67 +732,78 @@ export class PathProcessor {
 
     // ---------------------------------------------------------------------------------
 
-    // Let's do some subdivision.
-    let fragments: PathFragment[] = []
-    for (let i = 0; i < pathCommands.length; i++) {
-      const cmd = pathCommands[i]
+    // Process each subpath independently. We need to:
+    // 1. Create fragments for each command in the subpath
+    // 2. Ensure each subpath is properly closed
+    // 3. Collect all fragments for later processing
+    let allFragments: PathFragment[] = []
 
-      // Pull out the t-values for this command, plus ensure 0 & 1 are included.
-      // This is so our later subdivide calls can see the whole thing.
-      const tVals = [...(splitPlan.get(i) || []), 0, 1]
+    for (const subpath of subpaths) {
+      let subpathFragments: PathFragment[] = []
 
-      // Sort.
-      tVals.sort((a, b) => a - b)
+      // Create fragments for each command in this subpath
+      for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
+        const cmd = pathCommands[i]
 
-      // For each adjacent pair of t-values, produce one fragment.
-      for (let j = 0; j < tVals.length - 1; j++) {
-        const tMin = tVals[j]
-        const tMax = tVals[j + 1]
-        if (tMax - tMin < EPSILON_INTERSECT) {
-          // Skip trivial zero-length splits from repeated t-values. Should hopefully
-          // not see any of this since the intersection finder should have removed them.
-          continue
-        }
+        // Pull out the t-values for this command, plus ensure 0 & 1 are included.
+        // This is so our later subdivide calls can see the whole thing.
+        const tVals = [...(splitPlan.get(i) || []), 0, 1]
 
-        // Subdivide this command from [tMin..tMax] into a PathFragment.
-        const fragment = this.subdivideCommand(cmd, tMin, tMax)
-        if (fragment) {
-          fragments.push(fragment)
+        // Sort.
+        tVals.sort((a, b) => a - b)
+
+        // For each adjacent pair of t-values, produce one fragment.
+        for (let j = 0; j < tVals.length - 1; j++) {
+          const tMin = tVals[j]
+          const tMax = tVals[j + 1]
+          if (tMax - tMin < EPSILON_INTERSECT) {
+            // Skip trivial zero-length splits from repeated t-values. Should hopefully
+            // not see any of this since the intersection finder should have removed them.
+            continue
+          }
+
+          // Subdivide this command from [tMin..tMax] into a PathFragment.
+          const fragment = this.subdivideCommand(cmd, tMin, tMax)
+          if (fragment) {
+            subpathFragments.push(fragment)
+          }
         }
       }
-    }
 
-    // We need to account for an implicit close; SVG renderers do this for fills.
-    // https://www.w3.org/TR/SVG/painting.html#FillProperties
-    // The fill operation fills open subpaths by performing the fill operation as if an
-    // additional "closepath" command were added to the path to connect the last point
-    // of the subpath with the first point of the subpath. Thus, fill operations apply
-    // to both open subpaths within ‘path’ elements
-    // (i.e., subpaths without a closepath command) and ‘polyline’ elements.
+      // We need to account for an implicit close; SVG renderers do this for fills.
+      // https://www.w3.org/TR/SVG/painting.html#FillProperties
+      // The fill operation fills open subpaths by performing the fill operation as if an
+      // additional "closepath" command were added to the path to connect the last point
+      // of the subpath with the first point of the subpath. Thus, fill operations apply
+      // to both open subpaths within 'path' elements
+      // (i.e., subpaths without a closepath command) and 'polyline' elements.
 
-    // Check if path is closed. Let's just check if points are close.
-    // TODO: Do this by inspecting raw commands and existing fragment stack...
-    if (fragments.length > 1) {
-      const firstPoint = fragments[0].start
-      const lastPoint = fragments[fragments.length - 1].end
-      const dMag = computePointToPointDistance(firstPoint, lastPoint)
+      // Ensure this subpath is closed by checking its endpoints
+      if (subpathFragments.length > 0) {
+        const firstPoint = subpathFragments[0].start
+        const lastPoint = subpathFragments[subpathFragments.length - 1].end
+        const dMag = computePointToPointDistance(firstPoint, lastPoint)
 
-      if (dMag > EPSILON_INTERSECT) {
-        // Path is not closed; add a final fragment to close it.
-        const fragment = new PathFragment({
-          type: 'line',
-          start: lastPoint,
-          end: firstPoint,
-          commandIndex: this.fullPathCommandSet.length - 1 // Bolt on to final command?
-        })
+        if (dMag > EPSILON_INTERSECT) {
+          // Path is not closed; add a final fragment to close it.
+          const closingFragment = new PathFragment({
+            type: 'line',
+            start: lastPoint,
+            end: firstPoint,
+            commandIndex: subpath.endIndex
+          })
 
-        fragments.push(fragment)
+          subpathFragments.push(closingFragment)
+        }
       }
+
+      // Add this subpath's fragments to our collection
+      allFragments.push(...subpathFragments)
     }
 
     // Build the fragment map.
-    this.fragments = fragments
-    for (const fragment of fragments) {
+    this.fragments = allFragments
+    for (const fragment of allFragments) {
       this.fragmentMap.set(fragment.id, fragment)
     }
 
@@ -690,15 +812,15 @@ export class PathProcessor {
     // We now want to walk the fragment list and build a set that tells us which
     // fragments are connected to which other fragments. This will allow us to build
     // closed regions later on.
-    this.connectFragments(fragments)
+    this.connectFragments(allFragments)
 
     // Find closed regions. Note that the outer boundary of the shape may be included
     // even if its subregions are also included. This _should_ be captured by
     // winding number analysis later on.
-    const regions = this.identifyClosedRegions(fragments)
+    const regions = this.identifyClosedRegions(allFragments)
 
     // Winding?
-    const analyzer = new WindingAnalyzer(fragments)
+    const analyzer = new WindingAnalyzer(allFragments)
     analyzer.computeWindingNumbers(regions)
 
     const anyHoles = regions.filter((r) => r.isHole)

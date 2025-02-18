@@ -27,6 +27,13 @@ export interface Intersection {
   tB: number // How far into segment B the intersection is, [0, 1].
 }
 
+export interface Subpath {
+  startIndex: number // Index in commands array
+  endIndex: number // Index in commands array
+  commands: EnrichedCommand[]
+  samplePoints: Point[]
+}
+
 export function isClockwise(points: Point[]): boolean {
   let sum = 0
   for (let i = 0; i < points.length - 1; i++) {
@@ -172,6 +179,75 @@ export function findSelfIntersections(points: Point[]): Intersection[] {
           intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
           tA: ua, // Fraction along segment A: ua.
           tB: ub // Fraction along segment B: ub.
+        })
+      }
+    }
+  }
+
+  return intersections
+}
+
+export function findIntersectionsBetweenSubpaths(
+  subpath1: Subpath,
+  subpath2: Subpath
+): Intersection[] {
+  const intersections: Intersection[] = []
+  const points1 = subpath1.samplePoints
+  const points2 = subpath2.samplePoints
+
+  // Compare each line segment in subpath1 with each line segment in subpath2
+  for (let i = 0; i < points1.length - 1; i++) {
+    const seg1Start = points1[i]
+    const seg1End = points1[i + 1]
+
+    for (let j = 0; j < points2.length - 1; j++) {
+      const seg2Start = points2[j]
+      const seg2End = points2[j + 1]
+
+      // Use vector cross product to determine if segments intersect
+      const [abx, aby] = [seg1End.x - seg1Start.x, seg1End.y - seg1Start.y]
+      const [cdx, cdy] = [seg2End.x - seg2Start.x, seg2End.y - seg2Start.y]
+
+      // Calculate determinant
+      const det = abx * cdy - aby * cdx
+
+      // If determinant is zero, lines are parallel
+      if (Math.abs(det) < EPSILON_INTERSECT) continue
+
+      // Use Cramer's Rule to find intersection point
+      const detA1 =
+        (seg2End.x - seg2Start.x) * (seg1Start.y - seg2Start.y) -
+        (seg2End.y - seg2Start.y) * (seg1Start.x - seg2Start.x)
+      const detA2 =
+        (seg1End.x - seg1Start.x) * (seg1Start.y - seg2Start.y) -
+        (seg1End.y - seg1Start.y) * (seg1Start.x - seg2Start.x)
+
+      const t1 = detA1 / det
+      const t2 = detA2 / det
+
+      // Check if intersection lies within both segments
+      if (
+        t1 > EPSILON_INTERSECT &&
+        t1 < 1 - EPSILON_INTERSECT &&
+        t2 > EPSILON_INTERSECT &&
+        t2 < 1 - EPSILON_INTERSECT
+      ) {
+        // Calculate intersection point
+        const intersectionPoint = {
+          x: seg1Start.x + t1 * (seg1End.x - seg1Start.x),
+          y: seg1Start.y + t1 * (seg1End.y - seg1Start.y)
+        }
+
+        // Adjust indices to be relative to the full path
+        const globalSegment1Index = i + subpath1.startIndex
+        const globalSegment2Index = j + subpath2.startIndex
+
+        intersections.push({
+          iSegmentA: globalSegment1Index,
+          iSegmentB: globalSegment2Index,
+          intersectionPoint: intersectionPoint,
+          tA: t1,
+          tB: t2
         })
       }
     }

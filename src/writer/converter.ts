@@ -34,7 +34,7 @@ export class Converter {
   private currentPoint: Point = { x: 0, y: 0 }
   private readonly offsetCoords: Point
   private readonly options: KclOptions
-  private readonly windingAnalyzer: WindingAnalyzer
+  // private readonly windingAnalyzer: WindingAnalyzer
 
   constructor(options: KclOptions = {}, viewBox: ViewBox) {
     // Calculate offset coordinates for centering if requested.
@@ -44,7 +44,7 @@ export class Converter {
     this.options = options
 
     // Initialize winding analyzer.
-    this.windingAnalyzer = new WindingAnalyzer()
+    // this.windingAnalyzer = new WindingAnalyzer()
   }
 
   // Utilities used in conversion.
@@ -584,32 +584,32 @@ export class Converter {
     ]
   }
 
-  private analyzeNonZeroPath(path: PathElement): AnalyzedPath[] {
-    // Sanitize the subpaths by separating them
-    const subpaths = this.sanitizeSubpaths(separateSubpaths(path))
+  // private analyzeNonZeroPath(path: PathElement): AnalyzedPath[] {
+  //   // Sanitize the subpaths by separating them
+  //   const subpaths = this.sanitizeSubpaths(separateSubpaths(path))
 
-    // Analyze the winding numbers of the subpaths
-    const windingAnalyzer = new WindingAnalyzer()
-    const regions = windingAnalyzer.analyzeWindingNumbers(subpaths)
+  //   // Analyze the winding numbers of the subpaths
+  //   const windingAnalyzer = new WindingAnalyzer()
+  //   const regions = windingAnalyzer.analyzeWindingNumbers(subpaths)
 
-    // Sort regions by containment depth, in ascending order
-    const sortedRegions = [...regions].sort((a, b) => a.containedBy.length - b.containedBy.length)
+  //   // Sort regions by containment depth, in ascending order
+  //   const sortedRegions = [...regions].sort((a, b) => a.containedBy.length - b.containedBy.length)
 
-    return sortedRegions
-      .filter((region) => region.windingNumber !== 0) // Only consider non-zero winding numbers
-      .map((region) => {
-        const isHole = region.containedBy.length % 2 === 1 // Odd depth indicates a hole
+  //   return sortedRegions
+  //     .filter((region) => region.windingNumber !== 0) // Only consider non-zero winding numbers
+  //     .map((region) => {
+  //       const isHole = region.containedBy.length % 2 === 1 // Odd depth indicates a hole
 
-        // Ensure the path.transform exists or provide a fallback
-        const transform = path.transform ?? new Transform()
+  //       // Ensure the path.transform exists or provide a fallback
+  //       const transform = path.transform ?? new Transform()
 
-        return {
-          commands: subpaths[region.pathIndex].commands,
-          isHole,
-          transform // Use the transform if it exists, otherwise undefined
-        }
-      })
-  }
+  //       return {
+  //         commands: subpaths[region.pathIndex].commands,
+  //         isHole,
+  //         transform // Use the transform if it exists, otherwise undefined
+  //       }
+  //     })
+  // }
 
   private convertAnalyzedPathToKcl(analyzedPath: AnalyzedPath): KclOperation[] {
     if (analyzedPath.isHole) {
@@ -646,7 +646,7 @@ export class Converter {
     const analyzedPaths =
       processedPath.fillRule === FillRule.EvenOdd
         ? this.analyzeEvenOddPath(processedPath)
-        : this.analyzeNonZeroPath(processedPath)
+        : this.analyzeEvenOddPath(processedPath) // TODO: Change to nonzero.
 
     return analyzedPaths.flatMap((analyzed) => this.convertAnalyzedPathToKcl(analyzed))
   }

@@ -1,112 +1,90 @@
 import { Point } from '../types/base'
-import { PathCommand, PathCommandType } from '../types/path'
-import { BezierUtils } from './bezier'
-
-export interface WindingRegion {
-  pathIndex: number // Index of original path in input array.
-  points: Point[] // Points defining the region.
-  windingNumber: number // Calculated winding number.
-  containedBy: number[] // Indices of regions that contain this one.
-}
+import { PathRegion, PathFragment } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
 
 export class WindingAnalyzer {
-  // See: https://web.archive.org/web/20130126163405/http://geomalgorithms.com/a03-_inclusion.html
-  private static getPathPoints(commands: PathCommand[]): Point[] {
-    if (commands.length === 0) return []
+  private fragmentMap: Map<string, PathFragment> // Store fragment lookup
 
+  constructor(fragments: PathFragment[]) {
+    this.fragmentMap = new Map(fragments.map((f) => [f.id, f])) // Build lookup map
+  }
+
+  private getRegionPoints(region: PathRegion): Point[] {
+    // Extracts the ordered boundary points of a region from its fragment IDs
     const points: Point[] = []
-    let currentPosition = commands[0].endPositionAbsolute
-
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i]
-      const nextCmd = i < commands.length - 1 ? commands[i + 1] : null
-
-      // Add current position
-      points.push(currentPosition)
-
-      // Handle bezier curves
-      if (BezierUtils.isBezierCommand(cmd.type)) {
-        points.push(...BezierUtils.getBezierPoints(cmd))
-      }
-
-      // Update current position.
-      if (cmd.type === PathCommandType.StopAbsolute) {
-        // For StopAbsolute, use its explicit position.
-        currentPosition = cmd.endPositionAbsolute
-      } else if (nextCmd) {
-        // For other commands, use the next command's position.
-        currentPosition = nextCmd.endPositionAbsolute
+    for (const fragmentId of region.fragmentIds) {
+      const fragment = this.fragmentMap.get(fragmentId)
+      if (fragment) {
+        if (
+          points.length === 0 ||
+          points[points.length - 1].x !== fragment.start.x ||
+          points[points.length - 1].y !== fragment.start.y
+        ) {
+          points.push(fragment.start)
+        }
+        points.push(fragment.end)
       }
     }
 
-    // Ensure the path is properly closed if it ends with StopAbsolute.
-    const lastCmd = commands[commands.length - 1]
-    if (lastCmd.type === PathCommandType.StopAbsolute) {
-      points.push(lastCmd.endPositionAbsolute)
-    }
-
+    const pointsExport = points.map((p) => [p.x, p.y])
     return points
   }
 
   private getPolygonWinding(points: Point[]): number {
+    // Computes the winding number for a polygon using the shoelace formula.
     let area = 0
     for (let i = 0; i < points.length; i++) {
       const p1 = points[i]
       const p2 = points[(i + 1) % points.length]
       area += p1.x * p2.y - p2.x * p1.y // Shoelace theorem.
     }
-    return area > 0 ? 1 : -1 // Anti-clockwise: positive, Clockwise: negative.
-  }
-
-  private isInsidePolygon(inner: Point[], outer: Point[]): boolean {
-    const outerWinding = this.getPolygonWinding(outer)
-    if (!this.isPointInsidePolygon(inner[0], outer)) return false
-    return this.getPolygonWinding(inner) !== outerWinding // Ensure opposite winding
+    return area > 0 ? 1 : -1 // Counterclockwise: +1, Clockwise: -1.
   }
 
   private isPointInsidePolygon(point: Point, polygon: Point[]): boolean {
-    // Determines if a point is inside a polygon using the ray-casting method.
-    let inside = false
+    // Determines if a point is inside a polygon using the winding number method.
+    // https://ocw.mit.edu/courses/18-900-geometry-and-topology-in-the-plane-spring-2023/mit18_900s23_lec3.pdf
+    let wn = 0 // Winding number counter
     let j = polygon.length - 1
 
     for (let i = 0; i < polygon.length; i++) {
       const pi = polygon[i]
       const pj = polygon[j]
 
-      if (
-        pi.y > point.y !== pj.y > point.y &&
-        point.x < ((pj.x - pi.x) * (point.y - pi.y)) / (pj.y - pi.y) + pi.x
-      ) {
-        inside = !inside
+      if (pi.y <= point.y) {
+        if (pj.y > point.y && this.isLeft(pi, pj, point) > 0) {
+          wn++
+        }
+      } else {
+        if (pj.y <= point.y && this.isLeft(pi, pj, point) < 0) {
+          wn--
+        }
       }
       j = i
     }
-    return inside
+    return wn !== 0 // Outside only when winding number = 0
   }
 
-  public analyzeWindingNumbers(subpaths: { commands: PathCommand[] }[]): WindingRegion[] {
-    // Initialize regions with basic properties.
-    const regions: WindingRegion[] = subpaths.map((path, index) => ({
-      pathIndex: index,
-      points: WindingAnalyzer.getPathPoints(path.commands),
-      windingNumber: 0,
-      containedBy: []
-    }))
+  private isLeft(p0: Point, p1: Point, p2: Point): number {
+    return (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)
+  }
 
-    // Calculate initial winding direction for each region.
+  public computeWindingNumbers(regions: PathRegion[]): void {
     for (const region of regions) {
-      region.windingNumber = this.getPolygonWinding(region.points)
+      const regionPoints = this.getRegionPoints(region)
+      region.windingNumber = this.getPolygonWinding(regionPoints)
+      region.isHole = region.windingNumber === 0
     }
+  }
 
-    // Analyze containment relationships and update winding numbers.
-    for (let i = 0; i < regions.length; i++) {
-      for (let j = 0; j < regions.length; j++) {
-        if (i !== j && this.isInsidePolygon(regions[i].points, regions[j].points)) {
-          regions[i].containedBy.push(j)
+  public assignParentRegions(regions: PathRegion[]): void {
+    for (const hole of regions.filter((r) => r.isHole)) {
+      for (const candidate of regions.filter((r) => !r.isHole)) {
+        const candidatePoints = this.getRegionPoints(candidate)
+        if (this.isPointInsidePolygon(hole.testPoint, candidatePoints)) {
+          hole.parentRegionId = candidate.id
+          break
         }
       }
     }
-
-    return regions
   }
 }

@@ -81,7 +81,7 @@ describe('SVG Fill Rule Tests NonZero', () => {
   // })
 
   it('should correctly convert self_intersecting.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'self_intersecting.svg')
+    const inputPath = path.join(dataDir, 'nonzero_basic.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'self_intersecting.kcl')
 

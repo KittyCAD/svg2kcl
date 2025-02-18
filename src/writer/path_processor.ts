@@ -60,10 +60,11 @@ import {
   Intersection,
   computePointToPointDistance
 } from '../utils/geometry'
+import { WindingAnalyzer } from '../utils/winding'
 
 // let DELETE_ME_COUNTER = 0
 
-interface PathRegion {
+export interface PathRegion {
   id: string
   fragmentIds: string[] // List of IDs of path fragments forming the region.
   boundingBox: { xMin: number; yMin: number; xMax: number; yMax: number } // Region bounding box.
@@ -74,7 +75,7 @@ interface PathRegion {
   neighborRegionIds?: Set<string> // IDs of neighboring regions.
 }
 
-class PathFragment {
+export class PathFragment {
   // An internal, intermediate representation of a path 'fragment'. We may produce
   // a bunch of these when splitting paths, but we need more context than would be
   // provided by the sort of new PathCommand object we produce when re-emitting
@@ -696,7 +697,13 @@ export class PathProcessor {
     // winding number analysis later on.
     const regions = this.identifyClosedRegions(fragments)
 
-    // TODO: Winding.
+    // Winding?
+    const analyzer = new WindingAnalyzer(fragments)
+    analyzer.computeWindingNumbers(regions)
+
+    const anyHoles = regions.filter((r) => r.isHole)
+
+    let x = 1
   }
 
   public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {

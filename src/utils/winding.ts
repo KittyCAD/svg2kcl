@@ -2,47 +2,55 @@ import { Point } from '../types/base'
 import { PathRegion, PathFragment } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
 
 export class WindingAnalyzer {
-  private fragmentMap: Map<string, PathFragment> // Store fragment lookup
+  private fragmentMap: Map<string, PathFragment>
 
   constructor(fragments: PathFragment[]) {
-    this.fragmentMap = new Map(fragments.map((f) => [f.id, f])) // Build lookup map
+    // Initialize lookup map for quick fragment access
+    this.fragmentMap = new Map(fragments.map((f) => [f.id, f]))
   }
 
   private getRegionPoints(region: PathRegion): Point[] {
-    // Extracts the ordered boundary points of a region from its fragment IDs
+    //  Extracts the ordered boundary points of a region based on its fragment IDs.
+    //  This ensures the path reconstruction follows the original path direction.
     const points: Point[] = []
+
     for (const fragmentId of region.fragmentIds) {
       const fragment = this.fragmentMap.get(fragmentId)
-      if (fragment) {
-        if (
-          points.length === 0 ||
-          points[points.length - 1].x !== fragment.start.x ||
-          points[points.length - 1].y !== fragment.start.y
-        ) {
-          points.push(fragment.start)
-        }
-        points.push(fragment.end)
+      if (!fragment) continue
+
+      // Ensure continuity in the path sequence
+      if (
+        points.length === 0 ||
+        points[points.length - 1].x !== fragment.start.x ||
+        points[points.length - 1].y !== fragment.start.y
+      ) {
+        points.push(fragment.start)
       }
+
+      points.push(fragment.end) // Append endpoint
     }
 
-    const pointsExport = points.map((p) => [p.x, p.y])
     return points
   }
 
   private getPolygonWinding(points: Point[]): number {
     // Computes the winding number for a polygon using the shoelace formula.
+    // This determines if a shape is positively (counterclockwise) or negatively (clockwise) wound.
     let area = 0
+
     for (let i = 0; i < points.length; i++) {
       const p1 = points[i]
       const p2 = points[(i + 1) % points.length]
-      area += p1.x * p2.y - p2.x * p1.y // Shoelace theorem.
+      area += p1.x * p2.y - p2.x * p1.y // Shoelace theorem sum.
     }
-    return area > 0 ? 1 : -1 // Counterclockwise: +1, Clockwise: -1.
+
+    return area > 0 ? 1 : -1 // Positive: counterclockwise (+1), Negative: clockwise (-1)
   }
 
   private isPointInsidePolygon(point: Point, polygon: Point[]): boolean {
-    // Determines if a point is inside a polygon using the winding number method.
-    // https://ocw.mit.edu/courses/18-900-geometry-and-topology-in-the-plane-spring-2023/mit18_900s23_lec3.pdf
+    // Determines if a point is inside a polygon using the nonzero winding rule.
+    // See: https://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html
+    // And: https://ocw.mit.edu/courses/18-900-geometry-and-topology-in-the-plane-spring-2023/mit18_900s23_lec3.pdf
     let wn = 0 // Winding number counter
     let j = polygon.length - 1
 
@@ -50,39 +58,56 @@ export class WindingAnalyzer {
       const pi = polygon[i]
       const pj = polygon[j]
 
+      // Determine crossing direction
       if (pi.y <= point.y) {
         if (pj.y > point.y && this.isLeft(pi, pj, point) > 0) {
-          wn++
+          wn++ // Upward crossing adds to winding number.
         }
       } else {
         if (pj.y <= point.y && this.isLeft(pi, pj, point) < 0) {
-          wn--
+          wn-- // Downward crossing subtracts from winding number.
         }
       }
-      j = i
+
+      j = i // Move to next segment
     }
-    return wn !== 0 // Outside only when winding number = 0
+
+    return wn !== 0 // A nonzero winding number means the point is inside.
   }
 
   private isLeft(p0: Point, p1: Point, p2: Point): number {
+    // Computes whether a point lies to the left (+) or right (-) of a directed line segment.
+    // This is a determinant-based test for relative orientation.
     return (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)
   }
 
   public computeWindingNumbers(regions: PathRegion[]): void {
+    // Computes winding numbers for all regions, classifying them as holes or solids.
     for (const region of regions) {
       const regionPoints = this.getRegionPoints(region)
+
+      // Determine the winding order of the polygon.
       region.windingNumber = this.getPolygonWinding(regionPoints)
+
+      // A negative winding number indicates a hole (clockwise direction).
       region.isHole = region.windingNumber < 0
     }
   }
 
   public assignParentRegions(regions: PathRegion[]): void {
-    for (const hole of regions.filter((r) => r.windingNumber < 0)) {
-      for (const candidate of regions.filter((r) => r.windingNumber > 0)) {
+    // Assigns holes to their parent regions by checking which solid region encloses them.
+    //  - Only considers **holes (windingNumber < 0)**
+    // - Finds the **smallest enclosing region** (solid windingNumber > 0)
+    const holes = regions.filter((r) => r.windingNumber < 0)
+    const solids = regions.filter((r) => r.windingNumber > 0)
+
+    for (const hole of holes) {
+      for (const candidate of solids) {
         const candidatePoints = this.getRegionPoints(candidate)
+
         if (this.isPointInsidePolygon(hole.testPoint, candidatePoints)) {
           hole.parentRegionId = candidate.id
-          break
+          break // Assign first enclosing solid region found
         }
       }
     }

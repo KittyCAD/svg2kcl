@@ -164,6 +164,7 @@ export class PathProcessor {
   // Post-splitting fragments.
   private fragments: PathFragment[] = []
   private fragmentMap: Map<string, PathFragment> = new Map()
+  private regions: PathRegion[] = []
 
   constructor(element: PathElement) {
     // Pull commands and fill rule.
@@ -186,185 +187,160 @@ export class PathProcessor {
     }
   }
 
-  private clearPreviousControlPoint(): void {
-    this.previousControlPoint = null
-  }
-
   public process(): PathCommand[] {
-    // Process will be:
-    // Step across the input commands.
-    // For commands that require no splitting, we will convert these to the relevant
-    // PathCommand and push to our output buffer.
-    // For commands that do require splitting, we will call the relevant method to
-    // split the command and push the results to the output buffer.
-
-    // Reset state.
-    this.outputCommands = []
-    this.previousControlPoint = null
-    this.currentPoint = { x: 0, y: 0 }
-    this.splitPlan = new Map()
-
-    // Get out early for evenodd fill rule—no splitting required!
+    // For even-odd rule, just return the original commands
     if (this.fillRule === FillRule.EvenOdd) {
       return this.inputCommands
     }
 
-    // Build sampled path we'll use for self-intersection detection.
-    const { pathSamplePoints: pathSamplePoints, pathCommands: pathCommands } = this.buildPath()
+    // Run the winding number analysis
+    this.analyzePath()
 
-    // Get the intersections. Note that segment index values here refer to the sampled
-    // path, not the original commands.
-    const intersections = findSelfIntersections(pathSamplePoints)
-
-    // Start building the split plan. This is a map of command indices to arrays of
-    // t-values where the command should be split.
-    let splitPlan = new Map<number, number[]>()
-
-    for (const intersection of intersections) {
-      // Pull the sampled path segment indices for the intersecting segments. These
-      // are the indices in the sampled path (output of buildPath()).
-      const iSegmentA = intersection.iSegmentA
-      const iSegmentB = intersection.iSegmentB
-
-      // Get the commands that 'own' these points.
-      const iCommandA = this.findCommandIndexForPoint(pathCommands, iSegmentA)
-      const iCommandB = this.findCommandIndexForPoint(pathCommands, iSegmentB)
-
-      // Convert segment-relative t-values into original command t-values.
-      const tA = this.convertSegmentTtoCommandT(pathCommands, iSegmentA, intersection.tA)
-      const tB = this.convertSegmentTtoCommandT(pathCommands, iSegmentB, intersection.tB)
-
-      // Add t1 to command A's split points.
-      if (!splitPlan.has(iCommandA)) {
-        splitPlan.set(iCommandA, [])
-      }
-      splitPlan.get(iCommandA)!.push(tA)
-
-      // Add t2 to command B's split points.
-      if (!splitPlan.has(iCommandB)) {
-        splitPlan.set(iCommandB, [])
-      }
-      splitPlan.get(iCommandB)!.push(tB)
-    }
-
-    // After collecting all splits, sort each command's t-values.
-    for (const tValues of splitPlan.values()) {
-      tValues.sort((a, b) => a - b)
-    }
-
-    // Set the split plan.
-    this.splitPlan = splitPlan
-
-    // Otherwise... step across the input commands—simple for loop for debug easiness.
-    for (let i = 0; i < this.inputCommands.length; i++) {
-      const command = this.inputCommands[i]
-      this.processCommand(command, i)
-    }
-
-    return this.outputCommands
-  }
-
-  private processCommand(command: PathCommand, iCommand: number): void {
-    switch (command.type) {
-      case PathCommandType.MoveAbsolute:
-      case PathCommandType.MoveRelative:
-        this.processMoveCommand(command)
-        break
-
-      case PathCommandType.LineAbsolute:
-      case PathCommandType.LineRelative:
-      case PathCommandType.HorizontalLineAbsolute:
-      case PathCommandType.HorizontalLineRelative:
-      case PathCommandType.VerticalLineAbsolute:
-      case PathCommandType.VerticalLineRelative:
-        this.processLineCommand(command, iCommand)
-        break
-
-      case PathCommandType.QuadraticBezierAbsolute:
-      case PathCommandType.QuadraticBezierRelative:
-        this.processQuadraticBezierCommand(command, iCommand)
-        break
-
-      case PathCommandType.QuadraticBezierSmoothAbsolute:
-      case PathCommandType.QuadraticBezierSmoothRelative:
-        // this.processQuadraticBezierSmoothCommand(command)
-        break
-
-      case PathCommandType.CubicBezierAbsolute:
-      case PathCommandType.CubicBezierRelative:
-        // this.processCubicBezierCommand(command)
-        break
-
-      case PathCommandType.CubicBezierSmoothAbsolute:
-      case PathCommandType.CubicBezierSmoothRelative:
-        // this.processCubicBezierSmoothCommand(command)
-        break
-
-      case PathCommandType.StopAbsolute:
-      case PathCommandType.StopRelative:
-        // this.processStopCommand(command)
-        break
-    }
-  }
-
-  // More straightforward commands.
-  // -----------------------------------------------------------------------------------
-  private processMoveCommand(command: PathCommand): void {
-    this.currentPoint = command.endPositionAbsolute
-    this.outputCommands.push(command)
-
-    // Not a curve.
-    this.clearPreviousControlPoint()
-  }
-
-  private processStopCommand(command: PathCommand): void {
-    this.currentPoint = command.endPositionAbsolute
-    this.outputCommands.push(command)
-
-    // Not a curve.
-    this.clearPreviousControlPoint()
-  }
-
-  private processLineCommand(command: PathCommand, iCommand: number): void {
-    const splitRequired = this.splitPlan.has(iCommand)
-    const splitData = this.splitPlan.get(iCommand) || []
-
-    if (!splitRequired) {
-      // No splitting needed, push the original line command.
-      this.outputCommands.push(command)
-    } else {
-      // Sort t-values to ensure they are processed in order.
-      splitData.sort((a, b) => a - b)
-
-      let startPoint = this.currentPoint
-
-      for (const t of splitData) {
-        const midPoint = interpolateLine(startPoint, command.endPositionAbsolute, t)
-
-        // All line segments become LineAbsolute since we have absolute coords.
-        this.outputCommands.push({
-          type: PathCommandType.LineAbsolute,
-          parameters: [midPoint.x, midPoint.y],
-          startPositionAbsolute: startPoint,
-          endPositionAbsolute: midPoint
-        })
-
-        startPoint = midPoint
+    // Get regions sorted by parent-child relationships
+    const sortedRegions = [...this.regions].sort((a, b) => {
+      // Put parents before children
+      const aHasParent = !!a.parentRegionId
+      const bHasParent = !!b.parentRegionId
+      if (aHasParent !== bHasParent) {
+        return aHasParent ? 1 : -1
       }
 
-      // Final segment.
-      this.outputCommands.push({
-        type: PathCommandType.LineAbsolute,
-        parameters: [command.endPositionAbsolute.x, command.endPositionAbsolute.y],
-        startPositionAbsolute: startPoint, // We updated this in the loop.
-        endPositionAbsolute: command.endPositionAbsolute
-      })
+      // Then by winding number magnitude
+      return Math.abs(b.windingNumber) - Math.abs(a.windingNumber)
+    })
+
+    // Filter out regions with zero winding number
+    const nonzeroRegions = sortedRegions.filter((region) => region.windingNumber !== 0)
+
+    // Convert regions to commands, maintaining order where holes follow their parent paths
+    const commands: PathCommand[] = []
+
+    // Group regions by their parent-child hierarchy
+    const hierarchicalGroups: PathRegion[][] = []
+    let currentGroup: PathRegion[] = []
+
+    for (const region of nonzeroRegions) {
+      if (!region.parentRegionId) {
+        // This is a parent path - start a new group
+        if (currentGroup.length > 0) {
+          hierarchicalGroups.push(currentGroup)
+        }
+        currentGroup = [region]
+      } else {
+        // This is a child (hole) - add to current group
+        currentGroup.push(region)
+      }
     }
 
-    // Update state.
-    this.currentPoint = command.endPositionAbsolute
-    this.clearPreviousControlPoint()
+    // Add the last group if it exists
+    if (currentGroup.length > 0) {
+      hierarchicalGroups.push(currentGroup)
+    }
+
+    // Process each group
+    for (const group of hierarchicalGroups) {
+      for (const region of group) {
+        // Get the fragments that make up this region
+        const regionFragments = region.fragmentIds.map((id) => this.fragmentMap.get(id)!)
+
+        // Convert fragments to commands and add to output
+        const regionCommands = this.convertFragmentsToCommands(regionFragments)
+        commands.push(...regionCommands)
+      }
+    }
+
+    return commands
   }
+
+  private convertFragmentsToCommands(fragments: PathFragment[]): PathCommand[] {
+    const commands: PathCommand[] = []
+
+    if (fragments.length === 0) return commands
+
+    let currentPoint = fragments[0].start
+
+    // Start with a move to the first point
+    commands.push({
+      type: PathCommandType.MoveAbsolute,
+      parameters: [currentPoint.x, currentPoint.y],
+      startPositionAbsolute: currentPoint,
+      endPositionAbsolute: currentPoint
+    })
+
+    // Convert each fragment to appropriate command type
+    for (const fragment of fragments) {
+      switch (fragment.type) {
+        case 'line':
+          commands.push({
+            type: PathCommandType.LineAbsolute,
+            parameters: [fragment.end.x, fragment.end.y],
+            startPositionAbsolute: currentPoint,
+            endPositionAbsolute: fragment.end
+          })
+          break
+
+        case 'quad':
+          commands.push({
+            type: PathCommandType.QuadraticBezierAbsolute,
+            parameters: [
+              fragment.control1!.x,
+              fragment.control1!.y,
+              fragment.end.x,
+              fragment.end.y
+            ],
+            startPositionAbsolute: currentPoint,
+            endPositionAbsolute: fragment.end
+          })
+          break
+
+        case 'cubic':
+          commands.push({
+            type: PathCommandType.CubicBezierAbsolute,
+            parameters: [
+              fragment.control1!.x,
+              fragment.control1!.y,
+              fragment.control2!.x,
+              fragment.control2!.y,
+              fragment.end.x,
+              fragment.end.y
+            ],
+            startPositionAbsolute: currentPoint,
+            endPositionAbsolute: fragment.end
+          })
+          break
+      }
+
+      currentPoint = fragment.end
+    }
+
+    // Close the path
+    commands.push({
+      type: PathCommandType.StopAbsolute,
+      parameters: [],
+      startPositionAbsolute: currentPoint,
+      endPositionAbsolute: fragments[0].start
+    })
+
+    return commands
+  }
+
+  public getFragment(id: string): PathFragment {
+    const fragment = this.fragmentMap.get(id)
+    if (!fragment) {
+      throw new Error(`Fragment ${id} not found`)
+    }
+    return fragment
+  }
+
+  public getCommandsForFragments(fragments: PathFragment[]): PathCommand[] {
+    return this.convertFragmentsToCommands(fragments)
+  }
+
+  // Make regions accessible
+  public getRegions(): PathRegion[] {
+    return this.regions
+  }
+
   // Build the whole thing for self-intersection detection.
   // -----------------------------------------------------------------------------------
   private buildPath(): PathSampleResult {
@@ -801,12 +777,6 @@ export class PathProcessor {
       allFragments.push(...subpathFragments)
     }
 
-    // Build the fragment map.
-    this.fragments = allFragments
-    for (const fragment of allFragments) {
-      this.fragmentMap.set(fragment.id, fragment)
-    }
-
     // ---------------------------------------------------------------------------------
 
     // We now want to walk the fragment list and build a set that tells us which
@@ -814,18 +784,23 @@ export class PathProcessor {
     // closed regions later on.
     this.connectFragments(allFragments)
 
+    // Build the fragment map.
+    this.fragments = allFragments
+
+    for (const fragment of allFragments) {
+      this.fragmentMap.set(fragment.id, fragment)
+    }
+
     // Find closed regions. Note that the outer boundary of the shape may be included
     // even if its subregions are also included. This _should_ be captured by
     // winding number analysis later on.
-    const regions = this.identifyClosedRegions(allFragments)
+    this.regions = this.identifyClosedRegions(allFragments)
 
     // Winding?
     const analyzer = new WindingAnalyzer(allFragments)
-    analyzer.computeWindingNumbers(regions)
+    analyzer.computeWindingNumbers(this.regions)
 
-    const anyHoles = regions.filter((r) => r.isHole)
-
-    let x = 1
+    // Done?
   }
 
   public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {

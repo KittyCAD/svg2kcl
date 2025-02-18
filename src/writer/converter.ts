@@ -631,24 +631,36 @@ export class Converter {
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
     const processor = new PathProcessor(path as PathElement)
-
-    // TODO - TAKE THIS OUT, JUST TESTING.
-    processor.analyzePath()
-
     const processedCommands = processor.process()
 
-    // Create a new path element with the processed commands.
-    const processedPath: PathElement = {
-      ...(path as PathElement),
-      commands: processedCommands
+    let operations: KclOperation[] = []
+
+    // Get sorted regions (parents before children)
+    const regions = processor.getRegions()
+    const sortedRegions = regions.sort((a, b) => {
+      if (!a.parentRegionId && b.parentRegionId) return -1
+      if (a.parentRegionId && !b.parentRegionId) return 1
+      return 0
+    })
+
+    // Work through regions in order
+    for (const region of sortedRegions) {
+      const fragments = region.fragmentIds.map((id) => processor.getFragment(id))
+      const commands = processor.getCommandsForFragments(fragments)
+
+      if (region.isHole) {
+        operations.push({
+          type: KclOperationType.Hole,
+          params: {
+            operations: this.convertPathCommandsToKclOps(commands, path.transform!)
+          }
+        })
+      } else {
+        operations.push(...this.convertPathCommandsToKclOps(commands, path.transform!))
+      }
     }
 
-    const analyzedPaths =
-      processedPath.fillRule === FillRule.EvenOdd
-        ? this.analyzeEvenOddPath(processedPath)
-        : this.analyzeEvenOddPath(processedPath) // TODO: Change to nonzero.
-
-    return analyzedPaths.flatMap((analyzed) => this.convertAnalyzedPathToKcl(analyzed))
+    return operations
   }
 
   private convertRectangleToKclOps(rect: RectangleElement): KclOperation[] {

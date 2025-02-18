@@ -1,5 +1,6 @@
 import { Point } from '../types/base'
 import { PathRegion, PathFragment } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
+import { EPSILON_INTERSECT } from './geometry'
 
 export class WindingAnalyzer {
   private fragmentMap: Map<string, PathFragment>
@@ -75,6 +76,43 @@ export class WindingAnalyzer {
     return wn !== 0 // A nonzero winding number means the point is inside.
   }
 
+  private isPolygonInsidePolygon(inner: Point[], outer: Point[]): boolean {
+    for (const vertex of inner) {
+      // If ANY vertex is outside, the whole shape is not inside
+      if (!this.isPointInsidePolygon(vertex, outer) && !this.isPointOnEdge(vertex, outer)) {
+        return false
+      }
+    }
+    return true
+  }
+
+  // Helper function to check if a point is on the polygon's edge
+  private isPointOnEdge(point: Point, polygon: Point[]): boolean {
+    for (let i = 0; i < polygon.length; i++) {
+      const p1 = polygon[i]
+      const p2 = polygon[(i + 1) % polygon.length] // Wraps around to first point
+
+      if (this.isPointOnSegment(point, p1, p2)) {
+        return true // Point lies exactly on an edge
+      }
+    }
+    return false
+  }
+
+  private isPointOnSegment(p: Point, a: Point, b: Point): boolean {
+    // Helper function to check if a point lies on a line segment
+    const crossProduct = (p.y - a.y) * (b.x - a.x) - (p.x - a.x) * (b.y - a.y)
+    if (Math.abs(crossProduct) > EPSILON_INTERSECT) return false // Not collinear
+
+    const dotProduct = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)
+    if (dotProduct < 0) return false // Beyond 'a'
+
+    const squaredLengthBA = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)
+    if (dotProduct > squaredLengthBA) return false // Beyond 'b'
+
+    return true // Lies within the segment bounds
+  }
+
   private isLeft(p0: Point, p1: Point, p2: Point): number {
     // Computes whether a point lies to the left (+) or right (-) of a directed line segment.
     // This is a determinant-based test for relative orientation.
@@ -98,20 +136,57 @@ export class WindingAnalyzer {
   }
 
   public assignParentRegions(regions: PathRegion[]): void {
-    // Separate out potential holes and solids.
-    const potentialHoles = regions.filter((r) => r.windingNumber < 0)
-    const solids = regions.filter((r) => r.windingNumber > 0)
+    // Sort regions by area first (larger regions first)
+    const sortedRegions = [...regions].sort((a, b) => {
+      const areaA =
+        (a.boundingBox.xMax - a.boundingBox.xMin) * (a.boundingBox.yMax - a.boundingBox.yMin)
+      const areaB =
+        (b.boundingBox.xMax - b.boundingBox.xMin) * (b.boundingBox.yMax - b.boundingBox.yMin)
+      return areaB - areaA // Descending order
+    })
 
-    for (const hole of potentialHoles) {
-      for (const candidate of solids) {
-        const candidatePoints = this.getRegionPoints(candidate)
+    // Process each region to find its parent
+    for (const region of sortedRegions) {
+      const regionPoints = this.getRegionPoints(region)
 
-        // Holes are only holes if the parent region encloses them.
-        if (this.isPointInsidePolygon(hole.testPoint, candidatePoints)) {
-          hole.parentRegionId = candidate.id
-          hole.isHole = true
-          break // Stop once we assign a parent
-        }
+      // Find potential containing regions
+      const potentialParents = sortedRegions.filter((candidate) => {
+        if (candidate === region) return false
+        if (candidate.parentRegionId === region.id) return false
+
+        const candidateArea =
+          (candidate.boundingBox.xMax - candidate.boundingBox.xMin) *
+          (candidate.boundingBox.yMax - candidate.boundingBox.yMin)
+        const regionArea =
+          (region.boundingBox.xMax - region.boundingBox.xMin) *
+          (region.boundingBox.yMax - region.boundingBox.yMin)
+        if (candidateArea <= regionArea) return false
+
+        return this.isPolygonInsidePolygon(regionPoints, this.getRegionPoints(candidate))
+      })
+
+      if (potentialParents.length > 0) {
+        // Find the smallest containing region (immediate parent)
+        const parent = potentialParents.reduce((closest, current) => {
+          if (!closest) return current
+
+          const closestArea =
+            (closest.boundingBox.xMax - closest.boundingBox.xMin) *
+            (closest.boundingBox.yMax - closest.boundingBox.yMin)
+          const currentArea =
+            (current.boundingBox.xMax - current.boundingBox.xMin) *
+            (current.boundingBox.yMax - current.boundingBox.yMin)
+          return currentArea < closestArea ? current : closest
+        })
+
+        region.parentRegionId = parent.id
+
+        // For nonzero fill rule:
+        // If this region plus its parent's winding numbers sum to zero, it's a hole
+        region.isHole = region.windingNumber + parent.windingNumber === 0
+      } else {
+        region.parentRegionId = undefined
+        region.isHole = false
       }
     }
   }

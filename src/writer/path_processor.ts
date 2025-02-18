@@ -187,69 +187,48 @@ export class PathProcessor {
     }
   }
 
-  public process(): PathCommand[] {
-    // For even-odd rule, just return the original commands
+  public process(): { regions: PathRegion[]; commands: PathCommand[] } {
     if (this.fillRule === FillRule.EvenOdd) {
-      return this.inputCommands
+      return { regions: [], commands: this.inputCommands }
     }
 
-    // Run the winding number analysis
     this.analyzePath()
 
-    // Get regions sorted by parent-child relationships
-    const sortedRegions = [...this.regions].sort((a, b) => {
-      // Put parents before children
-      const aHasParent = !!a.parentRegionId
-      const bHasParent = !!b.parentRegionId
-      if (aHasParent !== bHasParent) {
-        return aHasParent ? 1 : -1
-      }
+    // Get regions in a structured order (parents first, then holes)
+    const orderedRegions = this.getOrderedRegions()
 
-      // Then by winding number magnitude
-      return Math.abs(b.windingNumber) - Math.abs(a.windingNumber)
-    })
-
-    // Filter out regions with zero winding number
-    const nonzeroRegions = sortedRegions.filter((region) => region.windingNumber !== 0)
-
-    // Convert regions to commands, maintaining order where holes follow their parent paths
     const commands: PathCommand[] = []
+    for (const region of orderedRegions) {
+      const regionFragments = region.fragmentIds.map((id) => this.fragmentMap.get(id)!)
+      const regionCommands = this.convertFragmentsToCommands(regionFragments)
+      commands.push(...regionCommands)
+    }
 
-    // Group regions by their parent-child hierarchy
-    const hierarchicalGroups: PathRegion[][] = []
-    let currentGroup: PathRegion[] = []
+    return { regions: orderedRegions, commands }
+  }
 
-    for (const region of nonzeroRegions) {
-      if (!region.parentRegionId) {
-        // This is a parent path - start a new group
-        if (currentGroup.length > 0) {
-          hierarchicalGroups.push(currentGroup)
+  // Centralized logic to order regions correctly
+  private getOrderedRegions(): PathRegion[] {
+    const parentMap = new Map<string, PathRegion[]>()
+
+    for (const region of this.regions) {
+      if (region.parentRegionId) {
+        if (!parentMap.has(region.parentRegionId)) {
+          parentMap.set(region.parentRegionId, [])
         }
-        currentGroup = [region]
+        parentMap.get(region.parentRegionId)!.push(region)
       } else {
-        // This is a child (hole) - add to current group
-        currentGroup.push(region)
+        parentMap.set(region.id, [region]) // Ensure all parents exist
       }
     }
 
-    // Add the last group if it exists
-    if (currentGroup.length > 0) {
-      hierarchicalGroups.push(currentGroup)
+    // Flatten parent-first ordering
+    const orderedRegions: PathRegion[] = []
+    for (const [parentId, group] of parentMap.entries()) {
+      orderedRegions.push(...group)
     }
 
-    // Process each group
-    for (const group of hierarchicalGroups) {
-      for (const region of group) {
-        // Get the fragments that make up this region
-        const regionFragments = region.fragmentIds.map((id) => this.fragmentMap.get(id)!)
-
-        // Convert fragments to commands and add to output
-        const regionCommands = this.convertFragmentsToCommands(regionFragments)
-        commands.push(...regionCommands)
-      }
-    }
-
-    return commands
+    return orderedRegions
   }
 
   private convertFragmentsToCommands(fragments: PathFragment[]): PathCommand[] {

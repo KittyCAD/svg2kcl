@@ -630,33 +630,32 @@ export class Converter {
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
-    const processor = new PathProcessor(path as PathElement)
-    const processedCommands = processor.process()
+    const processor = new PathProcessor(path)
+    const { regions } = processor.process()
 
-    let operations: KclOperation[] = []
+    const operations: KclOperation[] = []
 
-    // Get sorted regions (parents before children)
-    const regions = processor.getRegions()
-    const sortedRegions = regions.sort((a, b) => {
-      if (!a.parentRegionId && b.parentRegionId) return -1
-      if (a.parentRegionId && !b.parentRegionId) return 1
-      return 0
-    })
+    for (const region of regions) {
+      // Get commands for only this region's fragments
+      const regionFragments = region.fragmentIds
+        .map((id) => processor.getFragment(id))
+        .filter((fragment) => fragment !== undefined) // Ensure valid fragments
 
-    // Work through regions in order
-    for (const region of sortedRegions) {
-      const fragments = region.fragmentIds.map((id) => processor.getFragment(id))
-      const commands = processor.getCommandsForFragments(fragments)
+      const regionCommands = processor.getCommandsForFragments(regionFragments)
+
+      // Convert commands to KCL operations
+      const kclOps = this.convertPathCommandsToKclOps(regionCommands, path.transform!)
 
       if (region.isHole) {
-        operations.push({
-          type: KclOperationType.Hole,
-          params: {
-            operations: this.convertPathCommandsToKclOps(commands, path.transform!)
-          }
-        })
+        // Holes should be wrapped inside a `Hole` operation
+        if (operations.length > 0) {
+          operations.push({ type: KclOperationType.Hole, params: { operations: kclOps } })
+        } else {
+          console.warn(`Orphan hole detected: ${region.id}`) // Should not happen in a valid hierarchy
+        }
       } else {
-        operations.push(...this.convertPathCommandsToKclOps(commands, path.transform!))
+        // Parent regions are added normally
+        operations.push(...kclOps)
       }
     }
 

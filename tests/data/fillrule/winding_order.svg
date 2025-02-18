@@ -2,10 +2,10 @@
     viewBox="0 0 540 170" width="4in" height="1.25in">
     <g>
         <!-- Crossing -->
-        <!-- <path
+        <path
             fill-rule="nonzero"
             d="M 10,5
-             l 100,10 -80,80 0,-60 80,80 -100,10 z" /> -->
+             l 100,10 -80,80 0,-60 80,80 -100,10 z" />
         <!-- Reversing -->
         <path
             fill-rule="nonzero"
@@ -14,18 +14,18 @@
     </g>
     <g>
         <!-- Same -->
-        <!-- <path
+        <path
             fill-rule="nonzero"
             d="M 290,5
              l 100,10 -50,50 50,50 -100,10 z
              m 50,60
-             l-30,30 0,-60 z" /> -->
+             l-30,30 0,-60 z" />
         <!-- Opposite -->
-        <!-- <path
+        <path
             fill-rule="nonzero"
             d="M 430,5
              l 100,10 -50,50 50,50 -100,10 z
              m 50,60
-             l -30,-30 0,60 z" /> -->
+             l -30,-30 0,60 z" />
     </g>
 </svg>

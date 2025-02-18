@@ -995,28 +995,82 @@ export class PathProcessor {
   }
 
   private connectFragments(fragments: PathFragment[]): void {
-    for (const fragment of fragments) {
+    // Helper to find the fragment that naturally follows another in the original path
+    const findNaturalNext = (fragment: PathFragment): PathFragment | null => {
+      const nextCommandId = fragment.iCommand + 1
+      return (
+        fragments.find(
+          (f) =>
+            f.iCommand === nextCommandId &&
+            computePointToPointDistance(fragment.end, f.start) < EPSILON_INTERSECT
+        ) || null
+      )
+    }
+
+    // Helper to identify intersection points (points where multiple fragments meet)
+    const findIntersectionPoints = (): Map<string, PathFragment[]> => {
+      const points = new Map<string, PathFragment[]>()
+      const pointKey = (p: Point) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`
+
+      // First collect all end points
+      fragments.forEach((fragment) => {
+        const key = pointKey(fragment.end)
+        if (!points.has(key)) {
+          points.set(key, [])
+        }
+        points.get(key)!.push(fragment)
+      })
+
+      // Filter to only points where multiple fragments meet
+      return new Map([...points.entries()].filter(([_, frags]) => frags.length > 1))
+    }
+
+    // Process each fragment
+    fragments.forEach((fragment) => {
       const connectedFrags: Array<{ fragmentId: string; angle: number }> = []
 
-      // Check this fragment's end point against every other fragment's start point.
-      for (const other of fragments) {
-        if (other === fragment) continue
-
-        const distance = computePointToPointDistance(fragment.end, other.start)
-        if (distance < EPSILON_INTERSECT) {
-          connectedFrags.push({
-            fragmentId: other.id,
-            angle: this.calculateConnectionAngle(fragment, other)
-          })
-        }
+      // Always connect to the natural next fragment if it exists
+      const naturalNext = findNaturalNext(fragment)
+      if (naturalNext) {
+        connectedFrags.push({
+          fragmentId: naturalNext.id,
+          angle: this.calculateConnectionAngle(fragment, naturalNext)
+        })
       }
 
-      // Sort by angle.
-      connectedFrags.sort((a, b) => a.angle - b.angle)
+      // At intersection points, add connections to all other fragments that start there
+      const intersectionPoints = findIntersectionPoints()
+      const endPointKey = `${fragment.end.x.toFixed(6)},${fragment.end.y.toFixed(6)}`
 
-      // Assign to fragment.
+      if (intersectionPoints.has(endPointKey)) {
+        // Find all fragments that start at this intersection point
+        fragments.forEach((other) => {
+          if (other === fragment || other === naturalNext) return
+
+          if (computePointToPointDistance(fragment.end, other.start) < EPSILON_INTERSECT) {
+            connectedFrags.push({
+              fragmentId: other.id,
+              angle: this.calculateConnectionAngle(fragment, other)
+            })
+          }
+        })
+      }
+
+      // Sort connections by angle for consistent traversal
+      connectedFrags.sort((a, b) => a.angle - b.angle)
       fragment.connectedFragments = connectedFrags
-    }
+    })
+
+    // Validation and debugging
+    fragments.forEach((fragment) => {
+      if (!fragment.connectedFragments || fragment.connectedFragments.length === 0) {
+        console.warn(`Fragment ${fragment.id} has no connections:`, {
+          start: fragment.start,
+          end: fragment.end,
+          command: fragment.iCommand
+        })
+      }
+    })
   }
 
   private subdivideCommand(

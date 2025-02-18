@@ -83,31 +83,34 @@ export class WindingAnalyzer {
 
   public computeWindingNumbers(regions: PathRegion[]): void {
     // Computes winding numbers for all regions, classifying them as holes or solids.
+    let x = 1
     for (const region of regions) {
       const regionPoints = this.getRegionPoints(region)
 
       // Determine the winding order of the polygon.
       region.windingNumber = this.getPolygonWinding(regionPoints)
 
-      // A negative winding number indicates a hole (clockwise direction).
-      region.isHole = region.windingNumber < 0
+      // Note that this is not yet enough to flag if geometry forms a hole or not,
+      // because we also need to check if the region is inside another region.
+      // Effectively, direction doesn't matter if the region is not enclosed by another
+      // region.
     }
   }
 
   public assignParentRegions(regions: PathRegion[]): void {
-    // Assigns holes to their parent regions by checking which solid region encloses them.
-    //  - Only considers **holes (windingNumber < 0)**
-    // - Finds the **smallest enclosing region** (solid windingNumber > 0)
-    const holes = regions.filter((r) => r.windingNumber < 0)
+    // Separate out potential holes and solids.
+    const potentialHoles = regions.filter((r) => r.windingNumber < 0)
     const solids = regions.filter((r) => r.windingNumber > 0)
 
-    for (const hole of holes) {
+    for (const hole of potentialHoles) {
       for (const candidate of solids) {
         const candidatePoints = this.getRegionPoints(candidate)
 
+        // Holes are only holes if the parent region encloses them.
         if (this.isPointInsidePolygon(hole.testPoint, candidatePoints)) {
           hole.parentRegionId = candidate.id
-          break // Assign first enclosing solid region found
+          hole.isHole = true
+          break // Stop once we assign a parent
         }
       }
     }

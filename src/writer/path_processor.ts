@@ -800,7 +800,11 @@ export class PathProcessor {
     const analyzer = new WindingAnalyzer(allFragments)
     analyzer.computeWindingNumbers(this.regions)
 
+    // Detect holes.
+    analyzer.assignParentRegions(this.regions)
+
     // Done?
+    let x = 1
   }
 
   public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {

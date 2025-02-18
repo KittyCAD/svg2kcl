@@ -72,13 +72,13 @@ export class WindingAnalyzer {
     for (const region of regions) {
       const regionPoints = this.getRegionPoints(region)
       region.windingNumber = this.getPolygonWinding(regionPoints)
-      region.isHole = region.windingNumber === 0
+      region.isHole = region.windingNumber < 0
     }
   }
 
   public assignParentRegions(regions: PathRegion[]): void {
-    for (const hole of regions.filter((r) => r.isHole)) {
-      for (const candidate of regions.filter((r) => !r.isHole)) {
+    for (const hole of regions.filter((r) => r.windingNumber < 0)) {
+      for (const candidate of regions.filter((r) => r.windingNumber > 0)) {
         const candidatePoints = this.getRegionPoints(candidate)
         if (this.isPointInsidePolygon(hole.testPoint, candidatePoints)) {
           hole.parentRegionId = candidate.id

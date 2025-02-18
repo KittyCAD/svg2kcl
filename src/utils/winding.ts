@@ -10,7 +10,7 @@ export class WindingAnalyzer {
     this.fragmentMap = new Map(fragments.map((f) => [f.id, f]))
   }
 
-  private getRegionPoints(region: PathRegion): Point[] {
+  public getRegionPoints(region: PathRegion): Point[] {
     //  Extracts the ordered boundary points of a region based on its fragment IDs.
     //  This ensures the path reconstruction follows the original path direction.
     const points: Point[] = []
@@ -76,7 +76,7 @@ export class WindingAnalyzer {
     return wn !== 0 // A nonzero winding number means the point is inside.
   }
 
-  private isPolygonInsidePolygon(inner: Point[], outer: Point[]): boolean {
+  public isPolygonInsidePolygon(inner: Point[], outer: Point[]): boolean {
     for (const vertex of inner) {
       // If ANY vertex is outside, the whole shape is not inside
       if (!this.isPointInsidePolygon(vertex, outer) && !this.isPointOnEdge(vertex, outer)) {

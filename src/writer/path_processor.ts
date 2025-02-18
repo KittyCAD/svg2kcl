@@ -782,8 +782,32 @@ export class PathProcessor {
     // Detect holes.
     analyzer.assignParentRegions(this.regions)
 
-    // Done?
+    // Remove regions which are not holes and which are entirely contained within
+    // other regions.
+    this.removeFullyContainedNonHoles()
+
     let x = 1
+  }
+
+  private removeFullyContainedNonHoles(): void {
+    const analyzer = new WindingAnalyzer(this.fragments)
+    const regionsToRemove = new Set<string>()
+
+    for (const region of this.regions) {
+      if (region.isHole) continue // Skip holes
+
+      const parentRegion = this.regions.find((r) => r.id === region.parentRegionId)
+      if (!parentRegion) continue
+
+      const regionPoints = analyzer.getRegionPoints(region)
+      const parentPoints = analyzer.getRegionPoints(parentRegion)
+
+      if (analyzer.isPolygonInsidePolygon(regionPoints, parentPoints)) {
+        regionsToRemove.add(region.id)
+      }
+    }
+
+    this.regions = this.regions.filter((region) => !regionsToRemove.has(region.id))
   }
 
   public identifyClosedRegions(fragments: PathFragment[]): PathRegion[] {

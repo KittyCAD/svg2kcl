@@ -5,6 +5,16 @@ export interface Point {
   y: number
 }
 
+export interface Vector {
+  x: number
+  y: number
+}
+
+export interface LineSegment {
+  start: Point
+  end: Point
+}
+
 export interface ViewBox {
   xMin: number
   yMin: number

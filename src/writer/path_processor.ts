@@ -48,7 +48,7 @@
 //
 
 import { v4 as uuidv4 } from 'uuid'
-import { PathFragment } from '../paths/fragments/fragment'
+import { PathFragment, calculateBoundingBox, calculateTestPoint } from '../paths/fragments/fragment'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathFragmentType } from '../types/fragments'
@@ -56,7 +56,6 @@ import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../t
 import { BezierUtils } from '../utils/bezier'
 import {
   computePointToPointDistance,
-  EPSILON_INTERSECT,
   findIntersectionsBetweenSubpaths,
   findSelfIntersections,
   Intersection
@@ -65,6 +64,7 @@ import { WindingAnalyzer } from '../utils/winding'
 import { samplePath } from '../paths/path'
 import { connectFragments } from '../paths/fragments/connector'
 import { subdivideCommand } from '../paths/subdivision'
+import { EPSILON_INTERSECT } from '../constants'
 
 export interface PathRegion {
   id: string
@@ -655,8 +655,8 @@ export class PathProcessor {
             detectedRegions.push({
               id: uuidv4(),
               fragmentIds: loop,
-              boundingBox: this.calculateBoundingBox(loop),
-              testPoint: this.calculateTestPoint(loop),
+              boundingBox: calculateBoundingBox(loop),
+              testPoint: calculateTestPoint(loop),
               isHole: false,
               windingNumber: 0
             })
@@ -757,48 +757,5 @@ export class PathProcessor {
     }
 
     return null
-  }
-
-  private areFragmentsConnected(f1: PathFragment, f2: PathFragment): boolean {
-    // Check end-to-start connection.
-    const endToStart = computePointToPointDistance(f1.end, f2.start) < EPSILON_INTERSECT
-
-    // Check start-to-end connection
-    const startToEnd = computePointToPointDistance(f1.start, f2.end) < EPSILON_INTERSECT
-
-    return endToStart || startToEnd
-  }
-
-  private calculateBoundingBox(fragmentIds: string[]): {
-    xMin: number
-    yMin: number
-    xMax: number
-    yMax: number
-  } {
-    let xMin = Infinity,
-      yMin = Infinity,
-      xMax = -Infinity,
-      yMax = -Infinity
-
-    for (const id of fragmentIds) {
-      const fragment = this.fragmentMap.get(id)
-      if (!fragment) continue
-
-      xMin = Math.min(xMin, fragment.start.x, fragment.end.x)
-      yMin = Math.min(yMin, fragment.start.y, fragment.end.y)
-      xMax = Math.max(xMax, fragment.start.x, fragment.end.x)
-      yMax = Math.max(yMax, fragment.start.y, fragment.end.y)
-    }
-
-    return { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax }
-  }
-
-  private calculateTestPoint(fragmentIds: string[]): Point {
-    // Use centroid of bounding box as a simple approximation.
-    const bbox = this.calculateBoundingBox(fragmentIds)
-    return {
-      x: (bbox.xMin + bbox.xMax) / 2,
-      y: (bbox.yMin + bbox.yMax) / 2
-    }
   }
 }

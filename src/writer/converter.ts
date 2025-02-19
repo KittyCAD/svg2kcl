@@ -11,7 +11,6 @@ import {
 } from '../types/elements'
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
-import { separateSubpaths } from '../utils/geometry'
 import { Transform } from '../utils/transform'
 import { PathProcessor } from './path_processor'
 
@@ -567,20 +566,6 @@ export class Converter {
     })
 
     return result
-  }
-
-  private analyzeEvenOddPath(path: PathElement): AnalyzedPath[] {
-    const subpaths = separateSubpaths(path)
-    const [outline, ...holes] = subpaths
-
-    return [
-      { commands: outline.commands, isHole: false, transform: path.transform! },
-      ...holes.map((hole) => ({
-        commands: hole.commands,
-        isHole: true,
-        transform: path.transform!
-      }))
-    ]
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {

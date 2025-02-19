@@ -1,7 +1,14 @@
+import { EPSILON_INTERSECT } from '../../constants'
 import { PathFragment } from '../../paths/fragments/fragment'
-import { Point } from '../../types/base'
+import { Vector } from '../../types/base'
 import { PathFragmentType } from '../../types/fragments'
-import { computePointToPointDistance, EPSILON_INTERSECT, Intersection } from '../../utils/geometry'
+import {
+  computePointToPointDistance,
+  computeTangentToCubicFragment,
+  computeTangentToLineFragment,
+  computeTangentToQuadraticFragment,
+  Intersection
+} from '../../utils/geometry'
 
 export function connectFragments(fragments: PathFragment[], intersections: Intersection[]): void {
   // The scenarios under which we would 'connect' fragments are:
@@ -111,37 +118,17 @@ export function calculateConnectionAngle(from: PathFragment, to: PathFragment): 
   return theta
 }
 
-export function getFragmentTangent(fragment: PathFragment, t: number): Point {
+export function getFragmentTangent(fragment: PathFragment, t: number): Vector {
+  let tangent: Vector
   if (fragment.type === PathFragmentType.Line) {
-    // Line tangent is just the difference vector.
-    return {
-      x: fragment.end.x - fragment.start.x,
-      y: fragment.end.y - fragment.start.y
-    }
+    tangent = computeTangentToLineFragment(fragment)
   } else if (fragment.type === PathFragmentType.Quad) {
-    // Quadratic Bézier derivative.
-    // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-    const { start, control1, end } = fragment
-    return {
-      x: 2 * (1 - t) * (control1!.x - start.x) + 2 * t * (end.x - control1!.x),
-      y: 2 * (1 - t) * (control1!.y - start.y) + 2 * t * (end.y - control1!.y)
-    }
+    tangent = computeTangentToQuadraticFragment(fragment, t)
   } else if (fragment.type === PathFragmentType.Cubic) {
-    // Cubic Bézier derivative.
-    // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
-    // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-    const { start, control1, control2, end } = fragment
-    return {
-      x:
-        3 * (1 - t) ** 2 * (control1!.x - start.x) +
-        6 * (1 - t) * t * (control2!.x - control1!.x) +
-        3 * t ** 2 * (end.x - control2!.x),
-      y:
-        3 * (1 - t) ** 2 * (control1!.y - start.y) +
-        6 * (1 - t) * t * (control2!.y - control1!.y) +
-        3 * t ** 2 * (end.y - control2!.y)
-    }
+    tangent = computeTangentToCubicFragment(fragment, t)
+  } else {
+    throw new Error(`Unsupported fragment type: ${fragment.type}`)
   }
 
-  throw new Error(`Unsupported fragment type: ${fragment.type}`)
+  return tangent
 }

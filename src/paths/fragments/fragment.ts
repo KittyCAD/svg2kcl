@@ -38,3 +38,39 @@ export class PathFragment implements PathFragmentData {
     return uuidv4()
   }
 }
+
+export function calculateBoundingBox(
+  fragmentIds: string[],
+  fragmentMap: Map<string, PathFragment> = new Map()
+): {
+  xMin: number
+  yMin: number
+  xMax: number
+  yMax: number
+} {
+  let xMin = Infinity,
+    yMin = Infinity,
+    xMax = -Infinity,
+    yMax = -Infinity
+
+  for (const id of fragmentIds) {
+    const fragment = fragmentMap.get(id)
+    if (!fragment) continue
+
+    xMin = Math.min(xMin, fragment.start.x, fragment.end.x)
+    yMin = Math.min(yMin, fragment.start.y, fragment.end.y)
+    xMax = Math.max(xMax, fragment.start.x, fragment.end.x)
+    yMax = Math.max(yMax, fragment.start.y, fragment.end.y)
+  }
+
+  return { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax }
+}
+
+export function calculateTestPoint(fragmentIds: string[]): Point {
+  // Use centroid of bounding box as a simple approximation.
+  const bbox = calculateBoundingBox(fragmentIds)
+  return {
+    x: (bbox.xMin + bbox.xMax) / 2,
+    y: (bbox.yMin + bbox.yMax) / 2
+  }
+}

@@ -1,15 +1,7 @@
-import { Point } from '../types/base'
-import { PathElement } from '../types/elements'
-import { PathCommand, PathCommandType, Subpath } from '../types/paths'
-import { BezierUtils } from './bezier'
-
-// TODO: Find a good value for this.
-export const EPSILON_INTERSECT = 1e-4
-
-export interface LineSegment {
-  start: Point
-  end: Point
-}
+import { EPSILON_INTERSECT } from '../constants'
+import { PathFragment } from '../paths/fragments/fragment'
+import { LineSegment, Point, Vector } from '../types/base'
+import { Subpath } from '../types/paths'
 
 export interface Intersection {
   // Describes an intersection between two segments, with segments produced by
@@ -21,6 +13,17 @@ export interface Intersection {
   tB: number // How far into segment B the intersection is, [0, 1].
 }
 
+export function computePointToPointDistance(p1: Point, p2: Point): number {
+  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+}
+
+export function interpolateLine(p0: Point, p1: Point, t: number): Point {
+  return {
+    x: (1 - t) * p0.x + t * p1.x,
+    y: (1 - t) * p0.y + t * p1.y
+  }
+}
+
 export function isClockwise(points: Point[]): boolean {
   let sum = 0
   for (let i = 0; i < points.length - 1; i++) {
@@ -29,60 +32,6 @@ export function isClockwise(points: Point[]): boolean {
     sum += (next.x - curr.x) * (next.y + curr.y)
   }
   return sum > 0
-}
-
-export function separateSubpaths(path: PathElement): {
-  commands: PathCommand[]
-}[] {
-  const subpaths: { commands: PathCommand[] }[] = []
-  let currentCommands: PathCommand[] = []
-
-  // First split paths at explicit move commands
-  path.commands.forEach((command) => {
-    if (
-      currentCommands.length > 0 &&
-      (command.type === PathCommandType.MoveAbsolute ||
-        command.type === PathCommandType.MoveRelative)
-    ) {
-      subpaths.push({ commands: currentCommands })
-      currentCommands = []
-    }
-    currentCommands.push(command)
-  })
-
-  if (currentCommands.length > 0) {
-    subpaths.push({ commands: currentCommands })
-  }
-
-  // Then check each subpath for self-intersections
-  const finalSubpaths: { commands: PathCommand[] }[] = []
-
-  for (const subpath of subpaths) {
-    const points = []
-    let currentPoint = subpath.commands[0].endPositionAbsolute
-
-    // Collect all points including bezier curve points
-    for (const command of subpath.commands) {
-      points.push(currentPoint)
-      if (BezierUtils.isBezierCommand(command.type)) {
-        points.push(...BezierUtils.getBezierPoints(command))
-      }
-      currentPoint = command.endPositionAbsolute
-    }
-
-    finalSubpaths.push(subpath)
-
-    // const intersections = findSelfIntersections(points)
-    // if (intersections.length > 0) {
-    //   // Split at intersections
-    //   const splitPaths = splitPathAtIntersections(subpath.commands, intersections)
-    //   finalSubpaths.push(...splitPaths.map((commands) => ({ commands })))
-    // } else {
-    //   finalSubpaths.push(subpath)
-    // }
-  }
-
-  return finalSubpaths
 }
 
 export function findSelfIntersections(points: Point[]): Intersection[] {
@@ -243,13 +192,36 @@ export function findIntersectionsBetweenSubpaths(
   return intersections
 }
 
-export function interpolateLine(p0: Point, p1: Point, t: number): Point {
+export function computeTangentToLineFragment(fragment: PathFragment): Vector {
   return {
-    x: (1 - t) * p0.x + t * p1.x,
-    y: (1 - t) * p0.y + t * p1.y
+    x: fragment.end.x - fragment.start.x,
+    y: fragment.end.y - fragment.start.y
   }
 }
 
-export function computePointToPointDistance(p1: Point, p2: Point) {
-  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+export function computeTangentToQuadraticFragment(fragment: PathFragment, t: number): Vector {
+  // Quadratic Bézier derivative.
+  // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
+  const { start, control1, end } = fragment
+  return {
+    x: 2 * (1 - t) * (control1!.x - start.x) + 2 * t * (end.x - control1!.x),
+    y: 2 * (1 - t) * (control1!.y - start.y) + 2 * t * (end.y - control1!.y)
+  }
+}
+
+export function computeTangentToCubicFragment(fragment: PathFragment, t: number): Vector {
+  // Cubic Bézier derivative.
+  // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
+  // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
+  const { start, control1, control2, end } = fragment
+  return {
+    x:
+      3 * (1 - t) ** 2 * (control1!.x - start.x) +
+      6 * (1 - t) * t * (control2!.x - control1!.x) +
+      3 * t ** 2 * (end.x - control2!.x),
+    y:
+      3 * (1 - t) ** 2 * (control1!.y - start.y) +
+      6 * (1 - t) * t * (control2!.y - control1!.y) +
+      3 * t ** 2 * (end.y - control2!.y)
+  }
 }

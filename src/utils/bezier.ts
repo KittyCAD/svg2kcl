@@ -1,5 +1,6 @@
 import { Point } from '../types/base'
 import { PathCommand, PathCommandType } from '../types/paths'
+import { N_CURVE_SAMPLES } from '../constants'
 
 export interface SplitBezierResult {
   first: Point[] // Parameters for first curve.
@@ -16,9 +17,6 @@ export interface SplitBezierRangeResult {
 }
 
 export class BezierUtils {
-  // TODO: Find a good value for this. Needs to play nicely with our epsilon value.
-  private static readonly CURVE_SAMPLES = 10000
-
   public static isBezierCommand(type: PathCommandType): boolean {
     return (
       type === PathCommandType.QuadraticBezierAbsolute ||
@@ -36,7 +34,7 @@ export class BezierUtils {
     start: Point,
     control: Point,
     end: Point,
-    numSamples: number = BezierUtils.CURVE_SAMPLES
+    numSamples: number = N_CURVE_SAMPLES
   ): Point[] {
     if (numSamples < 2) {
       throw new Error('Number of samples must be at least 2')
@@ -51,37 +49,6 @@ export class BezierUtils {
     }
 
     points.push(end) // Include end point
-
-    return points
-  }
-
-  public static getBezierPoints(cmd: PathCommand): Point[] {
-    const points: Point[] = []
-    const start = cmd.startPositionAbsolute
-
-    switch (cmd.type) {
-      case PathCommandType.QuadraticBezierAbsolute:
-      case PathCommandType.QuadraticBezierRelative: {
-        const control = { x: cmd.parameters[0], y: cmd.parameters[1] }
-        const end = { x: cmd.parameters[2], y: cmd.parameters[3] }
-        for (let i = 1; i < BezierUtils.CURVE_SAMPLES; i++) {
-          const t = i / BezierUtils.CURVE_SAMPLES
-          points.push(BezierUtils.evaluateQuadraticBezier(t, start, control, end))
-        }
-        break
-      }
-      case PathCommandType.CubicBezierAbsolute:
-      case PathCommandType.CubicBezierRelative: {
-        const control1 = { x: cmd.parameters[0], y: cmd.parameters[1] }
-        const control2 = { x: cmd.parameters[2], y: cmd.parameters[3] }
-        const end = { x: cmd.parameters[4], y: cmd.parameters[5] }
-        for (let i = 1; i < BezierUtils.CURVE_SAMPLES; i++) {
-          const t = i / BezierUtils.CURVE_SAMPLES
-          points.push(BezierUtils.evaluateCubicBezier(t, start, control1, control2, end))
-        }
-        break
-      }
-    }
 
     return points
   }

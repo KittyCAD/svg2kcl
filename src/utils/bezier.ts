@@ -40,15 +40,15 @@ export class BezierUtils {
       throw new Error('Number of samples must be at least 2')
     }
 
-    const points: Point[] = [start] // Include start point
+    // Grab start and end points plus sampled central points.
+    const points: Point[] = [start]
 
-    // Sample points along the curve
     for (let i = 1; i < numSamples - 1; i++) {
       const t = i / (numSamples - 1)
       points.push(BezierUtils.evaluateQuadraticBezier(t, start, control, end))
     }
 
-    points.push(end) // Include end point
+    points.push(end)
 
     return points
   }

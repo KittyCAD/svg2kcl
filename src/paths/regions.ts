@@ -139,3 +139,26 @@ export function dfsFindLoop(
 
   return null
 }
+
+export function orderRegions(regions: PathRegion[]): PathRegion[] {
+  const parentMap = new Map<string, PathRegion[]>()
+
+  for (const region of regions) {
+    if (region.parentRegionId) {
+      if (!parentMap.has(region.parentRegionId)) {
+        parentMap.set(region.parentRegionId, [])
+      }
+      parentMap.get(region.parentRegionId)!.push(region)
+    } else {
+      parentMap.set(region.id, [region]) // Ensure all parents exist
+    }
+  }
+
+  // Flatten parent-first ordering.
+  const orderedRegions: PathRegion[] = []
+  for (const [parentId, group] of parentMap.entries()) {
+    orderedRegions.push(...group)
+  }
+
+  return orderedRegions
+}

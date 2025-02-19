@@ -21,12 +21,6 @@ export class ConverterError extends Error {
   }
 }
 
-interface AnalyzedPath {
-  commands: PathCommand[]
-  isHole: boolean
-  transform: Transform
-}
-
 export class Converter {
   private previousControlPoint: Point | null = null
   private currentPoint: Point = { x: 0, y: 0 }

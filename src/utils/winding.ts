@@ -65,15 +65,32 @@ export class WindingAnalyzer {
   }
 
   public assignParentRegions(regions: PathRegion[]): void {
-    // Sort regions by winding number magnitude first, then by area.
     const sortedRegions = [...regions].sort((a, b) => {
-      const windingDiff = Math.abs(b.windingNumber) - Math.abs(a.windingNumber)
-      if (windingDiff !== 0) return windingDiff
-
       const areaA = getBoundingBoxArea(a.boundingBox)
       const areaB = getBoundingBoxArea(b.boundingBox)
-      return areaB - areaA
+      return areaB - areaA // Sort largest to smallest.
     })
+
+    // Helper function to get cumulative winding number through containment hierarchy.
+    const getCumulativeWinding = (
+      region: PathRegion,
+      regionsMap: Map<string, PathRegion>
+    ): number => {
+      let winding = region.windingNumber
+      let currentRegion = region
+
+      while (currentRegion.parentRegionId) {
+        const parent = regionsMap.get(currentRegion.parentRegionId)
+        if (!parent) break
+        winding += parent.windingNumber
+        currentRegion = parent
+      }
+
+      return winding
+    }
+
+    // Create a map for quick region lookup.
+    const regionsMap = new Map(regions.map((r) => [r.id, r]))
 
     // Process each region to find its parent.
     for (const region of sortedRegions) {
@@ -87,9 +104,7 @@ export class WindingAnalyzer {
 
         const candidateBBox = candidate.boundingBox
 
-        // Check if the region's bounding box is strictly inside the candidate's bounding box
-        // with some margin to avoid edge cases.
-        const EPSILON = 1e-10 // Small value to handle floating point precision.
+        const EPSILON = 1e-10
         return (
           regionBBox.xMin > candidateBBox.xMin + EPSILON &&
           regionBBox.xMax < candidateBBox.xMax - EPSILON &&
@@ -98,7 +113,6 @@ export class WindingAnalyzer {
         )
       })
 
-      // Only if we pass the bounding box check, do the more expensive polygon check.
       if (potentialParents.length > 0) {
         const regionPoints = this.getRegionPoints(region)
 
@@ -106,7 +120,6 @@ export class WindingAnalyzer {
           isPolygonInsidePolygon(regionPoints, this.getRegionPoints(candidate))
         )
 
-        // Sort by area to find the smallest containing region.
         containingRegions.sort(
           (a, b) => getBoundingBoxArea(a.boundingBox) - getBoundingBoxArea(b.boundingBox)
         )
@@ -116,10 +129,12 @@ export class WindingAnalyzer {
         }
       }
 
-      // Assign parent and determine if it's a hole.
+      // Assign parent.
       if (immediateParent) {
         region.parentRegionId = immediateParent.id
-        region.isHole = region.windingNumber + immediateParent.windingNumber === 0
+        // Calculate cumulative winding number through entire containment hierarchy.
+        const cumulativeWinding = getCumulativeWinding(region, regionsMap)
+        region.isHole = cumulativeWinding === 0
       } else {
         region.parentRegionId = undefined
         region.isHole = false

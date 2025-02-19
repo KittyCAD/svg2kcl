@@ -1,4 +1,4 @@
-import { FillRule, Plane3D, Point, ViewBox } from '../types/base'
+import { Plane3D, Point, ViewBox } from '../types/base'
 import {
   CircleElement,
   Element,

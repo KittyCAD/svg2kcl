@@ -49,16 +49,10 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { PathFragment } from '../paths/fragments/fragment'
-import { PathFragmentType } from '../types/fragments'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
-import {
-  PathCommand,
-  PathCommandEnriched,
-  PathCommandType,
-  PathSampleResult,
-  Subpath
-} from '../types/paths'
+import { PathFragmentType } from '../types/fragments'
+import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { BezierUtils } from '../utils/bezier'
 import {
   computePointToPointDistance,
@@ -69,6 +63,8 @@ import {
   Intersection
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
+import { buildPath } from '../paths/builder'
+import { connectFragments } from '../paths/fragments/connector'
 
 export interface PathRegion {
   id: string
@@ -261,75 +257,6 @@ export class PathProcessor {
   // Make regions accessible
   public getRegions(): PathRegion[] {
     return this.regions
-  }
-
-  // Build the whole thing for self-intersection detection.
-  // -----------------------------------------------------------------------------------
-  private buildPath(): PathSampleResult {
-    const points: Point[] = []
-    const commands: PathCommandEnriched[] = []
-    let currentPoint = { x: 0, y: 0 }
-
-    // Loop over each of our original input commands.
-    for (let i = 0; i < this.inputCommands.length; i++) {
-      const command = this.inputCommands[i]
-
-      // Get the (global point set) index of this command's first point.
-      const iFirstPoint = points.length
-
-      switch (command.type) {
-        case PathCommandType.MoveAbsolute:
-        case PathCommandType.MoveRelative: {
-          points.push(command.endPositionAbsolute)
-          currentPoint = command.endPositionAbsolute
-          break
-        }
-
-        case PathCommandType.LineAbsolute:
-        case PathCommandType.LineRelative:
-        case PathCommandType.HorizontalLineAbsolute:
-        case PathCommandType.HorizontalLineRelative:
-        case PathCommandType.VerticalLineAbsolute:
-        case PathCommandType.VerticalLineRelative: {
-          points.push(currentPoint, command.endPositionAbsolute)
-          currentPoint = command.endPositionAbsolute
-          break
-        }
-
-        case PathCommandType.QuadraticBezierAbsolute:
-        case PathCommandType.QuadraticBezierRelative: {
-          // Get absolute control point.
-          let [x1, y1] = command.parameters
-          if (command.type === PathCommandType.QuadraticBezierRelative) {
-            x1 += currentPoint.x
-            y1 += currentPoint.y
-          }
-
-          // Sample the curve.
-          const sampledPoints = BezierUtils.sampleQuadraticBezier(
-            currentPoint,
-            { x: x1, y: y1 },
-            command.endPositionAbsolute
-          )
-          points.push(...sampledPoints)
-          currentPoint = command.endPositionAbsolute
-          break
-        }
-      }
-
-      // Get the (global point set) index of this command's last point.
-      const iLastPoint = points.length - 1
-
-      // Append to our enriched commands.
-      commands.push({
-        ...command,
-        iFirstPoint,
-        iLastPoint,
-        iCommand: i
-      })
-    }
-
-    return { pathSamplePoints: points, pathCommands: commands }
   }
 
   // The harder bits.
@@ -528,57 +455,13 @@ export class PathProcessor {
     return allIntersections
   }
 
-  private createFragmentsForSubpath(
-    commands: PathCommandEnriched[],
-    splitPlan: Map<number, number[]>
-  ): PathFragment[] {
-    const fragments: PathFragment[] = []
-
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i]
-      const tVals = [...(splitPlan.get(cmd.iCommand) || []), 0, 1].sort((a, b) => a - b)
-
-      for (let j = 0; j < tVals.length - 1; j++) {
-        const tMin = tVals[j]
-        const tMax = tVals[j + 1]
-
-        if (tMax - tMin < EPSILON_INTERSECT) continue
-
-        const fragment = this.subdivideCommand(cmd, tMin, tMax)
-        if (fragment) fragments.push(fragment)
-      }
-    }
-
-    return fragments
-  }
-
-  private ensureSubpathClosure(fragments: PathFragment[]): PathFragment[] {
-    if (fragments.length < 1) return fragments
-
-    const firstPoint = fragments[0].start
-    const lastPoint = fragments[fragments.length - 1].end
-    const dMag = computePointToPointDistance(firstPoint, lastPoint)
-
-    if (dMag > EPSILON_INTERSECT) {
-      // Add closing fragment
-      const closingFragment = new PathFragment({
-        type: PathFragmentType.Line,
-        start: lastPoint,
-        end: firstPoint,
-        iCommand: fragments[fragments.length - 1].iCommand
-      })
-
-      return [...fragments, closingFragment]
-    }
-
-    return fragments
-  }
-
   // First pass.
   // -----------------------------------------------------------------------------------
   public analyzePath(): void {
     // Build sampled path we'll use for self-intersection detection.
-    const { pathSamplePoints: pathSamplePoints, pathCommands: pathCommands } = this.buildPath()
+    const { pathSamplePoints: pathSamplePoints, pathCommands: pathCommands } = buildPath(
+      this.inputCommands
+    )
 
     this.fullPathCommandSet = pathCommands
     this.fullPathSamplePoints = pathSamplePoints
@@ -704,7 +587,7 @@ export class PathProcessor {
     // We now want to walk the fragment list and build a set that tells us which
     // fragments are connected to which other fragments. This will allow us to build
     // closed regions later on.
-    this.connectFragments(allFragments)
+    connectFragments(allFragments, this.intersections)
 
     // Build the fragment map.
     this.fragments = allFragments
@@ -916,149 +799,6 @@ export class PathProcessor {
     return {
       x: (bbox.xMin + bbox.xMax) / 2,
       y: (bbox.yMin + bbox.yMax) / 2
-    }
-  }
-
-  private calculateConnectionAngle(from: PathFragment, to: PathFragment): number {
-    // We need to compute the angle between the two fragments, i.e.
-    // the angle between a line tangent to the end of 'from' and a line tangent to the
-    // start of 'to'. We could use our sampled points or do this by actually
-    // computing the tangent.
-    // Actual tangent of a Bezier:
-    // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
-
-    // Get tangents.
-    const tangentFrom = this.getFragmentTangent(from, 1)
-    const tangentTo = this.getFragmentTangent(to, 0)
-
-    // I need the _signed_ angle between these two vectors.
-    // https://wumbo.net/formulas/angle-between-two-vectors-2d/
-
-    // Compute cross and dot products.
-    const cross = tangentFrom.x * tangentTo.y - tangentFrom.y * tangentTo.x
-    const dot = tangentFrom.x * tangentTo.x + tangentFrom.y * tangentTo.y
-
-    // Compute signed angle in radians (range [-π, π])
-    const theta = Math.atan2(cross, dot)
-
-    // I _think_ positive is anticlockwise, negative is clockwise.
-
-    return theta
-  }
-
-  private getFragmentTangent(fragment: PathFragment, t: number): Point {
-    if (fragment.type === PathFragmentType.Line) {
-      // Line tangent is just the difference vector.
-      return {
-        x: fragment.end.x - fragment.start.x,
-        y: fragment.end.y - fragment.start.y
-      }
-    } else if (fragment.type === PathFragmentType.Quad) {
-      // Quadratic Bézier derivative.
-      // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-      const { start, control1, end } = fragment
-      return {
-        x: 2 * (1 - t) * (control1!.x - start.x) + 2 * t * (end.x - control1!.x),
-        y: 2 * (1 - t) * (control1!.y - start.y) + 2 * t * (end.y - control1!.y)
-      }
-    } else if (fragment.type === PathFragmentType.Cubic) {
-      // Cubic Bézier derivative.
-      // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
-      // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-      const { start, control1, control2, end } = fragment
-      return {
-        x:
-          3 * (1 - t) ** 2 * (control1!.x - start.x) +
-          6 * (1 - t) * t * (control2!.x - control1!.x) +
-          3 * t ** 2 * (end.x - control2!.x),
-        y:
-          3 * (1 - t) ** 2 * (control1!.y - start.y) +
-          6 * (1 - t) * t * (control2!.y - control1!.y) +
-          3 * t ** 2 * (end.y - control2!.y)
-      }
-    }
-
-    throw new Error(`Unsupported fragment type: ${fragment.type}`)
-  }
-
-  private connectFragments(fragments: PathFragment[]): void {
-    // The scenarios under which we would 'connect' fragments are:
-    // - A given fragment's endpoint is coincident with the 'next' ordered fragment's
-    //   start point, but that coincident point is not an intersection.
-    // - A given fragment's endpoint is coincident with an intersection point, and there
-    //   exists a fragment starting at that intersection point. This implies that
-    //   this fragment was 'created' by a split operation.
-    //
-    // If we were to connect sequential fragments where start/end points are coincident
-    // with an intersection point, we would be double-counting some geometry.
-
-    // Process each fragment in order
-    for (let i = 0; i < fragments.length; i++) {
-      const fragment = fragments[i]
-      const connectedFrags: Array<{ fragmentId: string; angle: number }> = []
-
-      // Get the next fragment in sequence (if any)
-      const nextFragment = i < fragments.length - 1 ? fragments[i + 1] : null
-
-      // Check if this fragment's endpoint is at an intersection
-      const intersectionAtEnd = this.intersections.find(
-        (intersection) =>
-          computePointToPointDistance(fragment.end, intersection.intersectionPoint) <
-          EPSILON_INTERSECT
-      )
-
-      if (intersectionAtEnd) {
-        // We're at an intersection point
-        // If the next fragment starts here, this is a break point - DON'T connect them
-        const isBreakPoint =
-          nextFragment &&
-          computePointToPointDistance(nextFragment.start, intersectionAtEnd.intersectionPoint) <
-            EPSILON_INTERSECT
-
-        if (!isBreakPoint) {
-          // Only connect sequentially if this isn't a break point
-          if (
-            nextFragment &&
-            computePointToPointDistance(fragment.end, nextFragment.start) < EPSILON_INTERSECT
-          ) {
-            connectedFrags.push({
-              fragmentId: nextFragment.id,
-              angle: this.calculateConnectionAngle(fragment, nextFragment)
-            })
-          }
-        }
-
-        // Always look for other fragments starting at this intersection
-        // (but not including the next sequential fragment if this is a break point)
-        for (const otherFragment of fragments) {
-          if (otherFragment === fragment || otherFragment === nextFragment) continue
-
-          if (
-            computePointToPointDistance(otherFragment.start, intersectionAtEnd.intersectionPoint) <
-            EPSILON_INTERSECT
-          ) {
-            connectedFrags.push({
-              fragmentId: otherFragment.id,
-              angle: this.calculateConnectionAngle(fragment, otherFragment)
-            })
-          }
-        }
-      } else {
-        // Not at an intersection - simple sequential connection
-        if (
-          nextFragment &&
-          computePointToPointDistance(fragment.end, nextFragment.start) < EPSILON_INTERSECT
-        ) {
-          connectedFrags.push({
-            fragmentId: nextFragment.id,
-            angle: this.calculateConnectionAngle(fragment, nextFragment)
-          })
-        }
-      }
-
-      // Sort connections by angle for consistent traversal
-      connectedFrags.sort((a, b) => a.angle - b.angle)
-      fragment.connectedFragments = connectedFrags
     }
   }
 

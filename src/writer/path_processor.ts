@@ -48,7 +48,11 @@
 //
 
 import { v4 as uuidv4 } from 'uuid'
-import { PathFragment, calculateBoundingBox, calculateTestPoint } from '../paths/fragments/fragment'
+import { EPSILON_INTERSECT } from '../constants'
+import { connectFragments } from '../paths/fragments/connector'
+import { calculateBoundingBox, calculateTestPoint, PathFragment } from '../paths/fragments/fragment'
+import { samplePath } from '../paths/path'
+import { subdivideCommand } from '../paths/subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathFragmentType } from '../types/fragments'
@@ -58,13 +62,10 @@ import {
   computePointToPointDistance,
   findIntersectionsBetweenSubpaths,
   findSelfIntersections,
-  Intersection
+  Intersection,
+  isPolygonInsidePolygon
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
-import { samplePath } from '../paths/path'
-import { connectFragments } from '../paths/fragments/connector'
-import { subdivideCommand } from '../paths/subdivision'
-import { EPSILON_INTERSECT } from '../constants'
 
 export interface PathRegion {
   id: string
@@ -628,7 +629,7 @@ export class PathProcessor {
       const regionPoints = analyzer.getRegionPoints(region)
       const parentPoints = analyzer.getRegionPoints(parentRegion)
 
-      if (analyzer.isPolygonInsidePolygon(regionPoints, parentPoints)) {
+      if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
         regionsToRemove.add(region.id)
       }
     }

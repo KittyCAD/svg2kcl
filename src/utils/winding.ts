@@ -1,7 +1,7 @@
-import { EPSILON_INTERSECT } from '../constants'
 import { PathFragment } from '../paths/fragments/fragment'
 import { Point } from '../types/base'
 import { PathRegion } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
+import { isPolygonInsidePolygon } from './geometry'
 
 export class WindingAnalyzer {
   private fragmentMap: Map<string, PathFragment>
@@ -49,77 +49,6 @@ export class WindingAnalyzer {
     return area > 0 ? 1 : -1 // Positive: counterclockwise (+1), Negative: clockwise (-1)
   }
 
-  private isPointInsidePolygon(point: Point, polygon: Point[]): boolean {
-    // Determines if a point is inside a polygon using the nonzero winding rule.
-    // See: https://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html
-    // And: https://ocw.mit.edu/courses/18-900-geometry-and-topology-in-the-plane-spring-2023/mit18_900s23_lec3.pdf
-    let wn = 0 // Winding number counter
-    let j = polygon.length - 1
-
-    for (let i = 0; i < polygon.length; i++) {
-      const pi = polygon[i]
-      const pj = polygon[j]
-
-      // Determine crossing direction
-      if (pi.y <= point.y) {
-        if (pj.y > point.y && this.isLeft(pi, pj, point) > 0) {
-          wn++ // Upward crossing adds to winding number.
-        }
-      } else {
-        if (pj.y <= point.y && this.isLeft(pi, pj, point) < 0) {
-          wn-- // Downward crossing subtracts from winding number.
-        }
-      }
-
-      j = i // Move to next segment
-    }
-
-    return wn !== 0 // A nonzero winding number means the point is inside.
-  }
-
-  public isPolygonInsidePolygon(inner: Point[], outer: Point[]): boolean {
-    for (const vertex of inner) {
-      // If ANY vertex is outside, the whole shape is not inside
-      if (!this.isPointInsidePolygon(vertex, outer) && !this.isPointOnEdge(vertex, outer)) {
-        return false
-      }
-    }
-    return true
-  }
-
-  // Helper function to check if a point is on the polygon's edge
-  private isPointOnEdge(point: Point, polygon: Point[]): boolean {
-    for (let i = 0; i < polygon.length; i++) {
-      const p1 = polygon[i]
-      const p2 = polygon[(i + 1) % polygon.length] // Wraps around to first point
-
-      if (this.isPointOnSegment(point, p1, p2)) {
-        return true // Point lies exactly on an edge
-      }
-    }
-    return false
-  }
-
-  private isPointOnSegment(p: Point, a: Point, b: Point): boolean {
-    // Helper function to check if a point lies on a line segment
-    const crossProduct = (p.y - a.y) * (b.x - a.x) - (p.x - a.x) * (b.y - a.y)
-    if (Math.abs(crossProduct) > EPSILON_INTERSECT) return false // Not collinear
-
-    const dotProduct = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)
-    if (dotProduct < 0) return false // Beyond 'a'
-
-    const squaredLengthBA = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)
-    if (dotProduct > squaredLengthBA) return false // Beyond 'b'
-
-    return true // Lies within the segment bounds
-  }
-
-  private isLeft(p0: Point, p1: Point, p2: Point): number {
-    // Computes whether a point lies to the left (+) or right (-) of a directed line segment.
-    // This is a determinant-based test for relative orientation.
-    return (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)
-  }
-
   public computeWindingNumbers(regions: PathRegion[]): void {
     // Computes winding numbers for all regions, classifying them as holes or solids.
     let x = 1
@@ -163,7 +92,7 @@ export class WindingAnalyzer {
           (region.boundingBox.yMax - region.boundingBox.yMin)
         if (candidateArea <= regionArea) return false
 
-        return this.isPolygonInsidePolygon(regionPoints, this.getRegionPoints(candidate))
+        return isPolygonInsidePolygon(regionPoints, this.getRegionPoints(candidate))
       })
 
       if (potentialParents.length > 0) {

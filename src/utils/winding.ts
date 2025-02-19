@@ -1,5 +1,6 @@
 import { Point } from '../types/base'
-import { PathRegion, PathFragment } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
+import { PathRegion } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
+import { PathFragment } from '../paths/fragments/fragment'
 import { EPSILON_INTERSECT } from './geometry'
 
 export class WindingAnalyzer {

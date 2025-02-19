@@ -1,8 +1,8 @@
 import { FillRule, Point } from '../types/base'
-import { PathCommandType, SvgPathCommandMap } from '../types/path'
+import { PathCommandType, SvgPathCommandMap } from '../types/paths'
 import { Transform } from '../utils/transform'
 import { ParseError } from './exceptions'
-import { PathCommand } from '../types/path'
+import { PathCommand } from '../types/paths'
 
 const DEFAULT_FILL_RULE = FillRule.NonZero
 

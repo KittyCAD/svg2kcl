@@ -1,5 +1,5 @@
 import { ElementProperties, FillRule, Point } from './base'
-import { PathCommand } from './path'
+import { PathCommand } from './paths'
 export enum ElementType {
   Circle = 'circle',
   Ellipse = 'ellipse',

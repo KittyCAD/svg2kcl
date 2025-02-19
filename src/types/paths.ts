@@ -1,5 +1,7 @@
 import { Point } from './base'
 
+// Raw SVG path related types.
+// -------------------------------------------------------------------------------------
 export enum PathCommandType {
   NotSet = 'NotSet',
   MoveAbsolute = 'MoveAbsolute',
@@ -61,3 +63,24 @@ export const PathCommandTypeToSvgPathCommandMap: Record<PathCommandType, string>
   acc[value] = key
   return acc
 }, {} as Record<PathCommandType, string>)
+
+// Downstream / processed types.
+// -------------------------------------------------------------------------------------
+export interface PathCommandEnriched extends PathCommand {
+  iFirstPoint: number // Index of the first point of this command in the global path sample array.
+  iLastPoint: number // Index of the last point of this command in the global path sample array.
+  iCommand: number // Index of this command in the global path command array.
+}
+
+export interface Subpath {
+  startIndex: number // Index in commands array.
+  endIndex: number // Index in commands array.
+  commands: PathCommandEnriched[]
+  samplePoints: Point[]
+}
+
+export interface PathSampleResult {
+  // Represents a sampled path for self-intersection detection.
+  pathSamplePoints: Point[] // Sampled points for the full path.
+  pathCommands: PathCommandEnriched[] // Set of enriched commands for the full path
+}

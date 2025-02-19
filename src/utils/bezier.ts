@@ -1,5 +1,5 @@
 import { Point } from '../types/base'
-import { PathCommand, PathCommandType } from '../types/path'
+import { PathCommand, PathCommandType } from '../types/paths'
 
 export interface SplitBezierResult {
   first: Point[] // Parameters for first curve.

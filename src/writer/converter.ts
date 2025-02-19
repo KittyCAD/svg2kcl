@@ -10,10 +10,9 @@ import {
   RectangleElement
 } from '../types/elements'
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
-import { PathCommand, PathCommandType } from '../types/path'
+import { PathCommand, PathCommandType } from '../types/paths'
 import { separateSubpaths } from '../utils/geometry'
 import { Transform } from '../utils/transform'
-import { WindingAnalyzer } from '../utils/winding'
 import { PathProcessor } from './path_processor'
 
 export class ConverterError extends Error {
@@ -582,51 +581,6 @@ export class Converter {
         transform: path.transform!
       }))
     ]
-  }
-
-  // private analyzeNonZeroPath(path: PathElement): AnalyzedPath[] {
-  //   // Sanitize the subpaths by separating them
-  //   const subpaths = this.sanitizeSubpaths(separateSubpaths(path))
-
-  //   // Analyze the winding numbers of the subpaths
-  //   const windingAnalyzer = new WindingAnalyzer()
-  //   const regions = windingAnalyzer.analyzeWindingNumbers(subpaths)
-
-  //   // Sort regions by containment depth, in ascending order
-  //   const sortedRegions = [...regions].sort((a, b) => a.containedBy.length - b.containedBy.length)
-
-  //   return sortedRegions
-  //     .filter((region) => region.windingNumber !== 0) // Only consider non-zero winding numbers
-  //     .map((region) => {
-  //       const isHole = region.containedBy.length % 2 === 1 // Odd depth indicates a hole
-
-  //       // Ensure the path.transform exists or provide a fallback
-  //       const transform = path.transform ?? new Transform()
-
-  //       return {
-  //         commands: subpaths[region.pathIndex].commands,
-  //         isHole,
-  //         transform // Use the transform if it exists, otherwise undefined
-  //       }
-  //     })
-  // }
-
-  private convertAnalyzedPathToKcl(analyzedPath: AnalyzedPath): KclOperation[] {
-    if (analyzedPath.isHole) {
-      return [
-        {
-          type: KclOperationType.Hole,
-          params: {
-            operations: this.convertPathCommandsToKclOps(
-              analyzedPath.commands,
-              analyzedPath.transform
-            )
-          }
-        }
-      ]
-    } else {
-      return this.convertPathCommandsToKclOps(analyzedPath.commands, analyzedPath.transform)
-    }
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {

@@ -1,6 +1,6 @@
 import { Point } from '../types/base'
 import { PathElement } from '../types/elements'
-import { PathCommand, PathCommandType } from '../types/path'
+import { PathCommand, PathCommandType, Subpath } from '../types/paths'
 import { BezierUtils } from './bezier'
 
 // TODO: Find a good value for this.
@@ -11,12 +11,6 @@ export interface LineSegment {
   end: Point
 }
 
-export interface EnrichedCommand extends PathCommand {
-  iFirstPoint: number // Index of the first point of this command in the global path sample array.
-  iLastPoint: number // Index of the last point of this command in the global path sample array.
-  iCommand: number // Index of this command in the global path command array.
-}
-
 export interface Intersection {
   // Describes an intersection between two segments, with segments produced by
   // sampling a path.
@@ -25,13 +19,6 @@ export interface Intersection {
   iSegmentB: number // Index of segment B in the segment array.
   tA: number // How far into segment A the intersection is, [0, 1].
   tB: number // How far into segment B the intersection is, [0, 1].
-}
-
-export interface Subpath {
-  startIndex: number // Index in commands array
-  endIndex: number // Index in commands array
-  commands: EnrichedCommand[]
-  samplePoints: Point[]
 }
 
 export function isClockwise(points: Point[]): boolean {

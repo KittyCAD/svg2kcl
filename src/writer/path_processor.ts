@@ -48,23 +48,27 @@
 //
 
 import { v4 as uuidv4 } from 'uuid'
+import { PathFragment } from '../paths/fragments/fragment'
+import { PathFragmentType } from '../types/fragments'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
-import { PathCommand, PathCommandType } from '../types/path'
+import {
+  PathCommand,
+  PathCommandEnriched,
+  PathCommandType,
+  PathSampleResult,
+  Subpath
+} from '../types/paths'
 import { BezierUtils } from '../utils/bezier'
 import {
-  EnrichedCommand,
+  computePointToPointDistance,
   EPSILON_INTERSECT,
-  findSelfIntersections,
   findIntersectionsBetweenSubpaths,
-  Subpath,
+  findSelfIntersections,
   interpolateLine,
-  Intersection,
-  computePointToPointDistance
+  Intersection
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
-
-// let DELETE_ME_COUNTER = 0
 
 export interface PathRegion {
   id: string
@@ -75,67 +79,6 @@ export interface PathRegion {
   windingNumber: number // Computed winding number.
   parentRegionId?: string // ID of the parent region (if it's a hole).
   neighborRegionIds?: Set<string> // IDs of neighboring regions.
-}
-
-export class PathFragment {
-  // An internal, intermediate representation of a path 'fragment'. We may produce
-  // a bunch of these when splitting paths, but we need more context than would be
-  // provided by the sort of new PathCommand object we produce when re-emitting
-  // quasi-SVG.
-
-  // SVG paths are lines, Béziers or arcs. We don't support arcs, and we can simplify
-  // things by only considering absolute coordinates and mopping up smoothed
-  // (i.e. reflected control point) curves at the layer above this. So.. simple type.
-  id: string
-
-  type: 'line' | 'quad' | 'cubic'
-
-  // The main points for this geometry:
-  start: Point
-  end: Point
-
-  // Optionally store additional data for Bézier curves.
-  control1?: Point
-  control2?: Point
-
-  // Store a link to the original command index in our input path list.
-  iCommand: number
-
-  // Store a list of fragments that are connected to this one.
-  connectedFragments?: {
-    fragmentId: string
-    angle: number // ? For direction, maybe.
-  }[]
-
-  constructor(params: {
-    type: 'line' | 'quad' | 'cubic'
-    start: Point
-    end: Point
-    commandIndex: number
-    control1?: Point
-    control2?: Point
-    connectedFragments?: { fragmentId: string; angle: number }[]
-  }) {
-    this.id = this.getNextFragmentId()
-    this.type = params.type
-    this.start = params.start
-    this.end = params.end
-    this.iCommand = params.commandIndex
-    this.control1 = params.control1
-    this.control2 = params.control2
-    this.connectedFragments = params.connectedFragments
-  }
-
-  private getNextFragmentId(): string {
-    return uuidv4()
-    // return `frag-${DELETE_ME_COUNTER++}`
-  }
-}
-
-interface PathSampleResult {
-  // Represents a sampled path for self-intersection detection.
-  pathSamplePoints: Point[] // Sampled points for the full path.
-  pathCommands: EnrichedCommand[] // Set of enriched commands for the full path
 }
 
 export class PathProcessor {
@@ -152,7 +95,7 @@ export class PathProcessor {
 
   // Sampled points and the enriched command set for the path.
   private fullPathSamplePoints: Point[] = []
-  private fullPathCommandSet: EnrichedCommand[] = []
+  private fullPathCommandSet: PathCommandEnriched[] = []
 
   // Split plan. This is a map of command indices to arrays of t-values where the
   // command should be split.
@@ -324,7 +267,7 @@ export class PathProcessor {
   // -----------------------------------------------------------------------------------
   private buildPath(): PathSampleResult {
     const points: Point[] = []
-    const commands: EnrichedCommand[] = []
+    const commands: PathCommandEnriched[] = []
     let currentPoint = { x: 0, y: 0 }
 
     // Loop over each of our original input commands.
@@ -471,7 +414,7 @@ export class PathProcessor {
     }
   }
 
-  private findCommandIndexForPoint(commands: EnrichedCommand[], iPoint: number): number {
+  private findCommandIndexForPoint(commands: PathCommandEnriched[], iPoint: number): number {
     // Look through commands to find which one contains this point index.
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i]
@@ -483,7 +426,7 @@ export class PathProcessor {
   }
 
   private convertSegmentTtoCommandT(
-    commands: EnrichedCommand[],
+    commands: PathCommandEnriched[],
     iSegmentStart: number,
     tLocal: number
   ): number {
@@ -525,7 +468,7 @@ export class PathProcessor {
     return tGlobal
   }
 
-  private identifySubpaths(commands: EnrichedCommand[], samplePoints: Point[]): Subpath[] {
+  private identifySubpaths(commands: PathCommandEnriched[], samplePoints: Point[]): Subpath[] {
     const subpaths: Subpath[] = []
     let currentStart = 0
     let currentSampleStart = 0
@@ -586,7 +529,7 @@ export class PathProcessor {
   }
 
   private createFragmentsForSubpath(
-    commands: EnrichedCommand[],
+    commands: PathCommandEnriched[],
     splitPlan: Map<number, number[]>
   ): PathFragment[] {
     const fragments: PathFragment[] = []
@@ -619,10 +562,10 @@ export class PathProcessor {
     if (dMag > EPSILON_INTERSECT) {
       // Add closing fragment
       const closingFragment = new PathFragment({
-        type: 'line',
+        type: PathFragmentType.Line,
         start: lastPoint,
         end: firstPoint,
-        commandIndex: fragments[fragments.length - 1].iCommand
+        iCommand: fragments[fragments.length - 1].iCommand
       })
 
       return [...fragments, closingFragment]
@@ -742,10 +685,10 @@ export class PathProcessor {
         if (dMag > EPSILON_INTERSECT) {
           // Path is not closed; add a final fragment to close it.
           const closingFragment = new PathFragment({
-            type: 'line',
+            type: PathFragmentType.Line,
             start: lastPoint,
             end: firstPoint,
-            commandIndex: subpath.endIndex
+            iCommand: subpath.endIndex
           })
 
           subpathFragments.push(closingFragment)
@@ -1004,13 +947,13 @@ export class PathProcessor {
   }
 
   private getFragmentTangent(fragment: PathFragment, t: number): Point {
-    if (fragment.type === 'line') {
+    if (fragment.type === PathFragmentType.Line) {
       // Line tangent is just the difference vector.
       return {
         x: fragment.end.x - fragment.start.x,
         y: fragment.end.y - fragment.start.y
       }
-    } else if (fragment.type === 'quad') {
+    } else if (fragment.type === PathFragmentType.Quad) {
       // Quadratic Bézier derivative.
       // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
       const { start, control1, end } = fragment
@@ -1018,7 +961,7 @@ export class PathProcessor {
         x: 2 * (1 - t) * (control1!.x - start.x) + 2 * t * (end.x - control1!.x),
         y: 2 * (1 - t) * (control1!.y - start.y) + 2 * t * (end.y - control1!.y)
       }
-    } else if (fragment.type === 'cubic') {
+    } else if (fragment.type === PathFragmentType.Cubic) {
       // Cubic Bézier derivative.
       // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
       // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
@@ -1120,7 +1063,7 @@ export class PathProcessor {
   }
 
   private subdivideCommand(
-    command: EnrichedCommand,
+    command: PathCommandEnriched,
     tMin: number,
     tMax: number
   ): PathFragment | null {
@@ -1144,7 +1087,7 @@ export class PathProcessor {
     return null
   }
 
-  private subdivideLine(cmd: EnrichedCommand, tMin: number, tMax: number): PathFragment {
+  private subdivideLine(cmd: PathCommandEnriched, tMin: number, tMax: number): PathFragment {
     // Line absolute is draw from current point to the specified coords.
     const startPoint = cmd.startPositionAbsolute
     const endPoint = cmd.endPositionAbsolute
@@ -1154,16 +1097,16 @@ export class PathProcessor {
     const endOut = interpolateLine(startPoint, endPoint, tMax)
 
     let result = new PathFragment({
-      type: 'line',
+      type: PathFragmentType.Line,
       start: startOut,
       end: endOut,
-      commandIndex: cmd.iCommand
+      iCommand: cmd.iCommand
     })
 
     return result
   }
 
-  private subdivideQuadratic(cmd: EnrichedCommand, tMin: number, tMax: number): PathFragment {
+  private subdivideQuadratic(cmd: PathCommandEnriched, tMin: number, tMax: number): PathFragment {
     // Get relative flag.
     const isRelative = cmd.type === PathCommandType.QuadraticBezierRelative
 
@@ -1202,11 +1145,11 @@ export class PathProcessor {
     let endOut = splitResult.range[2]
 
     let result = new PathFragment({
-      type: 'quad',
+      type: PathFragmentType.Quad,
       start: startOut,
       control1: controlOut,
       end: endOut,
-      commandIndex: cmd.iCommand
+      iCommand: cmd.iCommand
     })
 
     return result

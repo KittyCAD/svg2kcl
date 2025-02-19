@@ -3,6 +3,8 @@ import { Point } from '../types/base'
 import { FragmentMap } from '../types/fragments'
 import { PathRegion } from '../types/regions'
 import { isPolygonInsidePolygon } from './geometry'
+import { exportPointsToCSV } from '../utils/debug'
+import { getBoundingBoxArea } from './geometry'
 
 export class WindingAnalyzer {
   private fragmentMap: FragmentMap
@@ -21,17 +23,14 @@ export class WindingAnalyzer {
       const fragment = this.fragmentMap.get(fragmentId)
       if (!fragment) continue
 
-      // Ensure continuity in the path sequence
-      if (
-        points.length === 0 ||
-        points[points.length - 1].x !== fragment.start.x ||
-        points[points.length - 1].y !== fragment.start.y
-      ) {
-        points.push(fragment.start)
+      // Use the sampled points if available, otherwise throw an error.
+      if (!fragment.sampledPoints) {
+        throw new Error('Fragment has no sampled points')
       }
-
-      points.push(fragment.end) // Append endpoint
+      points.push(...fragment.sampledPoints)
     }
+
+    exportPointsToCSV(points)
 
     return points
   }
@@ -52,7 +51,6 @@ export class WindingAnalyzer {
 
   public computeWindingNumbers(regions: PathRegion[]): void {
     // Computes winding numbers for all regions, classifying them as holes or solids.
-    let x = 1
     for (const region of regions) {
       const regionPoints = this.getRegionPoints(region)
 
@@ -67,54 +65,61 @@ export class WindingAnalyzer {
   }
 
   public assignParentRegions(regions: PathRegion[]): void {
-    // Sort regions by area first (larger regions first)
+    // Sort regions by winding number magnitude first, then by area.
     const sortedRegions = [...regions].sort((a, b) => {
-      const areaA =
-        (a.boundingBox.xMax - a.boundingBox.xMin) * (a.boundingBox.yMax - a.boundingBox.yMin)
-      const areaB =
-        (b.boundingBox.xMax - b.boundingBox.xMin) * (b.boundingBox.yMax - b.boundingBox.yMin)
-      return areaB - areaA // Descending order
+      const windingDiff = Math.abs(b.windingNumber) - Math.abs(a.windingNumber)
+      if (windingDiff !== 0) return windingDiff
+
+      const areaA = getBoundingBoxArea(a.boundingBox)
+      const areaB = getBoundingBoxArea(b.boundingBox)
+      return areaB - areaA
     })
 
-    // Process each region to find its parent
+    // Process each region to find its parent.
     for (const region of sortedRegions) {
-      const regionPoints = this.getRegionPoints(region)
+      const regionBBox = region.boundingBox
+      let immediateParent: PathRegion | undefined
 
-      // Find potential containing regions
+      // First do a quick bounding box check.
       const potentialParents = sortedRegions.filter((candidate) => {
         if (candidate === region) return false
         if (candidate.parentRegionId === region.id) return false
 
-        const candidateArea =
-          (candidate.boundingBox.xMax - candidate.boundingBox.xMin) *
-          (candidate.boundingBox.yMax - candidate.boundingBox.yMin)
-        const regionArea =
-          (region.boundingBox.xMax - region.boundingBox.xMin) *
-          (region.boundingBox.yMax - region.boundingBox.yMin)
-        if (candidateArea <= regionArea) return false
+        const candidateBBox = candidate.boundingBox
 
-        return isPolygonInsidePolygon(regionPoints, this.getRegionPoints(candidate))
+        // Check if the region's bounding box is strictly inside the candidate's bounding box
+        // with some margin to avoid edge cases.
+        const EPSILON = 1e-10 // Small value to handle floating point precision.
+        return (
+          regionBBox.xMin > candidateBBox.xMin + EPSILON &&
+          regionBBox.xMax < candidateBBox.xMax - EPSILON &&
+          regionBBox.yMin > candidateBBox.yMin + EPSILON &&
+          regionBBox.yMax < candidateBBox.yMax - EPSILON
+        )
       })
 
+      // Only if we pass the bounding box check, do the more expensive polygon check.
       if (potentialParents.length > 0) {
-        // Find the smallest containing region (immediate parent)
-        const parent = potentialParents.reduce((closest, current) => {
-          if (!closest) return current
+        const regionPoints = this.getRegionPoints(region)
 
-          const closestArea =
-            (closest.boundingBox.xMax - closest.boundingBox.xMin) *
-            (closest.boundingBox.yMax - closest.boundingBox.yMin)
-          const currentArea =
-            (current.boundingBox.xMax - current.boundingBox.xMin) *
-            (current.boundingBox.yMax - current.boundingBox.yMin)
-          return currentArea < closestArea ? current : closest
-        })
+        const containingRegions = potentialParents.filter((candidate) =>
+          isPolygonInsidePolygon(regionPoints, this.getRegionPoints(candidate))
+        )
 
-        region.parentRegionId = parent.id
+        // Sort by area to find the smallest containing region.
+        containingRegions.sort(
+          (a, b) => getBoundingBoxArea(a.boundingBox) - getBoundingBoxArea(b.boundingBox)
+        )
 
-        // For nonzero fill rule:
-        // If this region plus its parent's winding numbers sum to zero, it's a hole
-        region.isHole = region.windingNumber + parent.windingNumber === 0
+        if (containingRegions.length > 0) {
+          immediateParent = containingRegions[0]
+        }
+      }
+
+      // Assign parent and determine if it's a hole.
+      if (immediateParent) {
+        region.parentRegionId = immediateParent.id
+        region.isHole = region.windingNumber + immediateParent.windingNumber === 0
       } else {
         region.parentRegionId = undefined
         region.isHole = false

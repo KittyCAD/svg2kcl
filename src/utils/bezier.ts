@@ -53,6 +53,30 @@ export class BezierUtils {
     return points
   }
 
+  public static sampleCubicBezier(
+    start: Point,
+    control1: Point,
+    control2: Point,
+    end: Point,
+    numSamples: number = N_CURVE_SAMPLES
+  ): Point[] {
+    if (numSamples < 2) {
+      throw new Error('Number of samples must be at least 2')
+    }
+
+    // Grab start and end points plus sampled central points.
+    const points: Point[] = [start]
+
+    for (let i = 1; i < numSamples - 1; i++) {
+      const t = i / (numSamples - 1)
+      points.push(BezierUtils.evaluateCubicBezier(t, start, control1, control2, end))
+    }
+
+    points.push(end)
+
+    return points
+  }
+
   public static evaluateQuadraticBezier(t: number, p0: Point, p1: Point, p2: Point): Point {
     const mt = 1 - t
     return {

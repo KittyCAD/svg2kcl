@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { Point } from '../../types/base'
 import { FragmentMap, PathFragmentData, PathFragmentType } from '../../types/fragments'
+import { BezierUtils } from '../../utils/bezier'
+import { N_CURVE_SAMPLES_BOUNDARY } from '../../constants'
+import { sampleLine } from '../../utils/geometry'
 
 export class PathFragment implements PathFragmentData {
   id: string
@@ -16,6 +19,9 @@ export class PathFragment implements PathFragmentData {
 
   // Store a link to the original command index in our input path command list.
   iCommand: number
+
+  // Sampled points for this fragment.
+  sampledPoints?: Point[]
 
   // Store a list of fragments that are connected to this one.
   connectedFragments?: {
@@ -57,13 +63,22 @@ export function calculateBoundingBox(
     const fragment = fragmentMap.get(id)
     if (!fragment) continue
 
-    xMin = Math.min(xMin, fragment.start.x, fragment.end.x)
-    yMin = Math.min(yMin, fragment.start.y, fragment.end.y)
-    xMax = Math.max(xMax, fragment.start.x, fragment.end.x)
-    yMax = Math.max(yMax, fragment.start.y, fragment.end.y)
+    if (!fragment.sampledPoints) {
+      throw new Error('Fragment has no sampled points')
+    }
+
+    const points = fragment.sampledPoints
+
+    // Check all sampled points.
+    for (const point of points) {
+      xMin = Math.min(xMin, point.x)
+      yMin = Math.min(yMin, point.y)
+      xMax = Math.max(xMax, point.x)
+      yMax = Math.max(yMax, point.y)
+    }
   }
 
-  return { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax }
+  return { xMin, yMin, xMax, yMax }
 }
 
 export function calculateTestPoint(fragmentIds: string[], fragmentMap: FragmentMap): Point {
@@ -72,5 +87,29 @@ export function calculateTestPoint(fragmentIds: string[], fragmentMap: FragmentM
   return {
     x: (bbox.xMin + bbox.xMax) / 2,
     y: (bbox.yMin + bbox.yMax) / 2
+  }
+}
+
+export function sampleFragment(fragment: PathFragment): Point[] {
+  switch (fragment.type) {
+    case PathFragmentType.Line:
+      return sampleLine(fragment.start, fragment.end, N_CURVE_SAMPLES_BOUNDARY)
+
+    case PathFragmentType.Quad:
+      return BezierUtils.sampleQuadraticBezier(
+        fragment.start,
+        fragment.control1!,
+        fragment.end,
+        N_CURVE_SAMPLES_BOUNDARY
+      )
+
+    case PathFragmentType.Cubic:
+      return BezierUtils.sampleCubicBezier(
+        fragment.start,
+        fragment.control1!,
+        fragment.control2!,
+        fragment.end,
+        N_CURVE_SAMPLES_BOUNDARY
+      )
   }
 }

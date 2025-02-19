@@ -66,6 +66,7 @@ import {
   isPolygonInsidePolygon
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
+import { sampleFragment } from '../paths/fragments/fragment'
 
 export class ProcessedPath {
   constructor(
@@ -102,6 +103,11 @@ export class PathProcessor {
 
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
+
+    // Now walk the fragment chain and resample.
+    for (const fragment of fragments) {
+      fragment.sampledPoints = sampleFragment(fragment)
+    }
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = this.buildRegions(fragments, fragmentMap)

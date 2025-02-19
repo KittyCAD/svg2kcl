@@ -24,6 +24,24 @@ export function interpolateLine(p0: Point, p1: Point, t: number): Point {
   }
 }
 
+export function sampleLine(start: Point, end: Point, numSamples: number): Point[] {
+  const points: Point[] = []
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / (numSamples - 1)
+    points.push(interpolateLine(start, end, t))
+  }
+  return points
+}
+
+export function getBoundingBoxArea(boundingBox: {
+  xMin: number
+  xMax: number
+  yMin: number
+  yMax: number
+}): number {
+  return (boundingBox.xMax - boundingBox.xMin) * (boundingBox.yMax - boundingBox.yMin)
+}
+
 export function isLeft(p0: Point, p1: Point, p2: Point): number {
   // Computes whether a point lies to the left (+) or right (-) of a directed line segment.
   // This is a determinant-based test for relative orientation.

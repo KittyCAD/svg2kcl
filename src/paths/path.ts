@@ -2,7 +2,7 @@ import { Point } from '../types/base'
 import { PathCommandEnriched, PathCommand, PathCommandType, PathSampleResult } from '../types/paths'
 import { BezierUtils } from '../utils/bezier'
 
-export function buildPath(inputCommands: PathCommand[]): PathSampleResult {
+export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
   const points: Point[] = []
   const commands: PathCommandEnriched[] = []
   let currentPoint = { x: 0, y: 0 }

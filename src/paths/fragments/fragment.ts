@@ -41,7 +41,7 @@ export class PathFragment implements PathFragmentData {
 
 export function calculateBoundingBox(
   fragmentIds: string[],
-  fragmentMap: FragmentMap = new Map()
+  fragmentMap: FragmentMap
 ): {
   xMin: number
   yMin: number
@@ -66,9 +66,9 @@ export function calculateBoundingBox(
   return { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax }
 }
 
-export function calculateTestPoint(fragmentIds: string[]): Point {
+export function calculateTestPoint(fragmentIds: string[], fragmentMap: FragmentMap): Point {
   // Use centroid of bounding box as a simple approximation.
-  const bbox = calculateBoundingBox(fragmentIds)
+  const bbox = calculateBoundingBox(fragmentIds, fragmentMap)
   return {
     x: (bbox.xMin + bbox.xMax) / 2,
     y: (bbox.yMin + bbox.yMax) / 2

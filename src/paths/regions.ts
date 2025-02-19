@@ -31,8 +31,8 @@ export function identifyClosedRegions(
           detectedRegions.push({
             id: uuidv4(),
             fragmentIds: loop,
-            boundingBox: calculateBoundingBox(loop),
-            testPoint: calculateTestPoint(loop),
+            boundingBox: calculateBoundingBox(loop, fragmentMap),
+            testPoint: calculateTestPoint(loop, fragmentMap),
             isHole: false,
             windingNumber: 0
           })

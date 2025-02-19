@@ -57,7 +57,6 @@ import { PathElement } from '../types/elements'
 import { PathFragmentType, FragmentMap } from '../types/fragments'
 import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { PathRegion } from '../types/regions'
-import { BezierUtils } from '../utils/bezier'
 import {
   computePointToPointDistance,
   findIntersectionsBetweenSubpaths,
@@ -68,53 +67,29 @@ import {
 import { WindingAnalyzer } from '../utils/winding'
 import { identifyClosedRegions } from '../paths/regions'
 
+interface FragmentState {
+  fragments: PathFragment[]
+  fragmentMap: FragmentMap
+  regions: PathRegion[]
+}
+
 export class PathProcessor {
-  // Input and output buffer.
-  private inputCommands: PathCommand[]
-  private outputCommands: PathCommand[] = []
-
-  // Other props of use.
-  private fillRule: FillRule
-
-  // Some state tracking. We need previous control point to handle smoothed Beziers.
-  private previousControlPoint: Point | null = null
-  private currentPoint: Point = { x: 0, y: 0 }
-
-  // Sampled points and the enriched command set for the path.
-  private fullPathSamplePoints: Point[] = []
-  private fullPathCommandSet: PathCommandEnriched[] = []
-
-  // Split plan. This is a map of command indices to arrays of t-values where the
-  // command should be split.
-  private splitPlan: Map<number, number[]> = new Map()
-
-  // Self-intersection data.
-  private intersections: Intersection[] = []
-
-  // Post-splitting fragments.
-  private fragments: PathFragment[] = []
-  private fragmentMap: FragmentMap = new Map()
-  private regions: PathRegion[] = []
+  private readonly inputCommands: PathCommand[]
+  private readonly fillRule: FillRule
+  private fragmentState: FragmentState
 
   constructor(element: PathElement) {
-    // Pull commands and fill rule.
     this.inputCommands = [...element.commands]
     this.fillRule = element.fillRule as FillRule
+    this.fragmentState = {
+      fragments: [],
+      fragmentMap: new Map(),
+      regions: []
+    }
   }
 
-  private getPreviousControlPoint(): Point {
-    if (this.previousControlPoint === null) {
-      return this.currentPoint
-    }
-
-    return this.previousControlPoint
-  }
-
-  private setPreviousControlPoint(point: Point): void {
-    this.previousControlPoint = {
-      x: point.x,
-      y: point.y
-    }
+  public getRegions(): PathRegion[] {
+    return this.fragmentState.regions
   }
 
   public process(): { regions: PathRegion[]; commands: PathCommand[] } {
@@ -122,14 +97,17 @@ export class PathProcessor {
       return { regions: [], commands: this.inputCommands }
     }
 
+    // Analyze path and build fragments.
     this.analyzePath()
 
-    // Get regions in a structured order (parents first, then holes)
+    // Get regions in a structured order (parents first, then holes).
     const orderedRegions = this.getOrderedRegions()
 
     const commands: PathCommand[] = []
     for (const region of orderedRegions) {
-      const regionFragments = region.fragmentIds.map((id) => this.fragmentMap.get(id)!)
+      const regionFragments = region.fragmentIds.map(
+        (id) => this.fragmentState.fragmentMap.get(id)!
+      )
       const regionCommands = this.convertFragmentsToCommands(regionFragments)
       commands.push(...regionCommands)
     }
@@ -141,7 +119,7 @@ export class PathProcessor {
   private getOrderedRegions(): PathRegion[] {
     const parentMap = new Map<string, PathRegion[]>()
 
-    for (const region of this.regions) {
+    for (const region of this.fragmentState.regions) {
       if (region.parentRegionId) {
         if (!parentMap.has(region.parentRegionId)) {
           parentMap.set(region.parentRegionId, [])
@@ -168,7 +146,7 @@ export class PathProcessor {
 
     let currentPoint = fragments[0].start
 
-    // Start with a move to the first point
+    // Start with a move to the first point.
     commands.push({
       type: PathCommandType.MoveAbsolute,
       parameters: [currentPoint.x, currentPoint.y],
@@ -176,10 +154,12 @@ export class PathProcessor {
       endPositionAbsolute: currentPoint
     })
 
-    // Convert each fragment to appropriate command type
+    // Convert each fragment to appropriate command type. Note that here we have
+    // a subset of commands; we're only dealing with absolute commands, and only
+    // lines, quadratic Béziers, and cubic Béziers.
     for (const fragment of fragments) {
       switch (fragment.type) {
-        case 'line':
+        case PathFragmentType.Line:
           commands.push({
             type: PathCommandType.LineAbsolute,
             parameters: [fragment.end.x, fragment.end.y],
@@ -188,7 +168,7 @@ export class PathProcessor {
           })
           break
 
-        case 'quad':
+        case PathFragmentType.Quad:
           commands.push({
             type: PathCommandType.QuadraticBezierAbsolute,
             parameters: [
@@ -202,7 +182,7 @@ export class PathProcessor {
           })
           break
 
-        case 'cubic':
+        case PathFragmentType.Cubic:
           commands.push({
             type: PathCommandType.CubicBezierAbsolute,
             parameters: [
@@ -222,7 +202,7 @@ export class PathProcessor {
       currentPoint = fragment.end
     }
 
-    // Close the path
+    // Close the path.
     commands.push({
       type: PathCommandType.StopAbsolute,
       parameters: [],
@@ -234,7 +214,7 @@ export class PathProcessor {
   }
 
   public getFragment(id: string): PathFragment {
-    const fragment = this.fragmentMap.get(id)
+    const fragment = this.fragmentState.fragmentMap.get(id)
     if (!fragment) {
       throw new Error(`Fragment ${id} not found`)
     }
@@ -245,92 +225,8 @@ export class PathProcessor {
     return this.convertFragmentsToCommands(fragments)
   }
 
-  // Make regions accessible
-  public getRegions(): PathRegion[] {
-    return this.regions
-  }
-
-  // The harder bits.
-  // -----------------------------------------------------------------------------------
-  private processQuadraticBezierCommand(command: PathCommand, iCommand: number): void {
-    const splitRequired = this.splitPlan.has(iCommand)
-    const splitData = this.splitPlan.get(iCommand) || []
-
-    // Get absolute control point
-    let [x1, y1, x, y] = command.parameters
-
-    if (command.type === PathCommandType.QuadraticBezierRelative) {
-      x1 += this.currentPoint.x
-      y1 += this.currentPoint.y
-    }
-
-    // Get our points.
-    const p0 = this.currentPoint
-    const p1 = { x: x1, y: y1 }
-    const p2 = command.endPositionAbsolute
-
-    if (!splitRequired) {
-      // No splits, just push the original command.
-      this.outputCommands.push(command)
-    } else {
-      // Sort the split points just in case they are out of order.
-      splitData.sort((a, b) => a - b)
-
-      let startPoint = { x: p0.x, y: p0.y }
-      let controlPoint = { x: p1.x, y: p1.y }
-      let endPoint = { x: p2.x, y: p2.y }
-
-      for (const t of splitData) {
-        const splitResult = BezierUtils.splitQuadraticBezier(
-          { start: startPoint, control: controlPoint, end: endPoint },
-          t
-        )
-
-        // Push first half.
-        // Parameters are control point and end point.
-        const parameters = [
-          splitResult.first[1].x,
-          splitResult.first[1].y,
-          splitResult.first[2].x,
-          splitResult.first[2].y
-        ]
-        this.outputCommands.push({
-          type: PathCommandType.QuadraticBezierAbsolute,
-          parameters: parameters,
-          startPositionAbsolute: splitResult.first[0], // Start point.
-          endPositionAbsolute: splitResult.first[2] // End point.
-        })
-
-        // Update start point for the next segment.
-        startPoint = splitResult.second[0]
-        controlPoint = splitResult.second[1]
-      }
-
-      // Push last segment.
-      this.outputCommands.push({
-        type: PathCommandType.QuadraticBezierAbsolute,
-        parameters: [controlPoint.x, controlPoint.y, endPoint.x, endPoint.y],
-        startPositionAbsolute: startPoint, // We updated this in the loop.
-        endPositionAbsolute: endPoint
-      })
-    }
-
-    // Update state.
-    this.currentPoint = p2
-    this.setPreviousControlPoint(p1)
-  }
-
   // Some utilities.
   // -----------------------------------------------------------------------------------
-  private getReflectedControlPoint(): Point {
-    const prevControl = this.getPreviousControlPoint()
-    const current = this.currentPoint
-
-    return {
-      x: current.x + (current.x - prevControl.x),
-      y: current.y + (current.y - prevControl.y)
-    }
-  }
 
   private findCommandIndexForPoint(commands: PathCommandEnriched[], iPoint: number): number {
     // Look through commands to find which one contains this point index.
@@ -448,172 +344,135 @@ export class PathProcessor {
 
   // First pass.
   // -----------------------------------------------------------------------------------
-  public analyzePath(): void {
-    // Build sampled path we'll use for self-intersection detection.
-    const { pathSamplePoints: pathSamplePoints, pathCommands: pathCommands } = samplePath(
-      this.inputCommands
-    )
+  private buildSplitPlan(
+    pathCommands: PathCommandEnriched[],
+    intersections: Intersection[]
+  ): Map<number, number[]> {
+    const splitPlan = new Map<number, number[]>()
 
-    this.fullPathCommandSet = pathCommands
-    this.fullPathSamplePoints = pathSamplePoints
+    for (const intersection of intersections) {
+      const iCommandA = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentA)
+      const iCommandB = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentB)
 
-    // Immediately identify subpaths
-    const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
+      const tA = this.convertSegmentTtoCommandT(
+        pathCommands,
+        intersection.iSegmentA,
+        intersection.tA
+      )
+      const tB = this.convertSegmentTtoCommandT(
+        pathCommands,
+        intersection.iSegmentB,
+        intersection.tB
+      )
 
-    // Get the intersections. Note that segment index values here refer to the sampled
-    // path, not the original commands.
-    this.intersections = this.findAllIntersections(subpaths)
+      if (!splitPlan.has(iCommandA)) splitPlan.set(iCommandA, [])
+      if (!splitPlan.has(iCommandB)) splitPlan.set(iCommandB, [])
 
-    // Start building the split plan. This is a map of command indices to arrays of
-    // t-values where the command should be split.
-    let splitPlan = new Map<number, number[]>()
-
-    for (const intersection of this.intersections) {
-      // Each intersection has two colliding segments: A and B. Pull the sampled path
-      // segment indices for these intersecting segments
-      const iSegmentA = intersection.iSegmentA
-      const iSegmentB = intersection.iSegmentB
-
-      // Find the index of the original commands that 'own' segmentA and segmentB.
-      const iCommandA = this.findCommandIndexForPoint(pathCommands, iSegmentA)
-      const iCommandB = this.findCommandIndexForPoint(pathCommands, iSegmentB)
-
-      // Convert segment-relative t-values into original command t-values.
-      const tA = this.convertSegmentTtoCommandT(pathCommands, iSegmentA, intersection.tA)
-      const tB = this.convertSegmentTtoCommandT(pathCommands, iSegmentB, intersection.tB)
-
-      // Store in splitPlan. Each command index gets a list of T-values to split at.
-      if (!splitPlan.has(iCommandA)) {
-        splitPlan.set(iCommandA, [])
-      }
       splitPlan.get(iCommandA)!.push(tA)
-
-      if (!splitPlan.has(iCommandB)) {
-        splitPlan.set(iCommandB, [])
-      }
       splitPlan.get(iCommandB)!.push(tB)
     }
 
-    // After collecting all splits, sort each command's t-values.
+    // Sort all t-values
     for (const tValues of splitPlan.values()) {
       tValues.sort((a, b) => a - b)
     }
 
-    // Set the split plan.
-    this.splitPlan = splitPlan
+    return splitPlan
+  }
 
-    // ---------------------------------------------------------------------------------
-
-    // Process each subpath independently. We need to:
-    // 1. Create fragments for each command in the subpath
-    // 2. Ensure each subpath is properly closed
-    // 3. Collect all fragments for later processing
-    let allFragments: PathFragment[] = []
+  private createPathFragments(
+    subpaths: Subpath[],
+    pathCommands: PathCommandEnriched[],
+    splitPlan: Map<number, number[]>
+  ): PathFragment[] {
+    const allFragments: PathFragment[] = []
 
     for (const subpath of subpaths) {
-      let subpathFragments: PathFragment[] = []
+      const subpathFragments = this.createSubpathFragments(subpath, pathCommands, splitPlan)
+      allFragments.push(...subpathFragments)
+    }
 
-      // Create fragments for each command in this subpath
-      for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
-        const cmd = pathCommands[i]
+    return allFragments
+  }
 
-        // Pull out the t-values for this command, plus ensure 0 & 1 are included.
-        // This is so our later subdivide calls can see the whole thing.
-        const tVals = [...(splitPlan.get(i) || []), 0, 1]
+  private createSubpathFragments(
+    subpath: Subpath,
+    pathCommands: PathCommandEnriched[],
+    splitPlan: Map<number, number[]>
+  ): PathFragment[] {
+    const fragments: PathFragment[] = []
 
-        // Sort.
-        tVals.sort((a, b) => a - b)
+    // Create fragments for commands
+    for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
+      const cmd = pathCommands[i]
+      const tVals = [...(splitPlan.get(i) || []), 0, 1].sort((a, b) => a - b)
 
-        // For each adjacent pair of t-values, produce one fragment.
-        for (let j = 0; j < tVals.length - 1; j++) {
-          const tMin = tVals[j]
-          const tMax = tVals[j + 1]
-          if (tMax - tMin < EPSILON_INTERSECT) {
-            // Skip trivial zero-length splits from repeated t-values. Should hopefully
-            // not see any of this since the intersection finder should have removed them.
-            continue
-          }
+      for (let j = 0; j < tVals.length - 1; j++) {
+        const tMin = tVals[j]
+        const tMax = tVals[j + 1]
 
-          // Subdivide this command from [tMin..tMax] into a PathFragment.
-          const fragment = subdivideCommand(cmd, tMin, tMax)
-          if (fragment) {
-            subpathFragments.push(fragment)
-          }
-        }
+        if (tMax - tMin < EPSILON_INTERSECT) continue
+
+        const fragment = subdivideCommand(cmd, tMin, tMax)
+        if (fragment) fragments.push(fragment)
       }
+    }
 
-      // We need to account for an implicit close; SVG renderers do this for fills.
-      // https://www.w3.org/TR/SVG/painting.html#FillProperties
-      // The fill operation fills open subpaths by performing the fill operation as if an
-      // additional "closepath" command were added to the path to connect the last point
-      // of the subpath with the first point of the subpath. Thus, fill operations apply
-      // to both open subpaths within 'path' elements
-      // (i.e., subpaths without a closepath command) and 'polyline' elements.
+    // Add closing fragment if needed
+    if (fragments.length > 0) {
+      const firstPoint = fragments[0].start
+      const lastPoint = fragments[fragments.length - 1].end
 
-      // Ensure this subpath is closed by checking its endpoints
-      if (subpathFragments.length > 0) {
-        const firstPoint = subpathFragments[0].start
-        const lastPoint = subpathFragments[subpathFragments.length - 1].end
-        const dMag = computePointToPointDistance(firstPoint, lastPoint)
-
-        if (dMag > EPSILON_INTERSECT) {
-          // Path is not closed; add a final fragment to close it.
-          const closingFragment = new PathFragment({
+      if (computePointToPointDistance(firstPoint, lastPoint) > EPSILON_INTERSECT) {
+        fragments.push(
+          new PathFragment({
             type: PathFragmentType.Line,
             start: lastPoint,
             end: firstPoint,
             iCommand: subpath.endIndex
           })
-
-          subpathFragments.push(closingFragment)
-        }
+        )
       }
-
-      // Add this subpath's fragments to our collection
-      allFragments.push(...subpathFragments)
     }
 
-    // ---------------------------------------------------------------------------------
-
-    // We now want to walk the fragment list and build a set that tells us which
-    // fragments are connected to which other fragments. This will allow us to build
-    // closed regions later on.
-    connectFragments(allFragments, this.intersections)
-
-    // Build the fragment map.
-    this.fragments = allFragments
-
-    for (const fragment of allFragments) {
-      this.fragmentMap.set(fragment.id, fragment)
-    }
-
-    // Find closed regions. Note that the outer boundary of the shape may be included
-    // even if its subregions are also included. This _should_ be captured by
-    // winding number analysis later on.
-    this.regions = identifyClosedRegions(allFragments, this.fragmentMap)
-
-    // Winding?
-    const analyzer = new WindingAnalyzer(allFragments)
-    analyzer.computeWindingNumbers(this.regions)
-
-    // Detect holes.
-    analyzer.assignParentRegions(this.regions)
-
-    // Remove regions which are not holes and which are entirely contained within
-    // other regions.
-    this.removeFullyContainedNonHoles()
-
-    let x = 1
+    return fragments
   }
 
+  public analyzePath(): void {
+    // Sample and analyze path.
+    const { pathSamplePoints, pathCommands } = samplePath(this.inputCommands)
+    const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
+    const intersections = this.findAllIntersections(subpaths)
+    const splitPlan = this.buildSplitPlan(pathCommands, intersections)
+
+    // Create and connect path fragments.
+    const allFragments = this.createPathFragments(subpaths, pathCommands, splitPlan)
+    connectFragments(allFragments, intersections)
+
+    // Update fragment state.
+    this.fragmentState.fragments = allFragments
+    for (const fragment of allFragments) {
+      this.fragmentState.fragmentMap.set(fragment.id, fragment)
+    }
+
+    // Process regions.
+    this.fragmentState.regions = identifyClosedRegions(allFragments, this.fragmentState.fragmentMap)
+
+    // Process winding and holes.
+    const analyzer = new WindingAnalyzer(allFragments)
+    analyzer.computeWindingNumbers(this.fragmentState.regions)
+    analyzer.assignParentRegions(this.fragmentState.regions)
+
+    this.removeFullyContainedNonHoles()
+  }
   private removeFullyContainedNonHoles(): void {
-    const analyzer = new WindingAnalyzer(this.fragments)
+    const analyzer = new WindingAnalyzer(this.fragmentState.fragments)
     const regionsToRemove = new Set<string>()
 
-    for (const region of this.regions) {
+    for (const region of this.fragmentState.regions) {
       if (region.isHole) continue // Skip holes
 
-      const parentRegion = this.regions.find((r) => r.id === region.parentRegionId)
+      const parentRegion = this.fragmentState.regions.find((r) => r.id === region.parentRegionId)
       if (!parentRegion) continue
 
       const regionPoints = analyzer.getRegionPoints(region)
@@ -624,6 +483,8 @@ export class PathProcessor {
       }
     }
 
-    this.regions = this.regions.filter((region) => !regionsToRemove.has(region.id))
+    this.fragmentState.regions = this.fragmentState.regions.filter(
+      (region) => !regionsToRemove.has(region.id)
+    )
   }
 }

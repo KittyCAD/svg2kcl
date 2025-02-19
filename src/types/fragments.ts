@@ -1,4 +1,5 @@
 import { Point } from './base'
+import { PathFragment } from '../paths/fragments/fragment'
 
 export enum PathFragmentType {
   // SVG paths are lines, Béziers or arcs. We don't support arcs, and we can simplify
@@ -26,3 +27,5 @@ export interface PathFragmentData {
     angle: number
   }[]
 }
+
+export type FragmentMap = Map<string, PathFragment>

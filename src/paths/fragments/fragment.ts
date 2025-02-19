@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { Point } from '../../types/base'
-import { PathFragmentData, PathFragmentType } from '../../types/fragments'
+import { FragmentMap, PathFragmentData, PathFragmentType } from '../../types/fragments'
 
 export class PathFragment implements PathFragmentData {
   id: string
@@ -41,7 +41,7 @@ export class PathFragment implements PathFragmentData {
 
 export function calculateBoundingBox(
   fragmentIds: string[],
-  fragmentMap: Map<string, PathFragment> = new Map()
+  fragmentMap: FragmentMap = new Map()
 ): {
   xMin: number
   yMin: number

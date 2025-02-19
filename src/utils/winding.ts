@@ -1,10 +1,11 @@
 import { PathFragment } from '../paths/fragments/fragment'
 import { Point } from '../types/base'
-import { PathRegion } from '../writer/path_processor' // Ensure this imports the updated `PathRegion` type
+import { FragmentMap } from '../types/fragments'
+import { PathRegion } from '../types/regions'
 import { isPolygonInsidePolygon } from './geometry'
 
 export class WindingAnalyzer {
-  private fragmentMap: Map<string, PathFragment>
+  private fragmentMap: FragmentMap
 
   constructor(fragments: PathFragment[]) {
     // Initialize lookup map for quick fragment access

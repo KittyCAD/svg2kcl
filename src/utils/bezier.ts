@@ -1,5 +1,5 @@
 import { Point } from '../types/base'
-import { PathCommand, PathCommandType } from '../types/paths'
+import { PathCommandType } from '../types/paths'
 import { N_CURVE_SAMPLES } from '../constants'
 
 export interface SplitBezierResult {

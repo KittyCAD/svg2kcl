@@ -51,10 +51,11 @@ import { EPSILON_INTERSECT } from '../constants'
 import { connectFragments } from '../paths/fragments/connector'
 import { PathFragment } from '../paths/fragments/fragment'
 import { samplePath } from '../paths/path'
+import { identifyClosedRegions, orderRegions } from '../paths/regions'
 import { subdivideCommand } from '../paths/subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
-import { PathFragmentType, FragmentMap } from '../types/fragments'
+import { FragmentMap, PathFragmentType } from '../types/fragments'
 import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { PathRegion } from '../types/regions'
 import {
@@ -65,9 +66,8 @@ import {
   isPolygonInsidePolygon
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
-import { identifyClosedRegions } from '../paths/regions'
 
-interface FragmentState {
+interface ProcessedPath {
   fragments: PathFragment[]
   fragmentMap: FragmentMap
   regions: PathRegion[]
@@ -76,20 +76,10 @@ interface FragmentState {
 export class PathProcessor {
   private readonly inputCommands: PathCommand[]
   private readonly fillRule: FillRule
-  private fragmentState: FragmentState
 
   constructor(element: PathElement) {
     this.inputCommands = [...element.commands]
     this.fillRule = element.fillRule as FillRule
-    this.fragmentState = {
-      fragments: [],
-      fragmentMap: new Map(),
-      regions: []
-    }
-  }
-
-  public getRegions(): PathRegion[] {
-    return this.fragmentState.regions
   }
 
   public process(): { regions: PathRegion[]; commands: PathCommand[] } {
@@ -97,46 +87,94 @@ export class PathProcessor {
       return { regions: [], commands: this.inputCommands }
     }
 
-    // Analyze path and build fragments.
-    this.analyzePath()
+    // Analyze path structure and find intersections.
+    const { pathCommands, subpaths, intersections } = this.analyzePath()
 
-    // Get regions in a structured order (parents first, then holes).
-    const orderedRegions = this.getOrderedRegions()
+    // Extract fragments.
+    const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
 
-    const commands: PathCommand[] = []
-    for (const region of orderedRegions) {
-      const regionFragments = region.fragmentIds.map(
-        (id) => this.fragmentState.fragmentMap.get(id)!
-      )
-      const regionCommands = this.convertFragmentsToCommands(regionFragments)
-      commands.push(...regionCommands)
-    }
+    // Use fragments to assemble enclosed regions, compute winding numbers.
+    const regions = this.buildRegions(fragments, fragmentMap)
+    const processedRegions = this.computeWinding(fragments, regions)
+    const finalRegions = this.cleanup(fragments, processedRegions)
+
+    // Convert to commands for KCL output.
+    const orderedRegions = orderRegions(finalRegions)
+    const commands = this.generateCommands(fragmentMap, orderedRegions)
 
     return { regions: orderedRegions, commands }
   }
 
-  // Centralized logic to order regions correctly
-  private getOrderedRegions(): PathRegion[] {
-    const parentMap = new Map<string, PathRegion[]>()
+  private analyzePath(): {
+    pathCommands: PathCommandEnriched[]
+    subpaths: Subpath[]
+    intersections: Intersection[]
+  } {
+    const { pathSamplePoints, pathCommands } = samplePath(this.inputCommands)
+    const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
+    const intersections = this.findAllIntersections(subpaths)
 
-    for (const region of this.fragmentState.regions) {
-      if (region.parentRegionId) {
-        if (!parentMap.has(region.parentRegionId)) {
-          parentMap.set(region.parentRegionId, [])
-        }
-        parentMap.get(region.parentRegionId)!.push(region)
-      } else {
-        parentMap.set(region.id, [region]) // Ensure all parents exist
+    return { pathCommands, subpaths, intersections }
+  }
+
+  private extractFragments(
+    pathCommands: PathCommandEnriched[],
+    subpaths: Subpath[],
+    intersections: Intersection[]
+  ): { fragments: PathFragment[]; fragmentMap: FragmentMap } {
+    const splitPlan = this.buildSplitPlan(pathCommands, intersections)
+    const fragments = this.createPathFragments(subpaths, pathCommands, splitPlan)
+    connectFragments(fragments, intersections)
+
+    const fragmentMap = new Map()
+    for (const fragment of fragments) {
+      fragmentMap.set(fragment.id, fragment)
+    }
+
+    return { fragments, fragmentMap }
+  }
+
+  private buildRegions(fragments: PathFragment[], fragmentMap: FragmentMap): PathRegion[] {
+    return identifyClosedRegions(fragments, fragmentMap)
+  }
+
+  private computeWinding(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {
+    const analyzer = new WindingAnalyzer(fragments)
+    analyzer.computeWindingNumbers(regions)
+    analyzer.assignParentRegions(regions)
+    return regions
+  }
+
+  private cleanup(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {
+    const analyzer = new WindingAnalyzer(fragments)
+    const regionsToRemove = new Set<string>()
+
+    for (const region of regions) {
+      if (region.isHole) continue
+
+      const parentRegion = regions.find((r) => r.id === region.parentRegionId)
+      if (!parentRegion) continue
+
+      const regionPoints = analyzer.getRegionPoints(region)
+      const parentPoints = analyzer.getRegionPoints(parentRegion)
+
+      if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
+        regionsToRemove.add(region.id)
       }
     }
 
-    // Flatten parent-first ordering
-    const orderedRegions: PathRegion[] = []
-    for (const [parentId, group] of parentMap.entries()) {
-      orderedRegions.push(...group)
+    return regions.filter((region) => !regionsToRemove.has(region.id))
+  }
+
+  private generateCommands(fragmentMap: FragmentMap, regions: PathRegion[]): PathCommand[] {
+    const commands: PathCommand[] = []
+
+    for (const region of regions) {
+      const regionFragments = region.fragmentIds.map((id) => fragmentMap.get(id)!)
+      commands.push(...this.convertFragmentsToCommands(regionFragments))
     }
 
-    return orderedRegions
+    return commands
   }
 
   private convertFragmentsToCommands(fragments: PathFragment[]): PathCommand[] {
@@ -211,14 +249,6 @@ export class PathProcessor {
     })
 
     return commands
-  }
-
-  public getFragment(id: string): PathFragment {
-    const fragment = this.fragmentState.fragmentMap.get(id)
-    if (!fragment) {
-      throw new Error(`Fragment ${id} not found`)
-    }
-    return fragment
   }
 
   public getCommandsForFragments(fragments: PathFragment[]): PathCommand[] {
@@ -436,55 +466,5 @@ export class PathProcessor {
     }
 
     return fragments
-  }
-
-  public analyzePath(): void {
-    // Sample and analyze path.
-    const { pathSamplePoints, pathCommands } = samplePath(this.inputCommands)
-    const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
-    const intersections = this.findAllIntersections(subpaths)
-    const splitPlan = this.buildSplitPlan(pathCommands, intersections)
-
-    // Create and connect path fragments.
-    const allFragments = this.createPathFragments(subpaths, pathCommands, splitPlan)
-    connectFragments(allFragments, intersections)
-
-    // Update fragment state.
-    this.fragmentState.fragments = allFragments
-    for (const fragment of allFragments) {
-      this.fragmentState.fragmentMap.set(fragment.id, fragment)
-    }
-
-    // Process regions.
-    this.fragmentState.regions = identifyClosedRegions(allFragments, this.fragmentState.fragmentMap)
-
-    // Process winding and holes.
-    const analyzer = new WindingAnalyzer(allFragments)
-    analyzer.computeWindingNumbers(this.fragmentState.regions)
-    analyzer.assignParentRegions(this.fragmentState.regions)
-
-    this.removeFullyContainedNonHoles()
-  }
-  private removeFullyContainedNonHoles(): void {
-    const analyzer = new WindingAnalyzer(this.fragmentState.fragments)
-    const regionsToRemove = new Set<string>()
-
-    for (const region of this.fragmentState.regions) {
-      if (region.isHole) continue // Skip holes
-
-      const parentRegion = this.fragmentState.regions.find((r) => r.id === region.parentRegionId)
-      if (!parentRegion) continue
-
-      const regionPoints = analyzer.getRegionPoints(region)
-      const parentPoints = analyzer.getRegionPoints(parentRegion)
-
-      if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
-        regionsToRemove.add(region.id)
-      }
-    }
-
-    this.fragmentState.regions = this.fragmentState.regions.filter(
-      (region) => !regionsToRemove.has(region.id)
-    )
   }
 }

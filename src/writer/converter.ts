@@ -564,14 +564,14 @@ export class Converter {
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
     const processor = new PathProcessor(path)
-    const { regions } = processor.process()
+    const processedPath = processor.process()
 
     const operations: KclOperation[] = []
 
-    for (const region of regions) {
+    for (const region of processedPath.regions) {
       // Get commands for only this region's fragments
       const regionFragments = region.fragmentIds
-        .map((id) => processor.getFragment(id))
+        .map((id) => processedPath.getFragment(id))
         .filter((fragment) => fragment !== undefined) // Ensure valid fragments
 
       const regionCommands = processor.getCommandsForFragments(regionFragments)

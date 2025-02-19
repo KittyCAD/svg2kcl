@@ -67,10 +67,20 @@ import {
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
 
-interface ProcessedPath {
-  fragments: PathFragment[]
-  fragmentMap: FragmentMap
-  regions: PathRegion[]
+export class ProcessedPath {
+  constructor(
+    private readonly fragmentMap: FragmentMap,
+    public readonly regions: PathRegion[],
+    public readonly commands: PathCommand[]
+  ) {}
+
+  public getFragment(id: string): PathFragment {
+    const fragment = this.fragmentMap.get(id)
+    if (!fragment) {
+      throw new Error(`Fragment ${id} not found.`)
+    }
+    return fragment
+  }
 }
 
 export class PathProcessor {
@@ -82,9 +92,9 @@ export class PathProcessor {
     this.fillRule = element.fillRule as FillRule
   }
 
-  public process(): { regions: PathRegion[]; commands: PathCommand[] } {
+  public process(): ProcessedPath {
     if (this.fillRule === FillRule.EvenOdd) {
-      return { regions: [], commands: this.inputCommands }
+      return new ProcessedPath(new Map(), [], this.inputCommands)
     }
 
     // Analyze path structure and find intersections.
@@ -102,8 +112,10 @@ export class PathProcessor {
     const orderedRegions = orderRegions(finalRegions)
     const commands = this.generateCommands(fragmentMap, orderedRegions)
 
-    return { regions: orderedRegions, commands }
+    return new ProcessedPath(fragmentMap, orderedRegions, commands)
   }
+
+  // -----------------------------------------------------------------------------------
 
   private analyzePath(): {
     pathCommands: PathCommandEnriched[]
@@ -176,6 +188,9 @@ export class PathProcessor {
 
     return commands
   }
+
+  // Some utilities.
+  // -----------------------------------------------------------------------------------
 
   private convertFragmentsToCommands(fragments: PathFragment[]): PathCommand[] {
     const commands: PathCommand[] = []
@@ -254,9 +269,6 @@ export class PathProcessor {
   public getCommandsForFragments(fragments: PathFragment[]): PathCommand[] {
     return this.convertFragmentsToCommands(fragments)
   }
-
-  // Some utilities.
-  // -----------------------------------------------------------------------------------
 
   private findCommandIndexForPoint(commands: PathCommandEnriched[], iPoint: number): number {
     // Look through commands to find which one contains this point index.
@@ -372,8 +384,6 @@ export class PathProcessor {
     return allIntersections
   }
 
-  // First pass.
-  // -----------------------------------------------------------------------------------
   private buildSplitPlan(
     pathCommands: PathCommandEnriched[],
     intersections: Intersection[]

@@ -194,6 +194,46 @@ export class BezierUtils {
     }
   }
 
+  public static splitCubicBezierRange(
+    {
+      start,
+      control1,
+      control2,
+      end
+    }: { start: Point; control1: Point; control2: Point; end: Point },
+    t1: number,
+    t2: number
+  ): SplitBezierRangeResult {
+    if (t1 > t2) {
+      throw new Error('Invalid split parameters: t1 must be less than t2.')
+    }
+
+    // First split at t2 (point further along the curve).
+    const splitT2 = BezierUtils.splitCubicBezier({ start, control1, control2, end }, t2)
+    const beforeT2 = splitT2.first // [start, p01, p02, splitPoint2]
+    const afterT2 = splitT2.second // [splitPoint2, p12, p21, end]
+
+    // Then split the first portion at t1/t2 to get the range.
+    const relativeT1 = t1 / t2 // Normalize t1 relative to t2.
+    const splitT1 = BezierUtils.splitCubicBezier(
+      {
+        start: beforeT2[0], // original start
+        control1: beforeT2[1], // p01
+        control2: beforeT2[2], // p02
+        end: beforeT2[3] // splitPoint2
+      },
+      relativeT1
+    )
+
+    return {
+      before: splitT1.first, // Curve segment [0, t1].
+      range: splitT1.second, // Curve segment [t1, t2].
+      after: afterT2, // Curve segment [t2, 1].
+      splitPoint1: splitT1.splitPoint, // Point at t1.
+      splitPoint2: splitT2.splitPoint // Point at t2.
+    }
+  }
+
   public static splitQuadraticBezierSmooth(
     { start, prevControl, end }: { start: Point; prevControl?: Point; end: Point },
     t: number

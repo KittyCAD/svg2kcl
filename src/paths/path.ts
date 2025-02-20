@@ -52,6 +52,42 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         currentPoint = command.endPositionAbsolute
         break
       }
+
+      case PathCommandType.CubicBezierAbsolute:
+      case PathCommandType.CubicBezierRelative: {
+        // Get absolute control points.
+        let [x1, y1, x2, y2] = command.parameters
+        if (command.type === PathCommandType.CubicBezierRelative) {
+          x1 += currentPoint.x
+          y1 += currentPoint.y
+          x2 += currentPoint.x
+          y2 += currentPoint.y
+        }
+        // Sample the curve.
+        const sampledPoints = BezierUtils.sampleCubicBezier(
+          currentPoint,
+          { x: x1, y: y1 },
+          { x: x2, y: y2 },
+          command.endPositionAbsolute
+        )
+        points.push(...sampledPoints)
+        currentPoint = command.endPositionAbsolute
+        break
+      }
+      // TODO: Smooth beziers.
+
+      case PathCommandType.StopAbsolute:
+      case PathCommandType.StopRelative:
+        // Take no commands; effect is the same: close.
+        // https://www.w3.org/TR/SVG2/paths.html#PathDataClosePathCommand
+
+        // "A path data segment (if there is one) must begin with a "moveto" command"
+        // So we can grab the end of the first move, and push a point there to close.
+        // https://www.w3.org/TR/SVG11/paths.html#PathDataMovetoCommands
+        points.push(inputCommands[0].endPositionAbsolute)
+        break
+      default:
+        throw new Error(`Unsupported command type: ${command}`)
     }
 
     // Get the (global point set) index of this command's last point.

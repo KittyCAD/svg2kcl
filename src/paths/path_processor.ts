@@ -86,7 +86,7 @@ export class PathProcessor {
     }
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
-    const regions = this.buildRegions(fragments, fragmentMap)
+    const regions = identifyClosedRegions(fragments, fragmentMap)
 
     /// Handle fill rule.
     let processedRegions: PathRegion[] = []
@@ -136,10 +136,6 @@ export class PathProcessor {
     }
 
     return { fragments, fragmentMap }
-  }
-
-  private buildRegions(fragments: PathFragment[], fragmentMap: FragmentMap): PathRegion[] {
-    return identifyClosedRegions(fragments, fragmentMap)
   }
 
   private cleanup(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {

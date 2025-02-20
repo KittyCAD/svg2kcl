@@ -32,6 +32,7 @@ import { connectFragments } from './fragments/connector'
 import { PathFragment } from './fragments/fragment'
 import { samplePath } from './path'
 import { identifyClosedRegions, orderRegions } from './regions'
+import { detectAllPlanarFaces } from './half_edge'
 import { subdivideCommand } from './subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
@@ -48,7 +49,7 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
-import { exportPointsToCSV } from '../utils/debug'
+// import { exportPointsToCSV } from '../utils/debug'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -75,7 +76,7 @@ export class PathProcessor {
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
 
-    exportPointsToCSV(subpaths[1].samplePoints, 'subpath1.csv')
+    // exportPointsToCSV(subpaths[1].samplePoints, 'subpath1.csv')
 
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
@@ -86,7 +87,8 @@ export class PathProcessor {
     }
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
-    const regions = identifyClosedRegions(fragments, fragmentMap)
+    // const regions = identifyClosedRegions(fragments, fragmentMap)
+    const regions = detectAllPlanarFaces(fragments, fragmentMap)
 
     /// Handle fill rule.
     let processedRegions: PathRegion[] = []

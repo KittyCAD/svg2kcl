@@ -313,3 +313,18 @@ export function computeTangentToCubicFragment(fragment: PathFragment, t: number)
       3 * t ** 2 * (end.y - control2!.y)
   }
 }
+
+export function computeAngleBetweenVectors(
+  v1: { x: number; y: number },
+  v2: { x: number; y: number }
+): number {
+  // See: calculateConnectionAngle
+  // Calculate cross and dot products.
+  const cross = v1.x * v2.y - v1.y * v2.x
+  const dot = v1.x * v2.x + v1.y * v2.y
+
+  // Compute signed angle in radians (range [-π, π]).
+  // Positive angle = counterclockwise rotation from v2 to v1.
+  // Negative angle = clockwise rotation from v2 to v1.
+  return Math.atan2(cross, dot)
+}

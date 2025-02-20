@@ -2,26 +2,27 @@ import { promises as fs } from 'node:fs'
 import { SvgReader } from './reader/base'
 import { KclOptions } from './types/kcl'
 import { KclWriter } from './writer/base'
+import { Converter } from './writer/converter'
 
 export async function convertSvgToKcl(
   input: File | string,
-  outputPath: string | null,
+  outputPath: string,
   options: KclOptions = {}
 ): Promise<string> {
   // Read SVG content.
   const content = typeof input === 'string' ? await fs.readFile(input, 'utf8') : await input.text()
 
-  // Parse and convert.
+  // Parse.
   const svgReader = new SvgReader()
   const svg = svgReader.readString(content)
 
-  const writer = new KclWriter(svg, options)
-  const result = writer.write()
+  // Convert.
+  const converter = new Converter(options, svg.viewBox)
+  const convertedElements = converter.convertElements(svg.elements)
 
-  // Write to file if outputPath provided.
-  if (outputPath) {
-    await fs.writeFile(outputPath, result, 'utf8')
-  }
+  // Write.
+  const writer = new KclWriter()
+  const result = await writer.formatAndWrite(convertedElements, outputPath)
 
   return result
 }

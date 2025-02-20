@@ -11,7 +11,7 @@ import {
 } from '../types/elements'
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
-import { Transform } from '../utils/transform'
+import { getCombinedTransform, Transform } from '../utils/transform'
 import { PathProcessor } from './path_processor'
 
 export class ConverterError extends Error {
@@ -507,61 +507,6 @@ export class Converter {
     return operations
   }
 
-  private sanitizeSubpaths(subpaths: { commands: PathCommand[] }[]): { commands: PathCommand[] }[] {
-    return subpaths.map((subpath) => ({
-      commands: this.ensureClosedCommands(subpath.commands)
-    }))
-  }
-
-  private ensureClosedCommands(commands: PathCommand[]): PathCommand[] {
-    if (commands.length === 0) return commands
-
-    const first = commands[0]
-    const last = commands[commands.length - 1]
-
-    // If already properly closed with a Stop command that matches start, return as is.
-    if (
-      (last.type === PathCommandType.StopAbsolute || last.type === PathCommandType.StopRelative) &&
-      last.endPositionAbsolute.x === first.endPositionAbsolute.x &&
-      last.endPositionAbsolute.y === first.endPositionAbsolute.y
-    ) {
-      return commands
-    }
-
-    // Add closing line if needed.
-    const result = [...commands]
-
-    // Trim out current close, if it exists.
-    if (last.type === PathCommandType.StopAbsolute || last.type === PathCommandType.StopRelative) {
-      result.pop()
-    }
-
-    // If last point doesn't match first point, add line to close.
-    if (
-      last.endPositionAbsolute.x !== first.endPositionAbsolute.x ||
-      last.endPositionAbsolute.y !== first.endPositionAbsolute.y
-    ) {
-      const dx = first.endPositionAbsolute.x - last.endPositionAbsolute.x
-      const dy = first.endPositionAbsolute.y - last.endPositionAbsolute.y
-      result.push({
-        type: PathCommandType.LineRelative,
-        parameters: [dx, dy],
-        startPositionAbsolute: last.endPositionAbsolute,
-        endPositionAbsolute: first.endPositionAbsolute
-      })
-    }
-
-    // Ensure it ends with a Stop command.
-    result.push({
-      type: PathCommandType.StopAbsolute,
-      parameters: [],
-      startPositionAbsolute: first.endPositionAbsolute,
-      endPositionAbsolute: first.endPositionAbsolute
-    })
-
-    return result
-  }
-
   private convertPathToKclOps(path: PathElement): KclOperation[] {
     const processor = new PathProcessor(path)
     const processedPath = processor.process()
@@ -782,5 +727,44 @@ export class Converter {
         throw new ConverterError(`Unsupported element type: ${(element as any).type}`)
       }
     }
+  }
+
+  private flattenElements(elements: Element[]): Element[] {
+    // Flattens elements and combines their transforms correctly.
+    const flattened: Element[] = []
+
+    const processElement = (element: Element) => {
+      if (element.type === ElementType.Group) {
+        // Process each child of the group.
+        element.children.forEach((child) => processElement(child))
+      } else {
+        // Get combined transform using utility function.
+        const combinedTransform = getCombinedTransform(elements, element)
+
+        // Add the element with its combined transform.
+        flattened.push({
+          ...element,
+          transform: combinedTransform
+        })
+      }
+    }
+
+    // Process all root elements.
+    elements.forEach((element) => processElement(element))
+    return flattened
+  }
+
+  public convertElements(elements: Element[]): KclOperation[][] {
+    const output: KclOperation[][] = []
+    const flatElements = this.flattenElements(elements)
+
+    for (const element of flatElements) {
+      const operations = this.convertElement(element)
+      if (operations.length > 0) {
+        output.push(operations)
+      }
+    }
+
+    return output
   }
 }

@@ -15,7 +15,8 @@
 //
 // Step 3 - Region Analysis:
 // - Build closed regions from connected fragments.
-// - Compute winding numbers for each region.
+// - Compute winding numbers (for nonzero).
+// - Determine whether each region should be a hole or not.
 // - Clean up regions:
 //   - Remove redundant regions, i.e. wholly contained non-hole regions.
 //

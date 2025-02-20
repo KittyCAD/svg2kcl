@@ -332,6 +332,8 @@ export class PathProcessor {
   private findAllIntersections(subpaths: Subpath[]): Intersection[] {
     const allIntersections: Intersection[] = []
 
+    // TODO: (Maybe) Make these algebraic and not based on sampled points.
+
     // Find intersections within each subpath
     for (const subpath of subpaths) {
       const internalIntersections = findSelfIntersections(subpath.samplePoints)

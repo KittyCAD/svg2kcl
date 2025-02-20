@@ -1,6 +1,6 @@
 import { PathFragment } from '../paths/fragments/fragment'
 import { getRegionPoints } from '../paths/regions'
-import { Point } from '../types/base'
+import { FillRule, Point } from '../types/base'
 import { FragmentMap } from '../types/fragments'
 import { PathRegion } from '../types/regions'
 import { getBoundingBoxArea, isPolygonInsidePolygon } from './geometry'
@@ -10,17 +10,19 @@ interface ContainmentInfo {
   containedBy: PathRegion[]
 }
 
-export class WindingAnalyzer {
+abstract class RegionAnalyzer {
   private readonly fragmentMap: FragmentMap
 
   constructor(fragments: PathFragment[]) {
     this.fragmentMap = new Map(fragments.map((f) => [f.id, f]))
   }
 
-  public analyzeRegions(regions: PathRegion[]): void {
+  public analyzeRegions(regions: PathRegion[]): PathRegion[] {
     this.calculateBasicWinding(regions)
     const containmentInfo = this.findContainmentRelationships(regions)
     this.resolveContainmentHierarchy(containmentInfo)
+
+    return regions
   }
 
   private getPolygonWinding(points: Point[]): number {
@@ -90,6 +92,10 @@ export class WindingAnalyzer {
     )
   }
 
+  abstract resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void
+}
+
+export class WindingAnalyzer extends RegionAnalyzer {
   private calculateCumulativeWinding(
     region: PathRegion,
     regionsMap: Map<string, PathRegion>
@@ -107,7 +113,7 @@ export class WindingAnalyzer {
     return winding
   }
 
-  private resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void {
+  public resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void {
     const regionsMap = new Map(containmentInfo.map((info) => [info.region.id, info.region]))
 
     for (const { region, containedBy } of containmentInfo) {
@@ -128,6 +134,38 @@ export class WindingAnalyzer {
 
       // Nonzero.
       region.isHole = totalWindingNumber === 0
+    }
+  }
+}
+
+export class EvenOddAnalyzer extends RegionAnalyzer {
+  public resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void {
+    const regionsMap = new Map(containmentInfo.map((info) => [info.region.id, info.region]))
+
+    for (const { region, containedBy } of containmentInfo) {
+      if (containedBy.length === 0) {
+        region.parentRegionId = undefined
+        region.isHole = false
+        continue
+      }
+
+      containedBy.sort(
+        (a, b) => getBoundingBoxArea(a.boundingBox) - getBoundingBoxArea(b.boundingBox)
+      )
+      const immediateParent = containedBy[0]
+      region.parentRegionId = immediateParent.id
+
+      // Count nesting level by walking up the parent chain
+      let nestingLevel = 0
+      let currentRegion = region
+      while (currentRegion.parentRegionId) {
+        nestingLevel++
+        currentRegion = regionsMap.get(currentRegion.parentRegionId)!
+      }
+
+      // Even-odd rule: alternate between fill/hole based on nesting level
+      region.isHole = nestingLevel % 2 === 0
+      region.totalWindingNumber = nestingLevel // Store nesting level for debugging
     }
   }
 }

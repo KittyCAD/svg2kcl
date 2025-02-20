@@ -44,7 +44,7 @@ import {
   Intersection,
   isPolygonInsidePolygon
 } from '../utils/geometry'
-import { WindingAnalyzer } from '../utils/winding'
+import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/winding'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
 
@@ -70,10 +70,6 @@ export class PathProcessor {
   }
 
   public process(): ProcessedPath {
-    if (this.fillRule === FillRule.EvenOdd) {
-      return new ProcessedPath(new Map(), [])
-    }
-
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
 
@@ -87,7 +83,18 @@ export class PathProcessor {
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = this.buildRegions(fragments, fragmentMap)
-    const processedRegions = this.computeWinding(fragments, regions)
+
+    /// Handle fill rule.
+    let processedRegions: PathRegion[] = []
+    if (this.fillRule === FillRule.NonZero) {
+      const windingAnalyzer = new WindingAnalyzer(fragments)
+      processedRegions = windingAnalyzer.analyzeRegions(regions)
+    } else if (this.fillRule === FillRule.EvenOdd) {
+      const evenOddAnalyzer = new EvenOddAnalyzer(fragments)
+      processedRegions = evenOddAnalyzer.analyzeRegions(regions)
+    }
+
+    // Trim out redundant regions.
     const finalRegions = this.cleanup(fragments, processedRegions)
 
     // Convert to commands for KCL output.
@@ -129,12 +136,6 @@ export class PathProcessor {
 
   private buildRegions(fragments: PathFragment[], fragmentMap: FragmentMap): PathRegion[] {
     return identifyClosedRegions(fragments, fragmentMap)
-  }
-
-  private computeWinding(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {
-    const analyzer = new WindingAnalyzer(fragments)
-    analyzer.analyzeRegions(regions)
-    return regions
   }
 
   private cleanup(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {

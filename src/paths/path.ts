@@ -15,6 +15,9 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
     // Get the (global point set) index of this command's first point.
     const iFirstPoint = points.length
 
+    // Store the current iteration's previousControlPoint before processing the command.
+    const currentPreviousControlPoint = { ...previousControlPoint }
+
     switch (command.type) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.MoveRelative: {
@@ -167,7 +170,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       iFirstPoint,
       iLastPoint,
       iCommand: i,
-      previousControlPoint: previousControlPoint
+      previousControlPoint: currentPreviousControlPoint
     })
   }
 

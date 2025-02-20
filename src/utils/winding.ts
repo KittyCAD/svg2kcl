@@ -11,7 +11,7 @@ interface ContainmentInfo {
 }
 
 abstract class RegionAnalyzer {
-  private readonly fragmentMap: FragmentMap
+  protected readonly fragmentMap: FragmentMap
 
   constructor(fragments: PathFragment[]) {
     this.fragmentMap = new Map(fragments.map((f) => [f.id, f]))
@@ -149,23 +149,37 @@ export class EvenOddAnalyzer extends RegionAnalyzer {
         continue
       }
 
+      // Find the smallest region that fully contains this region.
       containedBy.sort(
         (a, b) => getBoundingBoxArea(a.boundingBox) - getBoundingBoxArea(b.boundingBox)
       )
-      const immediateParent = containedBy[0]
+
+      const immediateParent = containedBy.find((candidate) =>
+        isPolygonInsidePolygon(
+          getRegionPoints(region, this.fragmentMap),
+          getRegionPoints(candidate, this.fragmentMap)
+        )
+      )
+
+      if (!immediateParent) {
+        region.parentRegionId = undefined
+        region.isHole = false
+        continue
+      }
+
       region.parentRegionId = immediateParent.id
 
-      // Count nesting level by walking up the parent chain
-      let nestingLevel = 0
-      let currentRegion = region
+      // Get nesting level.
+      let nestingLevel = 1
+      let currentRegion = immediateParent
+
       while (currentRegion.parentRegionId) {
         nestingLevel++
         currentRegion = regionsMap.get(currentRegion.parentRegionId)!
       }
 
-      // Even-odd rule: alternate between fill/hole based on nesting level
-      region.isHole = nestingLevel % 2 === 0
-      region.totalWindingNumber = nestingLevel // Store nesting level for debugging
+      // Even-odd rule: alternate between fill/hole based on nesting level.
+      region.isHole = nestingLevel % 2 !== 0
     }
   }
 }

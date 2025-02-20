@@ -70,6 +70,7 @@ export interface PathCommandEnriched extends PathCommand {
   iFirstPoint: number // Index of the first point of this command in the global path sample array.
   iLastPoint: number // Index of the last point of this command in the global path sample array.
   iCommand: number // Index of this command in the global path command array.
+  previousControlPoint?: Point // Last control point for the previous Bezier command.
 }
 
 export interface Subpath {

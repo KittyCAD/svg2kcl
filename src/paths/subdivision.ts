@@ -25,9 +25,17 @@ export function subdivideCommand(
     case PathCommandType.QuadraticBezierRelative:
       output = subdivideQuadratic(command, tMin, tMax)
       break
+    case PathCommandType.QuadraticBezierSmoothAbsolute:
+    case PathCommandType.QuadraticBezierSmoothRelative:
+      output = subdivideQuadraticSmooth(command, tMin, tMax)
+      break
     case PathCommandType.CubicBezierAbsolute:
     case PathCommandType.CubicBezierRelative:
       output = subdivideCubic(command, tMin, tMax)
+      break
+    case PathCommandType.CubicBezierSmoothAbsolute:
+    case PathCommandType.CubicBezierSmoothRelative:
+      output = subdivideCubicSmooth(command, tMin, tMax)
       break
   }
 
@@ -106,6 +114,54 @@ export function subdivideQuadratic(
   return result
 }
 
+export function subdivideQuadraticSmooth(
+  cmd: PathCommandEnriched,
+  tMin: number,
+  tMax: number
+): PathFragment {
+  // For smooth quadratic Bézier, we only get the end point as parameter
+  // The control point is reflected from the previous control point.
+  const startPoint = cmd.startPositionAbsolute
+  const x = cmd.parameters[0]
+  const y = cmd.parameters[1]
+
+  // Get end point, converting to absolute if needed.
+  const isRelative = cmd.type === PathCommandType.QuadraticBezierSmoothRelative
+  let endPoint = { x, y }
+  if (isRelative) {
+    endPoint = {
+      x: x + startPoint.x,
+      y: y + startPoint.y
+    }
+  }
+
+  // Calculate the reflected control point.
+  const reflectedControlPoint = BezierUtils.calculateReflectedControlPoint(
+    cmd.previousControlPoint!,
+    startPoint
+  )
+
+  // Split using the reflected control point.
+  const splitResult = BezierUtils.splitQuadraticBezierRange(
+    { start: startPoint, control: reflectedControlPoint, end: endPoint },
+    tMin,
+    tMax
+  )
+
+  // Pull results — only the curve fragment in our range.
+  const startOut = splitResult.range[0]
+  const controlOut = splitResult.range[1]
+  const endOut = splitResult.range[2]
+
+  return new PathFragment({
+    type: PathFragmentType.Quad,
+    start: startOut,
+    control1: controlOut,
+    end: endOut,
+    iCommand: cmd.iCommand
+  })
+}
+
 export function subdivideCubic(cmd: PathCommandEnriched, tMin: number, tMax: number): PathFragment {
   // Get relative flag.
   const isRelative = cmd.type === PathCommandType.CubicBezierRelative
@@ -140,6 +196,69 @@ export function subdivideCubic(cmd: PathCommandEnriched, tMin: number, tMax: num
   }
 
   // Split.
+  const splitResult = BezierUtils.splitCubicBezierRange(
+    {
+      start: startPoint,
+      control1: control1Point,
+      control2: control2Point,
+      end: endPoint
+    },
+    tMin,
+    tMax
+  )
+
+  // Pull results — only the curve fragment in our range.
+  const startOut = splitResult.range[0]
+  const control1Out = splitResult.range[1]
+  const control2Out = splitResult.range[2]
+  const endOut = splitResult.range[3]
+
+  return new PathFragment({
+    type: PathFragmentType.Cubic,
+    start: startOut,
+    control1: control1Out,
+    control2: control2Out,
+    end: endOut,
+    iCommand: cmd.iCommand
+  })
+}
+
+export function subdivideCubicSmooth(
+  cmd: PathCommandEnriched,
+  tMin: number,
+  tMax: number
+): PathFragment {
+  // For smooth cubic Bézier, we get the second control point and end point.
+  // The first control point is reflected from the previous second control point.
+  const startPoint = cmd.startPositionAbsolute
+  const x2 = cmd.parameters[0]
+  const y2 = cmd.parameters[1]
+  const x = cmd.parameters[2]
+  const y = cmd.parameters[3]
+
+  // Get points, converting to absolute if needed.
+  const isRelative = cmd.type === PathCommandType.CubicBezierSmoothRelative
+  let control2Point = { x: x2, y: y2 }
+  let endPoint = { x, y }
+
+  if (isRelative) {
+    control2Point = {
+      x: x2 + startPoint.x,
+      y: y2 + startPoint.y
+    }
+    endPoint = {
+      x: x + startPoint.x,
+      y: y + startPoint.y
+    }
+  }
+
+  // Calculate the first control point, reflecting the previous second control point.
+  const control1Point = BezierUtils.calculateReflectedControlPoint(
+    cmd.previousControlPoint!,
+    startPoint
+  )
+
+  // Split using both control points.
   const splitResult = BezierUtils.splitCubicBezierRange(
     {
       start: startPoint,

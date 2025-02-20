@@ -48,6 +48,7 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
+import { exportPointsToCSV } from '../utils/debug'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -73,6 +74,8 @@ export class PathProcessor {
   public process(): ProcessedPath {
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
+
+    exportPointsToCSV(subpaths[1].samplePoints, 'subpath1.csv')
 
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
@@ -359,7 +362,14 @@ export class PathProcessor {
   ): Map<number, number[]> {
     const splitPlan = new Map<number, number[]>()
 
+    // The hard case here is when we have a path composed of two Beziers that
+    // 'oscillate' around a straight line. For that case, if the Bezier crosses
+    // the line twice, we expect to turn three commands and two intersection points
+    // into six fragments.
+
+    // First collect all intersection points for each command.
     for (const intersection of intersections) {
+      // Get command indices.
       const iCommandA = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentA)
       const iCommandB = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentB)
 
@@ -381,9 +391,18 @@ export class PathProcessor {
       splitPlan.get(iCommandB)!.push(tB)
     }
 
-    // Sort all t-values
-    for (const tValues of splitPlan.values()) {
-      tValues.sort((a, b) => a - b)
+    // Sort and deduplicate t-values for each command.
+    for (const [cmdIndex, tValues] of splitPlan.entries()) {
+      // Sort numerically.
+      const uniqueValues = Array.from(new Set(tValues)).sort((a, b) => a - b)
+
+      // Ensure we don't have any t-values too close together.
+      const filteredValues = uniqueValues.filter((t, i) => {
+        if (i === 0) return true
+        return Math.abs(t - uniqueValues[i - 1]) > EPSILON_INTERSECT
+      })
+
+      splitPlan.set(cmdIndex, filteredValues)
     }
 
     return splitPlan
@@ -427,7 +446,7 @@ export class PathProcessor {
       }
     }
 
-    // Add closing fragment if needed
+    // Add closing fragment if needed.
     if (fragments.length > 0) {
       const firstPoint = fragments[0].start
       const lastPoint = fragments[fragments.length - 1].end

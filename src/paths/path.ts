@@ -2,20 +2,6 @@ import { Point } from '../types/base'
 import { PathCommandEnriched, PathCommand, PathCommandType, PathSampleResult } from '../types/paths'
 import { BezierUtils } from '../utils/bezier'
 
-const quadratics = [
-  PathCommandType.QuadraticBezierAbsolute,
-  PathCommandType.QuadraticBezierRelative,
-  PathCommandType.QuadraticBezierSmoothAbsolute,
-  PathCommandType.QuadraticBezierSmoothRelative
-]
-
-const cubics = [
-  PathCommandType.CubicBezierAbsolute,
-  PathCommandType.CubicBezierRelative,
-  PathCommandType.CubicBezierSmoothAbsolute,
-  PathCommandType.CubicBezierSmoothRelative
-]
-
 export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
   const points: Point[] = []
   const commands: PathCommandEnriched[] = []
@@ -180,7 +166,8 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       ...command,
       iFirstPoint,
       iLastPoint,
-      iCommand: i
+      iCommand: i,
+      previousControlPoint: previousControlPoint
     })
   }
 

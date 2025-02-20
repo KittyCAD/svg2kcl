@@ -67,6 +67,7 @@ import {
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
 import { sampleFragment } from '../paths/fragments/fragment'
+import { getRegionPoints } from '../paths/regions'
 
 export class ProcessedPath {
   constructor(
@@ -158,14 +159,13 @@ export class PathProcessor {
 
   private computeWinding(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {
     const analyzer = new WindingAnalyzer(fragments)
-    analyzer.computeWindingNumbers(regions)
-    analyzer.assignParentRegions(regions)
+    analyzer.analyzeRegions(regions)
     return regions
   }
 
   private cleanup(fragments: PathFragment[], regions: PathRegion[]): PathRegion[] {
-    const analyzer = new WindingAnalyzer(fragments)
     const regionsToRemove = new Set<string>()
+    const fragmentMap = new Map(fragments.map((f) => [f.id, f]))
 
     for (const region of regions) {
       if (region.isHole) continue
@@ -173,8 +173,8 @@ export class PathProcessor {
       const parentRegion = regions.find((r) => r.id === region.parentRegionId)
       if (!parentRegion) continue
 
-      const regionPoints = analyzer.getRegionPoints(region)
-      const parentPoints = analyzer.getRegionPoints(parentRegion)
+      const regionPoints = getRegionPoints(region, fragmentMap)
+      const parentPoints = getRegionPoints(parentRegion, fragmentMap)
 
       if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
         regionsToRemove.add(region.id)

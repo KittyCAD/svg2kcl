@@ -5,6 +5,7 @@ import { Point } from '../types/base'
 import { computePointToPointDistance } from '../utils/geometry'
 import { PathRegion } from '../types/regions'
 import { FragmentMap } from '../types/fragments'
+// import { exportPointsToCSV } from '../utils/debug'
 
 export function identifyClosedRegions(
   fragments: PathFragment[],
@@ -34,7 +35,8 @@ export function identifyClosedRegions(
             boundingBox: calculateBoundingBox(loop, fragmentMap),
             testPoint: calculateTestPoint(loop, fragmentMap),
             isHole: false,
-            windingNumber: 0
+            basicWindingNumber: 0,
+            totalWindingNumber: 0
           })
           processedLoops.add(loopKey)
         }
@@ -161,4 +163,23 @@ export function orderRegions(regions: PathRegion[]): PathRegion[] {
   }
 
   return orderedRegions
+}
+
+export function getRegionPoints(region: PathRegion, fragmentMap: FragmentMap): Point[] {
+  //  Extracts the ordered boundary points of a region based on its fragment IDs.
+  //  This ensures the path reconstruction follows the original path direction.
+  const points: Point[] = []
+
+  for (const fragmentId of region.fragmentIds) {
+    const fragment = fragmentMap.get(fragmentId)
+    if (!fragment) continue
+
+    if (!fragment.sampledPoints) {
+      throw new Error('Fragment has no sampled points')
+    }
+    points.push(...fragment.sampledPoints)
+  }
+
+  // exportPointsToCSV(points)
+  return points
 }

@@ -6,7 +6,8 @@ export interface PathRegion {
   boundingBox: { xMin: number; yMin: number; xMax: number; yMax: number }
   testPoint: Point // A point inside the region for winding calculation.
   isHole: boolean
-  windingNumber: number
+  basicWindingNumber: number
+  totalWindingNumber: number
   parentRegionId?: string
   neighborRegionIds?: Set<string>
 }

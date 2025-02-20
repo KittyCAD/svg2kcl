@@ -12,7 +12,7 @@ import {
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
-import { PathProcessor } from './path_processor'
+import { PathProcessor } from '../paths/path_processor'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -26,7 +26,6 @@ export class Converter {
   private currentPoint: Point = { x: 0, y: 0 }
   private readonly offsetCoords: Point
   private readonly options: KclOptions
-  // private readonly windingAnalyzer: WindingAnalyzer
 
   constructor(options: KclOptions = {}, viewBox: ViewBox) {
     // Calculate offset coordinates for centering if requested.
@@ -34,9 +33,6 @@ export class Converter {
     const yOffset = viewBox.yMin + viewBox.height / 2
     this.offsetCoords = { x: xOffset, y: yOffset }
     this.options = options
-
-    // Initialize winding analyzer.
-    // this.windingAnalyzer = new WindingAnalyzer()
   }
 
   // Utilities used in conversion.

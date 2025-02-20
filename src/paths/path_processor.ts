@@ -48,11 +48,11 @@
 //
 
 import { EPSILON_INTERSECT } from '../constants'
-import { connectFragments } from '../paths/fragments/connector'
-import { PathFragment } from '../paths/fragments/fragment'
-import { samplePath } from '../paths/path'
-import { identifyClosedRegions, orderRegions } from '../paths/regions'
-import { subdivideCommand } from '../paths/subdivision'
+import { connectFragments } from './fragments/connector'
+import { PathFragment } from './fragments/fragment'
+import { samplePath } from './path'
+import { identifyClosedRegions, orderRegions } from './regions'
+import { subdivideCommand } from './subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FragmentMap, PathFragmentType } from '../types/fragments'
@@ -66,8 +66,8 @@ import {
   isPolygonInsidePolygon
 } from '../utils/geometry'
 import { WindingAnalyzer } from '../utils/winding'
-import { sampleFragment } from '../paths/fragments/fragment'
-import { getRegionPoints } from '../paths/regions'
+import { sampleFragment } from './fragments/fragment'
+import { getRegionPoints } from './regions'
 
 export class ProcessedPath {
   constructor(

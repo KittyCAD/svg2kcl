@@ -504,38 +504,39 @@ export class Converter {
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
+    // Process path to regions and fragments.
     const processor = new PathProcessor(path)
     const processedPath = processor.process()
 
     const operations: KclOperation[] = []
 
     for (const region of processedPath.regions) {
-      // Get commands for only this region's fragments
+      // Get commands for only this region's fragments.
       const regionFragments = region.fragmentIds
         .map((id) => processedPath.getFragment(id))
-        .filter((fragment) => fragment !== undefined) // Ensure valid fragments
+        .filter((fragment) => fragment !== undefined) // Ensure valid fragments.
 
-      const regionCommands = processor.getCommandsForFragments(regionFragments)
+      const regionCommands = processor.convertFragmentsToCommands(regionFragments)
 
-      // Convert commands to KCL operations
+      // Convert commands to KCL operations. Our fragments are presented as equivalent
+      // to path commands coming from the SVG.
       const kclOps = this.convertPathCommandsToKclOps(regionCommands, path.transform!)
 
       if (region.isHole) {
-        // Holes should be wrapped inside a `Hole` operation
+        // Holes should be wrapped inside a `hole` operation.
         if (operations.length > 0) {
           operations.push({ type: KclOperationType.Hole, params: { operations: kclOps } })
         } else {
           console.warn(`Orphan hole detected: ${region.id}`) // Should not happen in a valid hierarchy
         }
       } else {
-        // Parent regions are added normally
+        // Parent regions are added normally.
         operations.push(...kclOps)
       }
     }
 
     return operations
   }
-
   private convertRectangleToKclOps(rect: RectangleElement): KclOperation[] {
     const operations: KclOperation[] = []
     const { x, y, width, height, rx, ry } = rect

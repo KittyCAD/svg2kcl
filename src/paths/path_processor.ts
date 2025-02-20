@@ -1,51 +1,30 @@
-// So I think the broad process here will involve three passes:
+// Broad process here is:
 //
-// First Pass - Path Analysis:
-// - Walk path collecting all points/commands using buildPath().
-// - Find all self-intersections using findSelfIntersections().
-// - Create list of path segments/fragments between intersections.
-//   - These mean path fragments are aware of which other fragments they connect to,
-//     and by walking these fragments, we can identify closed regions.
-// - Create region graph where each closed region has:
-//   - Boundary points.
-//   - Contributing path segments with references to original commands.
-//   - References to neighbouring regions (optional, but would make subsequent steps
-//     for hole identification more efficient).
-//   - Initial fill status (unset).
+// Step 1 - Path Analysis:
+// - Identify subpaths by finding Move commands.
+// - Sample path into points for intersection testing.
+// - Find all intersections:
+//   - Self-intersections within each subpath.
+//   - Intersections between different subpaths.
 //
-// Second Pass - Winding Calculation:
-// - For each region:
-//   - Pick a test point inside the region (e.g., centroid).
-//   - Cast ray to right from test point.
-//   - Walk original path in order, counting signed crossings:
-//     - +1 for upward crossing with point on left.
-//     - -1 for downward crossing with point on right.
-//   - Store winding number for region.
-//   - Set fill status based on winding number (!= 0 means fill, hence 'nonzero').
+// Step 2 - Fragment Creation:
+// - Build split plan mapping command indices to t-values.
+// - Create path fragments from subpaths using split plan.
+// - Build lists of viable fragment connections.
+// - Sample points along each fragment.
 //
-// Third Pass - Region Relationship Analysis:
-// Because our kcl `hole` command is a hole in _something_, we need to know about
-// parent-child relationships between regions. So:
-// - For each unfilled region (wn = 0):
-//   - Find all neighboring filled regions.
-//   - Determine which filled region this is a hole in.
-//   - Store parent-child relationship between regions.
+// Step 3 - Region Analysis:
+// - Build closed regions from connected fragments.
+// - Compute winding numbers for each region.
+// - Clean up regions:
+//   - Remove redundant regions, i.e. wholly contained non-hole regions.
 //
-// Fourth Pass - Region Processing:
-// - Process regions in correct order:
-//   - Start with outermost filled regions.
-//   - For each filled region:
-//     - Generate its sketch commands.
-//     - Generate hole commands for all holes belonging to this region.
-//     - Ensure each hole command references its parent sketch.
-//   - Move to next filled region.
+// Output:
+// - FragmentMap: Connected path fragments.
+// - Regions: Ordered list of regions with hierarchy.
 //
-// Finally:
-// - Return processed commands where:
-//   - Each hole is properly associated with its parent shape
-//   - Holes are cut from the correct shapes
-//   - Order guarantees parent shapes exist before their holes
-//
+// We also expose methods for converting fragments to commands, which we call
+// from 'above' on a per-region basis.
 
 import { EPSILON_INTERSECT } from '../constants'
 import { connectFragments } from './fragments/connector'
@@ -70,11 +49,7 @@ import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
 
 export class ProcessedPath {
-  constructor(
-    private readonly fragmentMap: FragmentMap,
-    public readonly regions: PathRegion[],
-    public readonly commands: PathCommand[]
-  ) {}
+  constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
 
   public getFragment(id: string): PathFragment {
     const fragment = this.fragmentMap.get(id)
@@ -96,7 +71,7 @@ export class PathProcessor {
 
   public process(): ProcessedPath {
     if (this.fillRule === FillRule.EvenOdd) {
-      return new ProcessedPath(new Map(), [], this.inputCommands)
+      return new ProcessedPath(new Map(), [])
     }
 
     // Analyze path structure and find intersections.
@@ -117,9 +92,8 @@ export class PathProcessor {
 
     // Convert to commands for KCL output.
     const orderedRegions = orderRegions(finalRegions)
-    const commands = this.generateCommands(fragmentMap, orderedRegions)
 
-    return new ProcessedPath(fragmentMap, orderedRegions, commands)
+    return new ProcessedPath(fragmentMap, orderedRegions)
   }
 
   // -----------------------------------------------------------------------------------
@@ -184,21 +158,10 @@ export class PathProcessor {
     return regions.filter((region) => !regionsToRemove.has(region.id))
   }
 
-  private generateCommands(fragmentMap: FragmentMap, regions: PathRegion[]): PathCommand[] {
-    const commands: PathCommand[] = []
-
-    for (const region of regions) {
-      const regionFragments = region.fragmentIds.map((id) => fragmentMap.get(id)!)
-      commands.push(...this.convertFragmentsToCommands(regionFragments))
-    }
-
-    return commands
-  }
-
   // Some utilities.
   // -----------------------------------------------------------------------------------
 
-  private convertFragmentsToCommands(fragments: PathFragment[]): PathCommand[] {
+  public convertFragmentsToCommands(fragments: PathFragment[]): PathCommand[] {
     const commands: PathCommand[] = []
 
     if (fragments.length === 0) return commands
@@ -270,10 +233,6 @@ export class PathProcessor {
     })
 
     return commands
-  }
-
-  public getCommandsForFragments(fragments: PathFragment[]): PathCommand[] {
-    return this.convertFragmentsToCommands(fragments)
   }
 
   private findCommandIndexForPoint(commands: PathCommandEnriched[], iPoint: number): number {

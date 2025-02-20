@@ -45,7 +45,7 @@ import {
   Intersection,
   isPolygonInsidePolygon
 } from '../utils/geometry'
-import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/winding'
+import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
 

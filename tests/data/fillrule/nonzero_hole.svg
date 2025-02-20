@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <!-- Clockwise outer square, counter-clockwise inner square (hole) -->
-    <path fill-rule="nonzero"
-        d="
-    M 10,10 L 90,10 L 90,90 L 10,90 Z
-    M 30,30 L 30,70 L 70,70 L 70,30 Z
-  " />
-</svg>

@@ -264,4 +264,15 @@ export class BezierUtils {
       splitPoint
     }
   }
+
+  public static calculateReflectedControlPoint(
+    previousControlPoint: Point,
+    currentPoint: Point
+  ): Point {
+    // Reflect the previous control point about current point.
+    return {
+      x: 2 * currentPoint.x - previousControlPoint.x,
+      y: 2 * currentPoint.y - previousControlPoint.y
+    }
+  }
 }

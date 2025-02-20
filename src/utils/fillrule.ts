@@ -1,6 +1,6 @@
 import { PathFragment } from '../paths/fragments/fragment'
 import { getRegionPoints } from '../paths/regions'
-import { FillRule, Point } from '../types/base'
+import { Point } from '../types/base'
 import { FragmentMap } from '../types/fragments'
 import { PathRegion } from '../types/regions'
 import { getBoundingBoxArea, isPolygonInsidePolygon } from './geometry'

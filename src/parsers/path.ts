@@ -167,7 +167,7 @@ export class SvgPathParser {
         break
     }
 
-    // Update currentPoint for relative commands
+    // Update currentPoint for relative commands.
     switch (this.state.command) {
       case PathCommandType.MoveRelative:
       case PathCommandType.LineRelative:

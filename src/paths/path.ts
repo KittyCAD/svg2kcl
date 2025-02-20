@@ -82,8 +82,8 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         // Smooth quadratic Bézier only takes end point as parameter.
         // First control point is reflection of previous control point.
         const reflectedControlPoint = BezierUtils.calculateReflectedControlPoint(
-          currentPoint,
-          previousControlPoint
+          previousControlPoint,
+          currentPoint
         )
 
         // Sample the curve using the reflected control point.
@@ -139,8 +139,8 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
 
         // First control point is reflection of previous second control point.
         const reflectedControlPoint = BezierUtils.calculateReflectedControlPoint(
-          currentPoint,
-          previousControlPoint
+          previousControlPoint,
+          currentPoint
         )
 
         // Sample the curve.

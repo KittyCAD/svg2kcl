@@ -50,7 +50,7 @@ import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
 import path from 'path'
-// import { exportPointsToCSV } from '../utils/debug'
+import { exportPointsToCSV } from '../utils/debug'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -120,11 +120,85 @@ export class PathProcessor {
     subpaths: Subpath[]
     intersections: Intersection[]
   } {
-    const { pathSamplePoints, pathCommands } = samplePath(this.inputCommands)
+    // Ensure we have explicitly closed subpaths.
+    const initialSubpaths = this.splitSubpaths(this.inputCommands)
+    const closedSubpaths = initialSubpaths.map((subpath) => this.ensureClosure(subpath))
+    const closedCommands = closedSubpaths.flat()
+
+    const { pathSamplePoints, pathCommands } = samplePath(closedCommands)
     const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
     const intersections = this.findAllIntersections(subpaths)
 
+    exportPointsToCSV(subpaths[1].samplePoints)
+
     return { pathCommands, subpaths, intersections }
+  }
+
+  private splitSubpaths(commands: PathCommand[]): PathCommand[][] {
+    const subpaths: PathCommand[][] = []
+    let currentSubpath: PathCommand[] = []
+
+    const moves = [PathCommandType.MoveAbsolute, PathCommandType.MoveRelative]
+    const stops = [PathCommandType.StopAbsolute, PathCommandType.StopRelative]
+
+    for (const cmd of commands) {
+      // Start new subpath on move (unless it's the first command).
+      if (moves.includes(cmd.type) && currentSubpath.length > 0) {
+        subpaths.push(currentSubpath)
+        currentSubpath = []
+      }
+
+      currentSubpath.push(cmd)
+
+      // End subpath on a stop.
+      if (stops.includes(cmd.type)) {
+        subpaths.push(currentSubpath)
+        currentSubpath = []
+      }
+    }
+
+    // Handle final subpath if not ended with a stop.
+    if (currentSubpath.length > 0) {
+      subpaths.push(currentSubpath)
+    }
+
+    return subpaths
+  }
+
+  private ensureClosure(commands: PathCommand[]) {
+    // Get our last non-stop command.
+    const stops = [PathCommandType.StopAbsolute, PathCommandType.StopRelative]
+    let iLastGeomCommand = -1
+    for (let i = commands.length - 1; i >= 0; i--) {
+      if (!stops.includes(commands[i].type)) {
+        iLastGeomCommand = i
+        break
+      }
+    }
+
+    // Check if it meets our first command.
+    const firstCommand = commands[0]
+    const lastCommand = commands[iLastGeomCommand]
+
+    if (
+      computePointToPointDistance(
+        lastCommand.endPositionAbsolute,
+        firstCommand.endPositionAbsolute // All subpaths start with a move.
+      ) <= EPSILON_INTERSECT
+    ) {
+      // Do nothing.
+    } else {
+      // Insert a new line command.
+      const newCommand = {
+        type: PathCommandType.LineAbsolute,
+        parameters: [firstCommand.endPositionAbsolute.x, firstCommand.endPositionAbsolute.y],
+        startPositionAbsolute: lastCommand.endPositionAbsolute,
+        endPositionAbsolute: firstCommand.endPositionAbsolute
+      }
+      commands.splice(iLastGeomCommand + 1, 0, newCommand)
+    }
+
+    return commands
   }
 
   private extractFragments(
@@ -346,6 +420,8 @@ export class PathProcessor {
       const internalIntersections = findSelfIntersections(subpath.samplePoints)
       allIntersections.push(...internalIntersections)
     }
+
+    const x = 1
 
     // Find intersections between different subpaths
     for (let i = 0; i < subpaths.length; i++) {

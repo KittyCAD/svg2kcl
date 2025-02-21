@@ -48,7 +48,8 @@ export class BezierUtils {
       points.push(BezierUtils.evaluateQuadraticBezier(t, start, control, end))
     }
 
-    points.push(end)
+    // We want [start, ...samples, end), so we don't need to push the end point.
+    // points.push(end)
 
     return points
   }
@@ -72,7 +73,8 @@ export class BezierUtils {
       points.push(BezierUtils.evaluateCubicBezier(t, start, control1, control2, end))
     }
 
-    points.push(end)
+    // We want [start, ...samples, end), so we don't need to push the end point.
+    // points.push(end)
 
     return points
   }

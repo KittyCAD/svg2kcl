@@ -21,7 +21,9 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
     switch (command.type) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.MoveRelative: {
-        points.push(command.endPositionAbsolute)
+        // Don't sample the move command; just set the current point.
+        // points.push(command.endPositionAbsolute)
+
         currentPoint = command.endPositionAbsolute
 
         // Set 'previous' control point.
@@ -155,8 +157,10 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         // "A path data segment (if there is one) must begin with a "moveto" command"
         // So we can grab the end of the first move, and push a point there to close.
         // https://www.w3.org/TR/SVG11/paths.html#PathDataMovetoCommands
-        // TODO: Remove, or check if this is a duplicate point.
-        points.push(inputCommands[0].endPositionAbsolute)
+
+        // Because we already insert explicit closing geometry, we don't need to do
+        // anything here.
+        // See also: processValues() in src/parsers/path.ts.
         break
       default:
         throw new Error(`Unsupported command type: ${command}`)

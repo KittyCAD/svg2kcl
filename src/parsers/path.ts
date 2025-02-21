@@ -208,7 +208,7 @@ export class SvgPathParser {
         // Because we can have subpaths, we can't use current point as the end position.
         // Just zero out; will be handled by explicit closing geometry insertion.
         // See also: sampePathData() in src/paths/paths.ts
-        this.state.currentPoint = { x: 0, y: 0 }
+        // this.state.currentPoint = { x: 0, y: 0 }
         break
     }
 

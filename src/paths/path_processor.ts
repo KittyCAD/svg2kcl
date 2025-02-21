@@ -86,7 +86,6 @@ export class PathProcessor {
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = identifyClosedRegions(fragments, fragmentMap)
-    // const regions = detectAllPlanarFaces(fragments, fragmentMap)
 
     /// Handle fill rule.
     let processedRegions: PathRegion[] = []

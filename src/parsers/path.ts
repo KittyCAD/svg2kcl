@@ -24,23 +24,18 @@ interface PathState {
   currentPoint: Point
   isPathOpen: boolean
   isValuePushed: boolean
+  subPathStart: Point | null // Track the start of current subpath
+  firstMoveCompleted: boolean
 }
 
 export class SvgPathParser {
-  private state: PathState
+  private state!: PathState
   private path!: ParsedPath
   private transform: Transform
 
   constructor() {
     this.transform = new Transform()
-    this.state = {
-      command: PathCommandType.NotSet,
-      values: [],
-      valueBuffer: '',
-      currentPoint: { x: 0, y: 0 },
-      isPathOpen: false,
-      isValuePushed: true
-    }
+    this.resetState()
   }
 
   private resetState(): void {
@@ -50,7 +45,9 @@ export class SvgPathParser {
       valueBuffer: '',
       currentPoint: { x: 0, y: 0 },
       isPathOpen: false,
-      isValuePushed: true
+      isValuePushed: true,
+      subPathStart: null,
+      firstMoveCompleted: false
     }
   }
 
@@ -135,14 +132,62 @@ export class SvgPathParser {
     // Pull current (soon to be previous) command point.
     const previousPoint = { ...this.state.currentPoint }
 
+    // Handle any move command (start of path or subpath).
+    if (
+      this.state.command === PathCommandType.MoveAbsolute ||
+      this.state.command === PathCommandType.MoveRelative
+    ) {
+      if (!this.state.firstMoveCompleted) {
+        // First move in the entire path - always treat as absolute.
+        this.state.currentPoint = { x: parameters[0], y: parameters[1] }
+        this.path.startPosition = { ...this.state.currentPoint }
+        this.state.firstMoveCompleted = true
+      } else {
+        // Subsequent moves - respect relative/absolute.
+        if (this.state.command === PathCommandType.MoveAbsolute) {
+          this.state.currentPoint = { x: parameters[0], y: parameters[1] }
+        } else {
+          this.state.currentPoint.x += parameters[0]
+          this.state.currentPoint.y += parameters[1]
+        }
+      }
+
+      // Every move command starts a new subpath
+      this.state.subPathStart = { ...this.state.currentPoint }
+      this.state.isPathOpen = true
+
+      this.path.commands.push({
+        type: !this.state.firstMoveCompleted ? PathCommandType.MoveAbsolute : this.state.command,
+        parameters,
+        startPositionAbsolute: previousPoint,
+        endPositionAbsolute: { ...this.state.currentPoint }
+      })
+      return
+    }
+
+    // Handle path closing.
+    if (
+      this.state.command === PathCommandType.StopAbsolute ||
+      this.state.command === PathCommandType.StopRelative
+    ) {
+      if (this.state.subPathStart && this.state.isPathOpen) {
+        this.state.currentPoint = { ...this.state.subPathStart }
+        this.state.isPathOpen = false
+      }
+
+      this.path.commands.push({
+        type: this.state.command,
+        parameters: [],
+        startPositionAbsolute: previousPoint,
+        endPositionAbsolute: { ...this.state.currentPoint }
+      })
+      return
+    }
+
     // Update currentPoint for absolute commands
     switch (this.state.command) {
-      case PathCommandType.MoveAbsolute:
       case PathCommandType.LineAbsolute:
         this.state.currentPoint = { x: parameters[0], y: parameters[1] }
-        if (this.state.command === PathCommandType.MoveAbsolute && !this.path.commands.length) {
-          this.path.startPosition = { ...this.state.currentPoint }
-        }
         break
       case PathCommandType.HorizontalLineAbsolute:
         this.state.currentPoint.x = parameters[0]
@@ -169,13 +214,9 @@ export class SvgPathParser {
 
     // Update currentPoint for relative commands.
     switch (this.state.command) {
-      case PathCommandType.MoveRelative:
       case PathCommandType.LineRelative:
         this.state.currentPoint.x += parameters[0]
         this.state.currentPoint.y += parameters[1]
-        if (this.state.command === PathCommandType.MoveRelative && !this.path.commands.length) {
-          this.path.startPosition = { ...this.state.currentPoint }
-        }
         break
       case PathCommandType.HorizontalLineRelative:
         this.state.currentPoint.x += parameters[0]
@@ -202,13 +243,6 @@ export class SvgPathParser {
       case PathCommandType.EllipticalArcRelative:
         this.state.currentPoint.x += parameters[5]
         this.state.currentPoint.y += parameters[6]
-        break
-      case PathCommandType.StopAbsolute:
-      case PathCommandType.StopRelative:
-        // Because we can have subpaths, we can't use current point as the end position.
-        // Just zero out; will be handled by explicit closing geometry insertion.
-        // See also: sampePathData() in src/paths/paths.ts
-        // this.state.currentPoint = { x: 0, y: 0 }
         break
     }
 

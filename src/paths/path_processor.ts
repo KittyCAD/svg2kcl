@@ -430,6 +430,21 @@ export class PathProcessor {
   }
 
   private findCommandIndexForPoint(commands: PathCommandEnriched[], iPoint: number): number {
+    // Clip iPoint to valid bounds.
+    // TODO: Not convinced we should have to do this, but I am adding +1
+    // to segment indices for two-point segments, which... I am unsure of.
+    const validPoints = commands.filter((cmd) => cmd.iFirstPoint != null && cmd.iLastPoint != null)
+    const iMin = Math.min(
+      ...validPoints
+        .map((cmd) => cmd.iFirstPoint)
+        .filter((point): point is number => point !== null)
+    )
+    const iMax = Math.max(
+      ...validPoints.map((cmd) => cmd.iLastPoint).filter((point): point is number => point !== null)
+    )
+
+    iPoint = Math.max(iMin, Math.min(iMax, iPoint))
+
     // Look through commands to find which one contains this point index.
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i]
@@ -494,46 +509,6 @@ export class PathProcessor {
 
     return tGlobal
   }
-
-  // private identifySubpaths(commands: PathCommandEnriched[], samplePoints: Point[]): Subpath[] {
-  //   const subpaths: Subpath[] = []
-  //   let currentStart = 0
-  //   let currentSampleStart = 0
-
-  //   for (let i = 0; i < commands.length; i++) {
-  //     const command = commands[i]
-
-  //     // Check for move commands that start new subpaths
-  //     if (
-  //       i > 0 &&
-  //       (command.type === PathCommandType.MoveAbsolute ||
-  //         command.type === PathCommandType.MoveRelative)
-  //     ) {
-  //       // End previous subpath.
-  //       subpaths.push({
-  //         startIndex: currentStart,
-  //         endIndex: i - 1,
-  //         commands: commands.slice(currentStart, i),
-  //         samplePoints: samplePoints.slice(currentSampleStart, command.iFirstPoint)
-  //       })
-
-  //       currentStart = i
-  //       currentSampleStart = command.iFirstPoint
-  //     }
-  //   }
-
-  //   // Add final subpath
-  //   if (currentStart < commands.length) {
-  //     subpaths.push({
-  //       startIndex: currentStart,
-  //       endIndex: commands.length - 1,
-  //       commands: commands.slice(currentStart),
-  //       samplePoints: samplePoints.slice(currentSampleStart)
-  //     })
-  //   }
-
-  //   return subpaths
-  // }
 
   private findAllIntersections(subpaths: Subpath[]): Intersection[] {
     const allIntersections: Intersection[] = []

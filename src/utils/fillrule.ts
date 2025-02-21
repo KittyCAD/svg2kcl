@@ -76,10 +76,10 @@ abstract class RegionAnalyzer {
 
       const candidateBBox = candidate.boundingBox
       return (
-        regionBBox.xMin > candidateBBox.xMin + EPSILON &&
-        regionBBox.xMax < candidateBBox.xMax - EPSILON &&
-        regionBBox.yMin > candidateBBox.yMin + EPSILON &&
-        regionBBox.yMax < candidateBBox.yMax - EPSILON
+        regionBBox.xMin >= candidateBBox.xMin - EPSILON &&
+        regionBBox.xMax <= candidateBBox.xMax + EPSILON &&
+        regionBBox.yMin >= candidateBBox.yMin - EPSILON &&
+        regionBBox.yMax <= candidateBBox.yMax + EPSILON
       )
     })
 

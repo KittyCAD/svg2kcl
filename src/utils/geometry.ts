@@ -122,7 +122,7 @@ export function isClockwise(points: Point[]): boolean {
   return sum > 0
 }
 
-export function findSelfIntersections(points: Point[]): Intersection[] {
+export function findSelfIntersections(points: Point[], startIndex: number): Intersection[] {
   const intersections: Intersection[] = []
   const segments: LineSegment[] = [] // Segments composed two points.
 
@@ -197,9 +197,13 @@ export function findSelfIntersections(points: Point[]): Intersection[] {
           y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
         }
 
+        // Adjust indices to be relative to the full path
+        const globalSegmentAIndex = i + startIndex
+        const globalSegmentBIndex = j + startIndex
+
         intersections.push({
-          iSegmentA: i,
-          iSegmentB: j,
+          iSegmentA: globalSegmentAIndex,
+          iSegmentB: globalSegmentBIndex,
           intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
           tA: ua, // Fraction along segment A: ua.
           tB: ub // Fraction along segment B: ub.
@@ -263,12 +267,12 @@ export function findIntersectionsBetweenSubpaths(
         }
 
         // Adjust indices to be relative to the full path
-        const globalSegment1Index = i + subpath1.startIndex
-        const globalSegment2Index = j + subpath2.startIndex
+        const globalSegmentAIndex = i + subpath1.startIndex
+        const globalSegmentBIndex = j + subpath2.startIndex
 
         intersections.push({
-          iSegmentA: globalSegment1Index,
-          iSegmentB: globalSegment2Index,
+          iSegmentA: globalSegmentAIndex,
+          iSegmentB: globalSegmentBIndex,
           intersectionPoint: intersectionPoint,
           tA: t1,
           tB: t2

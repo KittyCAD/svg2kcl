@@ -117,20 +117,57 @@ export class PathProcessor {
     // Ensure we have explicitly closed subpaths.
     const initialSubpaths = this.splitSubpaths(this.inputCommands)
     const closedSubpaths = initialSubpaths.map((subpath) => this.ensureClosure(subpath))
-    const closedCommands = closedSubpaths.flat()
 
-    // Sample the path.
-    const { pathSamplePoints, pathCommands } = samplePath(closedCommands)
+    // Sample each subpath, keep list of all commands.
+    let subpaths: Subpath[] = []
+    let pathCommands: PathCommandEnriched[] = []
 
-    // Align samples with subpaths.
-    const subpaths = this.segmentSamplePoints(pathSamplePoints, pathCommands, closedSubpaths)
+    // Track each command on the global path command list.
+    let globalCommandIndex = 0
+    let globalPointIndex = 0
 
-    exportPointsToCSV(subpaths[1].samplePoints)
+    for (const subpath of closedSubpaths) {
+      const { pathSamplePoints: localSubpathSamplePoints, pathCommands: localSubpathCommands } =
+        samplePath(subpath)
 
-    // const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
+      // Create our subpath object.
+      subpaths.push(
+        this.createSubpaths(localSubpathCommands, localSubpathSamplePoints, globalCommandIndex)
+      )
+
+      // Track all commands.
+      for (const command of localSubpathCommands) {
+        pathCommands.push({
+          ...command,
+          iFirstPoint: command.iFirstPoint !== null ? command.iFirstPoint + globalPointIndex : null,
+          iLastPoint: command.iLastPoint !== null ? command.iLastPoint + globalPointIndex : null
+        })
+      }
+
+      // Track the global index of the next command.
+      globalCommandIndex += localSubpathCommands.length
+      globalPointIndex += localSubpathSamplePoints.length
+    }
+
+    // Compute intersections.
     const intersections = this.findAllIntersections(subpaths)
 
     return { pathCommands, subpaths, intersections }
+  }
+
+  private createSubpaths(
+    commands: PathCommandEnriched[],
+    samplePoints: Point[],
+    startIndex: number
+  ): Subpath {
+    if (commands.length === 0 || samplePoints.length === 0) return {} as Subpath
+
+    return {
+      startIndex: startIndex,
+      endIndex: startIndex + commands.length - 1,
+      commands: [...commands], // Copy the command references.
+      samplePoints: [...samplePoints] // Copy the sample point references.
+    } as Subpath
   }
 
   private splitSubpaths(commands: PathCommand[]): PathCommand[][] {
@@ -247,7 +284,8 @@ export class PathProcessor {
 
         // Get the sampled data.
         if (iFirstPoint !== null && iLastPoint !== null) {
-          const isLastCommand = iCommandGlobal === subpathStartIndex + iLastGeom
+          // const isLastCommand = iCommandGlobal === subpathStartIndex + iLastGeom
+          const isLastCommand = true
           const samples = isLastCommand
             ? samplePoints.slice(iFirstPoint, iLastPoint + 1) // Include the last point
             : samplePoints.slice(iFirstPoint, iLastPoint) // Avoid duplication at boundaries
@@ -505,11 +543,9 @@ export class PathProcessor {
 
     // Find intersections within each subpath
     for (const subpath of subpaths) {
-      const internalIntersections = findSelfIntersections(subpath.samplePoints)
+      const internalIntersections = findSelfIntersections(subpath.samplePoints, subpath.startIndex)
       allIntersections.push(...internalIntersections)
     }
-
-    const x = 1
 
     // Find intersections between different subpaths
     for (let i = 0; i < subpaths.length; i++) {
@@ -521,7 +557,6 @@ export class PathProcessor {
 
     return allIntersections
   }
-
   private buildSplitPlan(
     pathCommands: PathCommandEnriched[],
     intersections: Intersection[]
@@ -535,7 +570,7 @@ export class PathProcessor {
 
     // First collect all intersection points for each command.
     for (const intersection of intersections) {
-      // Get command indices.
+      // Get command indices. Note that the segment is from iPoint to iPoint + 1.
       const iCommandA = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentA)
       const iCommandB = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentB)
 
@@ -618,8 +653,7 @@ export class PathProcessor {
       const lastPoint = fragments[fragments.length - 1].end
 
       if (computePointToPointDistance(firstPoint, lastPoint) > EPSILON_INTERSECT) {
-        // TODO: I think we can throw an error here; this should never happen
-        // since we explicitly close all subpaths early in the process.
+        console.warn('Unexpected open loop detected in subpath. This should not happen.')
         fragments.push(
           new PathFragment({
             type: PathFragmentType.Line,
@@ -633,4 +667,49 @@ export class PathProcessor {
 
     return fragments
   }
+
+  // private createSubpathFragments(
+  //   subpath: Subpath,
+  //   pathCommands: PathCommandEnriched[],
+  //   splitPlan: Map<number, number[]>
+  // ): PathFragment[] {
+  //   const fragments: PathFragment[] = []
+
+  //   // Create fragments for commands
+  //   for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
+  //     const cmd = pathCommands[i]
+  //     const tVals = [...(splitPlan.get(i) || []), 0, 1].sort((a, b) => a - b)
+
+  //     for (let j = 0; j < tVals.length - 1; j++) {
+  //       const tMin = tVals[j]
+  //       const tMax = tVals[j + 1]
+
+  //       if (tMax - tMin < EPSILON_INTERSECT) continue
+
+  //       const fragment = subdivideCommand(cmd, tMin, tMax)
+  //       if (fragment) fragments.push(fragment)
+  //     }
+  //   }
+
+  //   // Add closing fragment if needed.
+  //   if (fragments.length > 0) {
+  //     const firstPoint = fragments[0].start
+  //     const lastPoint = fragments[fragments.length - 1].end
+
+  //     if (computePointToPointDistance(firstPoint, lastPoint) > EPSILON_INTERSECT) {
+  //       // TODO: I think we can throw an error here; this should never happen
+  //       // since we explicitly close all subpaths early in the process.
+  //       fragments.push(
+  //         new PathFragment({
+  //           type: PathFragmentType.Line,
+  //           start: lastPoint,
+  //           end: firstPoint,
+  //           iCommand: subpath.endIndex
+  //         })
+  //       )
+  //     }
+  //   }
+
+  //   return fragments
+  // }
 }

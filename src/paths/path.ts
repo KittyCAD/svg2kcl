@@ -1,6 +1,8 @@
 import { Point } from '../types/base'
 import { PathCommandEnriched, PathCommand, PathCommandType, PathSampleResult } from '../types/paths'
 import { BezierUtils } from '../utils/bezier'
+import { computePointToPointDistance } from '../utils/geometry'
+import { EPSILON_INTERSECT } from '../constants'
 
 export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
   const points: Point[] = []
@@ -24,7 +26,6 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       case PathCommandType.MoveRelative: {
         // Don't sample the move command; just set the current point.
         // points.push(command.endPositionAbsolute)
-
         currentPoint = command.endPositionAbsolute
 
         // Set 'previous' control point.
@@ -39,9 +40,10 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       case PathCommandType.VerticalLineAbsolute:
       case PathCommandType.VerticalLineRelative: {
         iFirstPoint = points.length
-        points.push(currentPoint, command.endPositionAbsolute)
+        // points.push(currentPoint, command.endPositionAbsolute)
+        points.push(currentPoint)
         currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length - 1
+        iLastPoint = points.length // Differs from below for straight segments.
 
         // Set 'previous' control point.
         previousControlPoint = currentPoint
@@ -186,6 +188,13 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       previousControlPoint: currentPreviousControlPoint
     })
   }
+
+  // Close.
+  // Current point should be the same as the first point given our explicit closing geometry.
+  if (computePointToPointDistance(currentPoint, points[0]) > EPSILON_INTERSECT) {
+    throw new Error('Subpath is not closed.')
+  }
+  points.push(currentPoint)
 
   return { pathSamplePoints: points, pathCommands: commands }
 }

@@ -93,21 +93,6 @@ export function identifyClosedRegions(
     }
   }
 
-  // Now we need to find the neighbors of each region.
-  for (const region of filteredRegions) {
-    for (const fragmentId of region.fragmentIds) {
-      const neighborRegions = fragmentToRegions.get(fragmentId) || []
-      for (const neighborId of neighborRegions) {
-        if (neighborId !== region.id) {
-          if (!region.neighborRegionIds) {
-            region.neighborRegionIds = new Set()
-          }
-          region.neighborRegionIds.add(neighborId)
-        }
-      }
-    }
-  }
-
   return filteredRegions
 }
 

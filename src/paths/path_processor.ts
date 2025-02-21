@@ -49,7 +49,6 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
-import path from 'path'
 import { exportPointsToCSV } from '../utils/debug'
 
 export class ProcessedPath {
@@ -62,11 +61,6 @@ export class ProcessedPath {
     }
     return fragment
   }
-}
-
-interface CloseGeometryResult {
-  commands: PathCommandEnriched[]
-  subpaths: Subpath[]
 }
 
 export class PathProcessor {
@@ -125,11 +119,16 @@ export class PathProcessor {
     const closedSubpaths = initialSubpaths.map((subpath) => this.ensureClosure(subpath))
     const closedCommands = closedSubpaths.flat()
 
+    // Sample the path.
     const { pathSamplePoints, pathCommands } = samplePath(closedCommands)
-    const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
-    const intersections = this.findAllIntersections(subpaths)
+
+    // Align samples with subpaths.
+    const subpaths = this.segmentSamplePoints(pathSamplePoints, pathCommands, closedSubpaths)
 
     exportPointsToCSV(subpaths[1].samplePoints)
+
+    // const subpaths = this.identifySubpaths(pathCommands, pathSamplePoints)
+    const intersections = this.findAllIntersections(subpaths)
 
     return { pathCommands, subpaths, intersections }
   }
@@ -199,6 +198,83 @@ export class PathProcessor {
     }
 
     return commands
+  }
+
+  private segmentSamplePoints(
+    samplePoints: Point[],
+    pathCommands: PathCommandEnriched[],
+    closedSubpaths: PathCommand[][]
+  ): Subpath[] {
+    let output: Subpath[] = []
+    let commandsOut: PathCommandEnriched[] = []
+    let subpathSamples: Point[] = []
+
+    let nonGeoms = [
+      PathCommandType.MoveAbsolute,
+      PathCommandType.MoveRelative,
+      PathCommandType.StopAbsolute,
+      PathCommandType.StopRelative
+    ]
+
+    // Iterate over subpaths while iterating over commands in the parallel.
+    let iCommandGlobal = 0
+
+    for (const subpath of closedSubpaths) {
+      // Track where this subpath starts.
+      const subpathStartIndex = iCommandGlobal
+
+      // Get the local index of the last geometry command on this subpath.
+      let iLastGeom = -1
+      for (let i = subpath.length - 1; i >= 0; i--) {
+        if (!nonGeoms.includes(subpath[i].type)) {
+          iLastGeom = i
+          break
+        }
+      }
+
+      // Skip empty subpaths.
+      if (iLastGeom === -1) continue
+
+      // Reset commands.
+      commandsOut = []
+      subpathSamples = []
+
+      // Iterate over commands in the subpath.
+      for (const command of subpath) {
+        // Get indices for this command.
+        const iFirstPoint = pathCommands[iCommandGlobal].iFirstPoint
+        const iLastPoint = pathCommands[iCommandGlobal].iLastPoint
+
+        // Get the sampled data.
+        if (iFirstPoint !== null && iLastPoint !== null) {
+          const isLastCommand = iCommandGlobal === subpathStartIndex + iLastGeom
+          const samples = isLastCommand
+            ? samplePoints.slice(iFirstPoint, iLastPoint + 1) // Include the last point
+            : samplePoints.slice(iFirstPoint, iLastPoint) // Avoid duplication at boundaries
+          subpathSamples.push(...samples)
+        }
+
+        commandsOut.push({
+          ...command,
+          iCommand: iCommandGlobal,
+          iFirstPoint,
+          iLastPoint
+        })
+
+        // Bump global command index.
+        iCommandGlobal++
+      }
+
+      // Build subpath object for output.
+      output.push({
+        startIndex: subpathStartIndex,
+        endIndex: iCommandGlobal - 1, // Last command we processed
+        commands: commandsOut,
+        samplePoints: subpathSamples
+      } as Subpath)
+    }
+
+    return output
   }
 
   private extractFragments(
@@ -320,7 +396,13 @@ export class PathProcessor {
     // Look through commands to find which one contains this point index.
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i]
-      if (iPoint >= command.iFirstPoint && iPoint <= command.iLastPoint) {
+      // Only check commands that have points.
+      if (
+        command.iFirstPoint !== null &&
+        command.iLastPoint !== null &&
+        iPoint >= command.iFirstPoint &&
+        iPoint <= command.iLastPoint
+      ) {
         return i
       }
     }
@@ -339,7 +421,8 @@ export class PathProcessor {
     const command = commands[iCommand]
 
     // If it's a line, segment t is already correct.
-    if (command.type.includes('Line') || command.type.includes('Move')) {
+    const skipCommands = [PathCommandType.LineAbsolute, PathCommandType.LineRelative]
+    if (skipCommands.includes(command.type)) {
       return tLocal
     }
 
@@ -360,6 +443,11 @@ export class PathProcessor {
     // We just need to 'localise' our starting point as our iSegmentStart could be
     // some arbitrary value, not necessarily 0.
 
+    // For Bézier curves we need the indices - verify they exist.
+    if (command.iFirstPoint === null || command.iLastPoint === null) {
+      throw new Error('Cannot convert t value for command without point indices')
+    }
+
     // Get the length of the command as sampled.
     const lCommand = command.iLastPoint - command.iFirstPoint
 
@@ -370,45 +458,45 @@ export class PathProcessor {
     return tGlobal
   }
 
-  private identifySubpaths(commands: PathCommandEnriched[], samplePoints: Point[]): Subpath[] {
-    const subpaths: Subpath[] = []
-    let currentStart = 0
-    let currentSampleStart = 0
+  // private identifySubpaths(commands: PathCommandEnriched[], samplePoints: Point[]): Subpath[] {
+  //   const subpaths: Subpath[] = []
+  //   let currentStart = 0
+  //   let currentSampleStart = 0
 
-    for (let i = 0; i < commands.length; i++) {
-      const command = commands[i]
+  //   for (let i = 0; i < commands.length; i++) {
+  //     const command = commands[i]
 
-      // Check for move commands that start new subpaths
-      if (
-        i > 0 &&
-        (command.type === PathCommandType.MoveAbsolute ||
-          command.type === PathCommandType.MoveRelative)
-      ) {
-        // End previous subpath
-        subpaths.push({
-          startIndex: currentStart,
-          endIndex: i - 1,
-          commands: commands.slice(currentStart, i),
-          samplePoints: samplePoints.slice(currentSampleStart, command.iFirstPoint)
-        })
+  //     // Check for move commands that start new subpaths
+  //     if (
+  //       i > 0 &&
+  //       (command.type === PathCommandType.MoveAbsolute ||
+  //         command.type === PathCommandType.MoveRelative)
+  //     ) {
+  //       // End previous subpath.
+  //       subpaths.push({
+  //         startIndex: currentStart,
+  //         endIndex: i - 1,
+  //         commands: commands.slice(currentStart, i),
+  //         samplePoints: samplePoints.slice(currentSampleStart, command.iFirstPoint)
+  //       })
 
-        currentStart = i
-        currentSampleStart = command.iFirstPoint
-      }
-    }
+  //       currentStart = i
+  //       currentSampleStart = command.iFirstPoint
+  //     }
+  //   }
 
-    // Add final subpath
-    if (currentStart < commands.length) {
-      subpaths.push({
-        startIndex: currentStart,
-        endIndex: commands.length - 1,
-        commands: commands.slice(currentStart),
-        samplePoints: samplePoints.slice(currentSampleStart)
-      })
-    }
+  //   // Add final subpath
+  //   if (currentStart < commands.length) {
+  //     subpaths.push({
+  //       startIndex: currentStart,
+  //       endIndex: commands.length - 1,
+  //       commands: commands.slice(currentStart),
+  //       samplePoints: samplePoints.slice(currentSampleStart)
+  //     })
+  //   }
 
-    return subpaths
-  }
+  //   return subpaths
+  // }
 
   private findAllIntersections(subpaths: Subpath[]): Intersection[] {
     const allIntersections: Intersection[] = []

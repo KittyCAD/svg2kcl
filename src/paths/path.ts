@@ -12,11 +12,12 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
   for (let i = 0; i < inputCommands.length; i++) {
     const command = inputCommands[i]
 
-    // Get the (global point set) index of this command's first point.
-    const iFirstPoint = points.length
-
     // Store the current iteration's previousControlPoint before processing the command.
     const currentPreviousControlPoint = { ...previousControlPoint }
+
+    // Default to null indices for move/stop commands.
+    let iFirstPoint: number | null = null
+    let iLastPoint: number | null = null
 
     switch (command.type) {
       case PathCommandType.MoveAbsolute:
@@ -37,8 +38,10 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       case PathCommandType.HorizontalLineRelative:
       case PathCommandType.VerticalLineAbsolute:
       case PathCommandType.VerticalLineRelative: {
+        iFirstPoint = points.length
         points.push(currentPoint, command.endPositionAbsolute)
         currentPoint = command.endPositionAbsolute
+        iLastPoint = points.length - 1
 
         // Set 'previous' control point.
         previousControlPoint = currentPoint
@@ -55,6 +58,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         }
 
         // Sample the curve.
+        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleQuadraticBezier(
           currentPoint,
           { x: x1, y: y1 },
@@ -62,6 +66,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
+        iLastPoint = points.length - 1
 
         // Set 'previous' control point.
         previousControlPoint = { x: x1, y: y1 }
@@ -78,6 +83,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
 
         // Sample the curve using the reflected control point.
+        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleQuadraticBezier(
           currentPoint,
           reflectedControlPoint,
@@ -85,6 +91,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
+        iLastPoint = points.length - 1
 
         // Set 'previous' control point.
         previousControlPoint = reflectedControlPoint
@@ -102,6 +109,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
           y2 += currentPoint.y
         }
         // Sample the curve.
+        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleCubicBezier(
           currentPoint,
           { x: x1, y: y1 },
@@ -110,6 +118,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
+        iLastPoint = points.length - 1
 
         // Set 'previous' control point.
         previousControlPoint = { x: x2, y: y2 }
@@ -135,6 +144,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
 
         // Sample the curve.
+        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleCubicBezier(
           currentPoint,
           reflectedControlPoint,
@@ -143,6 +153,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
+        iLastPoint = points.length - 1
 
         // Set 'previous' control point.
         previousControlPoint = { x: x2, y: y2 }
@@ -165,9 +176,6 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       default:
         throw new Error(`Unsupported command type: ${command}`)
     }
-
-    // Get the (global point set) index of this command's last point.
-    const iLastPoint = points.length - 1
 
     // Append to our enriched commands.
     commands.push({

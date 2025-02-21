@@ -155,6 +155,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         // "A path data segment (if there is one) must begin with a "moveto" command"
         // So we can grab the end of the first move, and push a point there to close.
         // https://www.w3.org/TR/SVG11/paths.html#PathDataMovetoCommands
+        // TODO: Remove, or check if this is a duplicate point.
         points.push(inputCommands[0].endPositionAbsolute)
         break
       default:

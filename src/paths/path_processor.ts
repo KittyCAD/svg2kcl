@@ -49,6 +49,7 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
+import path from 'path'
 // import { exportPointsToCSV } from '../utils/debug'
 
 export class ProcessedPath {
@@ -61,6 +62,11 @@ export class ProcessedPath {
     }
     return fragment
   }
+}
+
+interface CloseGeometryResult {
+  commands: PathCommandEnriched[]
+  subpaths: Subpath[]
 }
 
 export class PathProcessor {
@@ -76,8 +82,6 @@ export class PathProcessor {
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
 
-    // exportPointsToCSV(subpaths[1].samplePoints, 'subpath1.csv')
-
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
 
@@ -87,8 +91,8 @@ export class PathProcessor {
     }
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
-    // const regions = identifyClosedRegions(fragments, fragmentMap)
-    const regions = detectAllPlanarFaces(fragments, fragmentMap)
+    const regions = identifyClosedRegions(fragments, fragmentMap)
+    // const regions = detectAllPlanarFaces(fragments, fragmentMap)
 
     /// Handle fill rule.
     let processedRegions: PathRegion[] = []
@@ -450,6 +454,8 @@ export class PathProcessor {
       const lastPoint = fragments[fragments.length - 1].end
 
       if (computePointToPointDistance(firstPoint, lastPoint) > EPSILON_INTERSECT) {
+        // TODO: I think we can throw an error here; this should never happen
+        // since we explicitly close all subpaths early in the process.
         fragments.push(
           new PathFragment({
             type: PathFragmentType.Line,

@@ -570,8 +570,8 @@ export class PathProcessor {
     // First collect all intersection points for each command.
     for (const intersection of intersections) {
       // Get command indices. Note that the segment is from iPoint to iPoint + 1.
-      const iCommandA = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentA)
-      const iCommandB = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentB)
+      const iCommandA = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentA + 1)
+      const iCommandB = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentB + 1)
 
       const tA = this.convertSegmentTtoCommandT(
         pathCommands,

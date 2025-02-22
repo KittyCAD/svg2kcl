@@ -84,6 +84,15 @@ export class PathProcessor {
       fragment.sampledPoints = sampleFragment(fragment)
     }
 
+    // Export fragment points.
+    // let fragmentPoints: Point[] = []
+    // for (const fragment of fragments) {
+    //   if (fragment.sampledPoints) {
+    //     fragmentPoints.push(...fragment.sampledPoints)
+    //   }
+    // }
+    // exportPointsToCSV(fragmentPoints, 'fragments.csv')
+
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = identifyClosedRegions(fragments, fragmentMap)
 
@@ -473,7 +482,14 @@ export class PathProcessor {
     const command = commands[iCommand]
 
     // If it's a line, segment t is already correct.
-    const skipCommands = [PathCommandType.LineAbsolute, PathCommandType.LineRelative]
+    const skipCommands = [
+      PathCommandType.LineAbsolute,
+      PathCommandType.LineRelative,
+      PathCommandType.HorizontalLineAbsolute,
+      PathCommandType.HorizontalLineRelative,
+      PathCommandType.VerticalLineAbsolute,
+      PathCommandType.VerticalLineRelative
+    ]
     if (skipCommands.includes(command.type)) {
       return tLocal
     }
@@ -559,6 +575,10 @@ export class PathProcessor {
         intersection.tB
       )
 
+      if (tA < 0 || tA > 1 || tB < 0 || tB > 1) {
+        throw 'Unexpected t-values found in intersection. This should not happen.'
+      }
+
       if (!splitPlan.has(iCommandA)) splitPlan.set(iCommandA, [])
       if (!splitPlan.has(iCommandB)) splitPlan.set(iCommandB, [])
 
@@ -609,6 +629,10 @@ export class PathProcessor {
     for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
       const cmd = pathCommands[i]
       const tVals = [...(splitPlan.get(i) || []), 0, 1].sort((a, b) => a - b)
+
+      if (Math.min(...tVals) < 0 || Math.max(...tVals) > 1) {
+        throw 'Unexpected t-values found in split plan. This should not happen.'
+      }
 
       for (let j = 0; j < tVals.length - 1; j++) {
         const tMin = tVals[j]

@@ -43,7 +43,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         // points.push(currentPoint, command.endPositionAbsolute)
         points.push(currentPoint)
         currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length // Differs from below for straight segments.
+        iLastPoint = points.length - 1
 
         // Set 'previous' control point.
         previousControlPoint = currentPoint

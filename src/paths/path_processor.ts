@@ -32,7 +32,7 @@ import { connectFragments } from './fragments/connector'
 import { PathFragment } from './fragments/fragment'
 import { samplePath } from './path'
 import { identifyClosedRegions, orderRegions } from './regions'
-import { detectAllPlanarFaces } from './half_edge'
+// import { detectAllPlanarFaces } from './half_edge'
 import { subdivideCommand } from './subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
@@ -49,7 +49,7 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
-import { exportPointsToCSV } from '../utils/debug'
+// import { exportPointsToCSV } from '../utils/debug'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -547,6 +547,7 @@ export class PathProcessor {
 
     return allIntersections
   }
+
   private buildSplitPlan(
     pathCommands: PathCommandEnriched[],
     intersections: Intersection[]
@@ -566,12 +567,12 @@ export class PathProcessor {
 
       const tA = this.convertSegmentTtoCommandT(
         pathCommands,
-        intersection.iSegmentA,
+        intersection.iSegmentA + 1,
         intersection.tA
       )
       const tB = this.convertSegmentTtoCommandT(
         pathCommands,
-        intersection.iSegmentB,
+        intersection.iSegmentB + 1,
         intersection.tB
       )
 
@@ -591,13 +592,7 @@ export class PathProcessor {
       // Sort numerically.
       const uniqueValues = Array.from(new Set(tValues)).sort((a, b) => a - b)
 
-      // Ensure we don't have any t-values too close together.
-      const filteredValues = uniqueValues.filter((t, i) => {
-        if (i === 0) return true
-        return Math.abs(t - uniqueValues[i - 1]) > EPSILON_INTERSECT
-      })
-
-      splitPlan.set(cmdIndex, filteredValues)
+      splitPlan.set(cmdIndex, uniqueValues)
     }
 
     return splitPlan

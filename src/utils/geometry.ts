@@ -197,7 +197,7 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
           y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
         }
 
-        // Adjust indices to be relative to the full path
+        // Adjust indices to be relative to the full path sample set.
         const globalSegmentAIndex = i + startIndex
         const globalSegmentBIndex = j + startIndex
 
@@ -222,6 +222,10 @@ export function findIntersectionsBetweenSubpaths(
   const intersections: Intersection[] = []
   const points1 = subpath1.samplePoints
   const points2 = subpath2.samplePoints
+
+  // Get the indices of the first command for each subpath.
+  const iFirstPoint1 = subpath1.commands.find((x) => x.iFirstPoint !== null)?.iFirstPoint
+  const iFirstPoint2 = subpath2.commands.find((x) => x.iFirstPoint !== null)?.iFirstPoint
 
   // Compare each line segment in subpath1 with each line segment in subpath2
   for (let i = 0; i < points1.length - 1; i++) {
@@ -266,9 +270,9 @@ export function findIntersectionsBetweenSubpaths(
           y: seg1Start.y + t1 * (seg1End.y - seg1Start.y)
         }
 
-        // Adjust indices to be relative to the full path
-        const globalSegmentAIndex = i + subpath1.iFirstCommand
-        const globalSegmentBIndex = j + subpath2.iFirstCommand
+        // Adjust indices to be relative to the full path sample set.
+        const globalSegmentAIndex = i + iFirstPoint1!
+        const globalSegmentBIndex = j + iFirstPoint2!
 
         intersections.push({
           iSegmentA: globalSegmentAIndex,

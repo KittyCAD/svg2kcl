@@ -166,13 +166,13 @@ export class PathProcessor {
   private createSubpaths(
     commands: PathCommandEnriched[],
     samplePoints: Point[],
-    startIndex: number
+    iFirstCommand: number
   ): Subpath {
     if (commands.length === 0 || samplePoints.length === 0) return {} as Subpath
 
     return {
-      iFirstCommand: startIndex,
-      iLastCommand: startIndex + commands.length - 1,
+      iFirstCommand: iFirstCommand,
+      iLastCommand: iFirstCommand + commands.length - 1,
       commands: [...commands], // Copy the command references.
       samplePoints: [...samplePoints] // Copy the sample point references.
     } as Subpath
@@ -540,7 +540,11 @@ export class PathProcessor {
     const allIntersections: Intersection[] = []
 
     // TODO: (Maybe) Make these algebraic and not based on sampled points.
-    // Find intersections within each subpath.
+    // Find intersections within each subpath. Intersections should store segment
+    // indices that correspond to the full global path sample points, which
+    // are also referenced by the `iFirstPoint` and `iLastPoint` values on
+    // the full `pathCommands` array.
+
     let iFirstPoint = 0
     for (const subpath of subpaths) {
       // Get the intersections.
@@ -553,7 +557,10 @@ export class PathProcessor {
 
     // Find intersections between different subpaths
     for (let i = 0; i < subpaths.length; i++) {
-      for (let j = i + 1; j < subpaths.length; j++) {
+      for (let j = i; j < subpaths.length; j++) {
+        if (i == j) {
+          continue
+        }
         const intersections = findIntersectionsBetweenSubpaths(subpaths[i], subpaths[j])
         allIntersections.push(...intersections)
       }

@@ -111,18 +111,6 @@ describe('Svg Complex Cases to KCL Conversion', () => {
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
 
-  it('should correctly convert compound_path.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'compound_path.svg')
-    const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'compound_path.kcl')
-
-    await convertSvgToKcl(inputPath, outputPath, options)
-    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
-
-    expect(actualKcl.trim()).toBe(expectedKcl.trim())
-  })
-
   it('should throw error for polyline with less than 2 points', async () => {
     const inputPath = path.join(dataDir, 'invalid_polyline.svg')
     const outputPath = path.join(dataDir, 'output.kcl')

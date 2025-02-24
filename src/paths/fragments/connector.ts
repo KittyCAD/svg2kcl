@@ -62,16 +62,6 @@ export function connectFragments(fragments: PathFragment[], intersections: Inter
       for (const otherFragment of fragments) {
         if (otherFragment === fragment || otherFragment === nextFragment) continue
 
-        if (Math.abs(otherFragment.start.x - intersectionAtEnd.intersectionPoint.x) < 0.1) {
-          console.log(
-            `Fragment ${otherFragment.id}: ${otherFragment.start.x}, ${otherFragment.start.y}`
-          )
-          console.log(
-            `Intersection: ${intersectionAtEnd.intersectionPoint.x}, ${intersectionAtEnd.intersectionPoint.y}`
-          )
-          let x = 1
-        }
-
         if (
           computePointToPointDistance(otherFragment.start, intersectionAtEnd.intersectionPoint) <
           EPSILON_INTERSECT

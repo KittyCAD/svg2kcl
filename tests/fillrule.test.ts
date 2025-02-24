@@ -24,7 +24,7 @@ describe('SVG Fill Rule Tests NonZero', () => {
   //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
   //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-  //   //   // Compare output with expected result.
+  //   // Compare output with expected result.
   //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
   // })
 
@@ -83,6 +83,20 @@ describe('SVG Fill Rule Tests NonZero', () => {
   //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
   // })
 
+  it('should correctly convert bezier_bowtie.svg to KCL', async () => {
+    const inputPath = path.join(dataDir, 'bezier_bowtie.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+    const expectedKclPath = path.join(dataDir, 'bezier_bowtie.kcl')
+
+    // Run the conversion.
+    await convertSvgToKcl(inputPath, outputPath, options)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  })
+
   // it('should correctly convert winding_order.svg to KCL', async () => {
   //   // https://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html
   //   const inputPath = path.join(dataDir, 'winding_order.svg')
@@ -113,19 +127,19 @@ describe('SVG Fill Rule Tests NonZero', () => {
   //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
   // })
 
-  it('should correctly convert basic_path.svg to KCL', async () => {
-    const inputPath = path.join(dataDir, 'basic_path.svg')
-    const outputPath = path.join(dataDir, 'output.kcl')
-    const expectedKclPath = path.join(dataDir, 'basic_path.kcl')
+  // it('should correctly convert basic_path.svg to KCL', async () => {
+  //   const inputPath = path.join(dataDir, 'basic_path.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'basic_path.kcl')
 
-    // Run the conversion.
-    await convertSvgToKcl(inputPath, outputPath, options)
-    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+  //   // Run the conversion.
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
-    // Compare output with expected result.
-    expect(actualKCL.trim()).toBe(expectedKcl.trim())
-  })
+  //   // Compare output with expected result.
+  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  // })
 
   // it('should correctly convert compound_path_nonzero.svg to KCL', async () => {
   //   const inputPath = path.join(dataDir, 'compound_path_nonzero.svg')

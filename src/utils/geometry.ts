@@ -123,7 +123,7 @@ export function isClockwise(points: Point[]): boolean {
 }
 
 export function findSelfIntersections(points: Point[], startIndex: number): Intersection[] {
-  const intersections: Intersection[] = []
+  let intersections: Intersection[] = []
   const segments: LineSegment[] = [] // Segments composed two points.
 
   // Break path into segments.
@@ -134,12 +134,20 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
     } as LineSegment)
   }
 
+  let comparedPairs: Map<number, number[]> = new Map()
+
   // Compare each segment pair for intersections.
   // Skip adjacent segments because these would always intersect.
   // Segment 1: A----B
   // Segment 2:      B----C
-  for (let i = 0; i < segments.length - 1; i++) {
+  for (let i = 0; i < segments.length; i++) {
     for (let j = i + 2; j < segments.length; j++) {
+      // Track.
+      if (!comparedPairs.has(i)) {
+        comparedPairs.set(i, [])
+      }
+      comparedPairs.get(i)!.push(j)
+
       // Compare each segment pair for intersections.
       // Skip adjacent segments because these would always intersect.
       // Segment 1: A----B
@@ -161,7 +169,10 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
       const det = cz
 
       // If A cross B is zero, then the two segments are parallel.
-      if (det === 0) continue
+      const EPSILON_DET = 1e-6
+      if (Math.abs(det) < EPSILON_DET) {
+        continue
+      }
 
       // Using parametric equations for the two lines, we can find intersection point.
       // P(t) = P1 + t(P2 - P1)
@@ -178,39 +189,67 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
       const detA1 =
         (seg2.end.x - seg2.start.x) * (seg1.start.y - seg2.start.y) -
         (seg2.end.y - seg2.start.y) * (seg1.start.x - seg2.start.x)
-      const ua = detA1 / det
+      let ua = detA1 / det
 
       const detA2 =
         (seg1.end.x - seg1.start.x) * (seg1.start.y - seg2.start.y) -
         (seg1.end.y - seg1.start.y) * (seg1.start.x - seg2.start.x)
-      const ub = detA2 / det
+      let ub = detA2 / det
 
-      // Check if intersection lies within both segments, excluding endpoints.
-      if (
-        ua > EPSILON_INTERSECT &&
-        ua < 1 - EPSILON_INTERSECT &&
-        ub > EPSILON_INTERSECT &&
-        ub < 1 - EPSILON_INTERSECT
-      ) {
-        const intersectionPoint = {
-          x: seg1.start.x + ua * (seg1.end.x - seg1.start.x),
-          y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
-        }
+      // Check of overall split points are within tolerance.
+      const isUaValid = ua >= -EPSILON_INTERSECT && ua <= 1 + EPSILON_INTERSECT
+      const isUbValid = ub >= -EPSILON_INTERSECT && ub <= 1 + EPSILON_INTERSECT
 
-        // Adjust indices to be relative to the full path sample set.
-        const globalSegmentAIndex = i + startIndex
-        const globalSegmentBIndex = j + startIndex
-
-        intersections.push({
-          iSegmentA: globalSegmentAIndex,
-          iSegmentB: globalSegmentBIndex,
-          intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
-          tA: ua, // Fraction along segment A: ua.
-          tB: ub // Fraction along segment B: ub.
-        })
+      if (!isUaValid || !isUbValid) {
+        continue
       }
+
+      // Then sanity check if we're at our endpoints.
+      const isUaAtEndpoint =
+        Math.abs(ua) < EPSILON_INTERSECT || Math.abs(ua - 1) < EPSILON_INTERSECT
+      const isUbAtEndpoint =
+        Math.abs(ub) < EPSILON_INTERSECT || Math.abs(ub - 1) < EPSILON_INTERSECT
+
+      if (isUaAtEndpoint && isUbAtEndpoint) {
+        continue
+      }
+
+      // Clip ua and ub within the valid range [0,1].
+      ua = Math.max(0, Math.min(1, ua))
+      ub = Math.max(0, Math.min(1, ub))
+
+      // Include endpoints.
+      const intersectionPoint = {
+        x: seg1.start.x + ua * (seg1.end.x - seg1.start.x),
+        y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
+      }
+
+      // Adjust indices to be relative to the full path sample set.
+      const globalSegmentAIndex = i + startIndex
+      const globalSegmentBIndex = j + startIndex
+
+      intersections.push({
+        iSegmentA: globalSegmentAIndex,
+        iSegmentB: globalSegmentBIndex,
+        intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
+        tA: ua, // Fraction along segment A: ua.
+        tB: ub // Fraction along segment B: ub.
+      })
     }
   }
+
+  // Dedupe intersections—which could crop up where our splitline runs through
+  // the adjacent start/end points of two segments.
+  intersections = intersections.filter(
+    (inter, index, self) =>
+      index ===
+      self.findIndex(
+        (other) =>
+          other.iSegmentB === inter.iSegmentB &&
+          computePointToPointDistance(other.intersectionPoint, inter.intersectionPoint) <
+            EPSILON_INTERSECT
+      )
+  )
 
   return intersections
 }

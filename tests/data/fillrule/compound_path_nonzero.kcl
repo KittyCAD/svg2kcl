@@ -1,0 +1,44 @@
+sketch001 = startSketchAt([10, -10])
+  |> line(end = [80, 0])
+  |> line(end = [0, -80])
+  |> line(end = [-80, 0])
+  |> line(end = [0, 80])
+  |> close()
+  |> hole(
+        startSketchAt([70, -50])
+    |> line(end = [0, -10])
+    |> line(end = [-10, 0])
+    |> bezierCurve({
+      control1 = [0.361, -1.442],
+      control2 = [0.747, -2.781],
+      to = [1.156, -4.015]
+    }, %)
+    |> bezierCurve({
+      control1 = [2.948, -1.511],
+      control2 = [5.896, -1.284],
+      to = [8.844, 0.682]
+    }, %)
+    |> line(end = [0, -6.667])
+    |> line(end = [-6.255, 0])
+    |> bezierCurve({
+      control1 = [5.258, -9.107],
+      control2 = [12.311, -5.773],
+      to = [16.255, 10]
+    }, %)
+    |> line(end = [-6.34, 0])
+    |> bezierCurve({
+      control1 = [2.113, 2.44],
+      control2 = [4.227, 5.773],
+      to = [6.34, 10]
+    }, %)
+    |> line(end = [-10, 0])
+    |> close(), %)
+  startSketchAt([70, -60])
+  |> line(end = [0, -3.333])
+  |> bezierCurve({
+      control1 = [1.22, 0.813],
+      control2 = [2.44, 1.924],
+      to = [3.66, 3.333]
+    }, %)
+  |> line(end = [-3.66, 0])
+  |> close()

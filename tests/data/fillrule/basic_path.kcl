@@ -7,14 +7,9 @@ sketch001 = startSketchAt([10, -10])
   |> hole(
         startSketchAt([75, -45])
     |> bezierCurve({
-      control1 = [4.916, -3.277],
-      control2 = [9.832, -4.943],
-      to = [14.748, -4.999]
-    }, %)
-    |> bezierCurve({
-      control1 = [0.084, -0.001],
-      control2 = [0.168, -0.001],
-      to = [0.252, -0.001]
+      control1 = [5, -3.333],
+      control2 = [10, -5],
+      to = [15, -5]
     }, %)
     |> line(end = [-15, 5])
     |> close(), %)

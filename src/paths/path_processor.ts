@@ -287,6 +287,7 @@ export class PathProcessor {
 
       const parentRegion = regions.find((r) => r.id === region.parentRegionId)
       if (!parentRegion) continue
+      if (parentRegion.isHole) continue
 
       const regionPoints = getRegionPoints(region, fragmentMap)
       const parentPoints = getRegionPoints(parentRegion, fragmentMap)

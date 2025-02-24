@@ -32,7 +32,6 @@ import { connectFragments } from './fragments/connector'
 import { PathFragment } from './fragments/fragment'
 import { sampleSubpath } from './path'
 import { identifyClosedRegions, orderRegions } from './regions'
-// import { detectAllPlanarFaces } from './half_edge'
 import { subdivideCommand } from './subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
@@ -49,9 +48,8 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
-import { exportPointsToCSV, Plotter } from '../utils/debug'
+// import { exportPointsToCSV, Plotter } from '../utils/debug'
 
-const plotter = new Plotter()
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
 

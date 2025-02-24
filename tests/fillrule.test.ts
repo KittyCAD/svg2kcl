@@ -92,7 +92,7 @@ describe('SVG Fill Rule Tests NonZero', () => {
     expect(actualKCL.trim()).toBe(expectedKcl.trim())
   })
   it('should correctly convert winding_order_evenodd.svg to KCL', async () => {
-    // https://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html
+    // htps://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html
     const inputPath = path.join(dataDir, 'winding_order_evenodd.svg')
     const outputPath = path.join(dataDir, 'output.kcl')
     const expectedKclPath = path.join(dataDir, 'winding_order_evenodd.kcl')
@@ -114,15 +114,15 @@ describe('SVG Fill Rule Tests NonZero', () => {
     // Compare output with expected result.
     expect(actualKCL.trim()).toBe(expectedKcl.trim())
   })
-  // it('should correctly convert compound_path_nonzero.svg to KCL', async () => {
-  //   const inputPath = path.join(dataDir, 'compound_path_nonzero.svg')
-  //   const outputPath = path.join(dataDir, 'output.kcl')
-  //   const expectedKclPath = path.join(dataDir, 'compound_path_nonzero.kcl')
-  //   // Run the conversion.
-  //   await convertSvgToKcl(inputPath, outputPath, options)
-  //   const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
-  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
-  //   // Compare output with expected result.
-  //   expect(actualKCL.trim()).toBe(expectedKcl.trim())
-  // })
+  it('should correctly convert compound_path_nonzero.svg to KCL', async () => {
+    const inputPath = path.join(dataDir, 'compound_path_nonzero.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+    const expectedKclPath = path.join(dataDir, 'compound_path_nonzero.kcl')
+    // Run the conversion.
+    await convertSvgToKcl(inputPath, outputPath, options)
+    const actualKCL = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+    // Compare output with expected result.
+    expect(actualKCL.trim()).toBe(expectedKcl.trim())
+  })
 })

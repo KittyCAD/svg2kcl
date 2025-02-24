@@ -75,12 +75,6 @@ export class PathProcessor {
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
 
-    // Plot the whole path, red.
-    for (const subpath of subpaths) {
-      plotter.addPoints(subpath.samplePoints, 'lines', 'scatter', 'red')
-      plotter.createPlot()
-    }
-
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
 
@@ -576,14 +570,6 @@ export class PathProcessor {
     for (const subpath of subpaths) {
       const subpathFragments = this.createSubpathFragments(subpath, pathCommands, splitPlan)
       allFragments.push(...subpathFragments)
-    }
-
-    // Plot fragments one at a time.
-
-    for (const fragment of allFragments) {
-      plotter.addPoints([fragment.start, fragment.end], 'lines', 'scatter', 'blue')
-      plotter.createPlot()
-      let x = 1
     }
 
     return allFragments

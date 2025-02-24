@@ -91,28 +91,10 @@ export class PathProcessor {
       fragment.sampledPoints = sampleFragment(fragment)
     }
 
-    // Export fragment points.
-    // let fragmentPoints: Point[] = []
-    // for (const fragment of fragments) {
-    //   if (fragment.sampledPoints) {
-    //     fragmentPoints.push(...fragment.sampledPoints)
-    //   }
-    // }
-    // exportPointsToCSV(fragmentPoints, 'fragments.csv')
-
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = identifyClosedRegions(fragments, fragmentMap)
 
-    // Plot each of the closed regions.
-    // const plotter = new Plotter()
-    // for (const region of regions) {
-    //   const points = getRegionPoints(region, fragmentMap)
-    //   plotter.addPoints(points, 'lines', 'scatter', 'blue')
-    //   plotter.createPlot()
-    //   let x = 1
-    // }
-
-    /// Handle fill rule.
+    // Handle fill rule.
     let processedRegions: PathRegion[] = []
     if (this.fillRule === FillRule.NonZero) {
       const windingAnalyzer = new WindingAnalyzer(fragments)

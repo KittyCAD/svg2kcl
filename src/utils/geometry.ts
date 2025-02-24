@@ -169,7 +169,7 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
       const det = cz
 
       // If A cross B is zero, then the two segments are parallel.
-      const EPSILON_DET = 1e-6
+      const EPSILON_DET = EPSILON_INTERSECT
       if (Math.abs(det) < EPSILON_DET) {
         continue
       }

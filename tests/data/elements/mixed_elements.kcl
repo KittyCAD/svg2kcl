@@ -16,11 +16,15 @@ sketch004 = startSketchAt([20, -80])
       control2 = [20, -6.667],
       to = [30, 0]
     }, %)
+  |> line(end = [-30, 0])
+  |> close()
+  startSketchAt([50, -80])
   |> bezierCurve({
       control1 = [10, 6.667],
       control2 = [20, 6.667],
       to = [30, 0]
     }, %)
+  |> line(end = [-30, 0])
   |> close()
 
 sketch005 = startSketchAt([10, -90])

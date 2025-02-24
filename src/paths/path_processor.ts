@@ -30,7 +30,7 @@
 import { EPSILON_INTERSECT } from '../constants'
 import { connectFragments } from './fragments/connector'
 import { PathFragment } from './fragments/fragment'
-import { samplePath } from './path'
+import { sampleSubpath } from './path'
 import { identifyClosedRegions, orderRegions } from './regions'
 // import { detectAllPlanarFaces } from './half_edge'
 import { subdivideCommand } from './subdivision'
@@ -136,7 +136,7 @@ export class PathProcessor {
 
     for (const subpath of closedSubpaths) {
       const { pathSamplePoints: localSubpathSamplePoints, pathCommands: localSubpathCommands } =
-        samplePath(subpath)
+        sampleSubpath(subpath)
 
       // Create our subpath object.
       subpaths.push(
@@ -171,8 +171,8 @@ export class PathProcessor {
     if (commands.length === 0 || samplePoints.length === 0) return {} as Subpath
 
     return {
-      startIndex: startIndex,
-      endIndex: startIndex + commands.length - 1,
+      iFirstCommand: startIndex,
+      iLastCommand: startIndex + commands.length - 1,
       commands: [...commands], // Copy the command references.
       samplePoints: [...samplePoints] // Copy the sample point references.
     } as Subpath
@@ -313,8 +313,8 @@ export class PathProcessor {
 
       // Build subpath object for output.
       output.push({
-        startIndex: subpathStartIndex,
-        endIndex: iCommandGlobal - 1, // Last command we processed
+        iFirstCommand: subpathStartIndex,
+        iLastCommand: iCommandGlobal - 1, // Last command we processed
         commands: commandsOut,
         samplePoints: subpathSamples
       } as Subpath)
@@ -438,10 +438,16 @@ export class PathProcessor {
     return commands
   }
 
-  private findCommandIndexForPoint(commands: PathCommandEnriched[], iPoint: number): number {
-    // Clip iPoint to valid bounds.
-    // TODO: Not convinced we should have to do this, but I am adding +1
-    // to segment indices for two-point segments, which... I am unsure of.
+  private findCommandIndexForSegment(commands: PathCommandEnriched[], iSegment: number): number {
+    // If we have points [p1, p2, p3, p4] that becomes segments
+    // [[p1, p2], [p2, p3], [p3, p4]], then the point indices for each
+    // segment are [iPoint1, iPoint2] = [iSegment, iSegment+1].
+
+    // Get our point indices.
+    const iPoint1 = iSegment
+    const iPoint2 = iSegment + 1
+
+    // Validate
     const validPoints = commands.filter((cmd) => cmd.iFirstPoint != null && cmd.iLastPoint != null)
     const iMin = Math.min(
       ...validPoints
@@ -452,7 +458,11 @@ export class PathProcessor {
       ...validPoints.map((cmd) => cmd.iLastPoint).filter((point): point is number => point !== null)
     )
 
-    iPoint = Math.max(iMin, Math.min(iMax, iPoint))
+    if (iPoint1 < iMin || iPoint1 > iMax || iPoint2 < iMin || iPoint2 > iMax) {
+      throw new Error(`Index out of range for segement: ${iSegment}`)
+    }
+
+    // Iterate over commands, return that which contains both points.
 
     // Look through commands to find which one contains this point index.
     for (let i = 0; i < commands.length; i++) {
@@ -461,13 +471,13 @@ export class PathProcessor {
       if (
         command.iFirstPoint !== null &&
         command.iLastPoint !== null &&
-        iPoint >= command.iFirstPoint &&
-        iPoint <= command.iLastPoint
+        iPoint1 >= command.iFirstPoint &&
+        iPoint2 <= command.iLastPoint
       ) {
         return i
       }
     }
-    throw new Error(`No command found containing point index ${iPoint}`)
+    throw new Error(`No command found containing point index ${iSegment}`)
   }
 
   private convertSegmentTtoCommandT(
@@ -478,7 +488,7 @@ export class PathProcessor {
     // Converts a localised segment T value to a global (command scope) T value.
 
     // Find the command that owns this segment.
-    const iCommand = this.findCommandIndexForPoint(commands, iSegmentStart)
+    const iCommand = this.findCommandIndexForSegment(commands, iSegmentStart)
     const command = commands[iCommand]
 
     // If it's a line, segment t is already correct.
@@ -530,11 +540,15 @@ export class PathProcessor {
     const allIntersections: Intersection[] = []
 
     // TODO: (Maybe) Make these algebraic and not based on sampled points.
-
-    // Find intersections within each subpath
+    // Find intersections within each subpath.
+    let iFirstPoint = 0
     for (const subpath of subpaths) {
-      const internalIntersections = findSelfIntersections(subpath.samplePoints, subpath.startIndex)
+      // Get the intersections.
+      const internalIntersections = findSelfIntersections(subpath.samplePoints, iFirstPoint)
       allIntersections.push(...internalIntersections)
+
+      // Update offset in global points array.
+      iFirstPoint += subpath.samplePoints.length
     }
 
     // Find intersections between different subpaths
@@ -562,8 +576,8 @@ export class PathProcessor {
     // First collect all intersection points for each command.
     for (const intersection of intersections) {
       // Get command indices. Note that the segment is from iPoint to iPoint + 1.
-      const iCommandA = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentA)
-      const iCommandB = this.findCommandIndexForPoint(pathCommands, intersection.iSegmentB)
+      const iCommandA = this.findCommandIndexForSegment(pathCommands, intersection.iSegmentA)
+      const iCommandB = this.findCommandIndexForSegment(pathCommands, intersection.iSegmentB)
 
       const tA = this.convertSegmentTtoCommandT(
         pathCommands,
@@ -621,7 +635,7 @@ export class PathProcessor {
     const fragments: PathFragment[] = []
 
     // Create fragments for commands
-    for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
+    for (let i = subpath.iFirstCommand; i <= subpath.iLastCommand; i++) {
       const cmd = pathCommands[i]
       const tVals = [...(splitPlan.get(i) || []), 0, 1].sort((a, b) => a - b)
 
@@ -652,7 +666,7 @@ export class PathProcessor {
             type: PathFragmentType.Line,
             start: lastPoint,
             end: firstPoint,
-            iCommand: subpath.endIndex
+            iCommand: subpath.iLastCommand
           })
         )
       }

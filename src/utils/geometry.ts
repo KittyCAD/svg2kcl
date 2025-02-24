@@ -267,8 +267,8 @@ export function findIntersectionsBetweenSubpaths(
         }
 
         // Adjust indices to be relative to the full path
-        const globalSegmentAIndex = i + subpath1.startIndex
-        const globalSegmentBIndex = j + subpath2.startIndex
+        const globalSegmentAIndex = i + subpath1.iFirstCommand
+        const globalSegmentBIndex = j + subpath2.iFirstCommand
 
         intersections.push({
           iSegmentA: globalSegmentAIndex,

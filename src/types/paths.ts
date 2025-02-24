@@ -74,8 +74,8 @@ export interface PathCommandEnriched extends PathCommand {
 }
 
 export interface Subpath {
-  startIndex: number // Index in commands array.
-  endIndex: number // Index in commands array.
+  iFirstCommand: number // Index in commands array.
+  iLastCommand: number // Index in commands array.
   commands: PathCommandEnriched[]
   samplePoints: Point[]
 }

@@ -1,10 +1,25 @@
 import { Point } from '../types/base'
 import { PathCommandEnriched, PathCommand, PathCommandType, PathSampleResult } from '../types/paths'
 import { BezierUtils } from '../utils/bezier'
-import { computePointToPointDistance } from '../utils/geometry'
+import { computePointToPointDistance, isPointInsidePolygon } from '../utils/geometry'
 import { EPSILON_INTERSECT } from '../constants'
 
-export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
+export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
+  // Our objective here is to sample the path into a series of points, while also
+  // relating each command to the points it generates. Note that, for each adjacent
+  // command pair, e.g., a line followed by a curve, the line's end point and the
+  // curve's start point will be the same; both the same coordinates and the same point
+  // in our points array. As a result, when tracking indices for each command, adjacent
+  // commands will have overlap in iFirstPoint and iLastPoint. This is intentional, as
+  // it allows us to determine which command any pair of points belongs to.
+
+  // As we iterate, we should always push a command's points from [0... N-1], but only
+  // push the Nth element for the last geometry creating command in a subpath.
+  //
+  // Note that calling this function on a full path, not a subpath, may not
+  // return the expected results.
+
+  let isFirstPoint = true
   const points: Point[] = []
   const commands: PathCommandEnriched[] = []
   let currentPoint = { x: 0, y: 0 }
@@ -12,6 +27,10 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
 
   // Loop over each of our original input commands.
   for (let i = 0; i < inputCommands.length; i++) {
+    if (isFirstPoint && points.length > 0) {
+      isFirstPoint = false
+    }
+
     const command = inputCommands[i]
 
     // Store the current iteration's previousControlPoint before processing the command.
@@ -24,8 +43,12 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
     switch (command.type) {
       case PathCommandType.MoveAbsolute:
       case PathCommandType.MoveRelative: {
+        // We should only ever see one of these since we process subpath only.
+        if (points.length > 0) {
+          throw new Error('Subpath already started.')
+        }
+
         // Don't sample the move command; just set the current point.
-        // points.push(command.endPositionAbsolute)
         currentPoint = command.endPositionAbsolute
 
         // Set 'previous' control point.
@@ -39,19 +62,23 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
       case PathCommandType.HorizontalLineRelative:
       case PathCommandType.VerticalLineAbsolute:
       case PathCommandType.VerticalLineRelative: {
-        iFirstPoint = points.length
-        // points.push(currentPoint, command.endPositionAbsolute)
-        points.push(currentPoint)
-        currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length - 1
+        iFirstPoint = isFirstPoint ? 0 : points.length
 
-        // Set 'previous' control point.
+        // Always push start position.
+        points.push(currentPoint)
+
+        // Track indices in points array.
+        iLastPoint = points.length // OOB for now.
+
+        currentPoint = command.endPositionAbsolute
         previousControlPoint = currentPoint
         break
       }
 
       case PathCommandType.QuadraticBezierAbsolute:
       case PathCommandType.QuadraticBezierRelative: {
+        iFirstPoint = isFirstPoint ? 0 : points.length
+
         // Get absolute control point.
         let [x1, y1] = command.parameters
         if (command.type === PathCommandType.QuadraticBezierRelative) {
@@ -60,7 +87,6 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         }
 
         // Sample the curve.
-        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleQuadraticBezier(
           currentPoint,
           { x: x1, y: y1 },
@@ -68,7 +94,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length - 1
+        iLastPoint = points.length // OOB for now.
 
         // Set 'previous' control point.
         previousControlPoint = { x: x1, y: y1 }
@@ -77,6 +103,8 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
 
       case PathCommandType.QuadraticBezierSmoothAbsolute:
       case PathCommandType.QuadraticBezierSmoothRelative: {
+        iFirstPoint = isFirstPoint ? 0 : points.length
+
         // Smooth quadratic Bézier only takes end point as parameter.
         // First control point is reflection of previous control point.
         const reflectedControlPoint = BezierUtils.calculateReflectedControlPoint(
@@ -85,7 +113,6 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
 
         // Sample the curve using the reflected control point.
-        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleQuadraticBezier(
           currentPoint,
           reflectedControlPoint,
@@ -93,7 +120,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length - 1
+        iLastPoint = points.length // OOB for now.
 
         // Set 'previous' control point.
         previousControlPoint = reflectedControlPoint
@@ -102,6 +129,8 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
 
       case PathCommandType.CubicBezierAbsolute:
       case PathCommandType.CubicBezierRelative: {
+        iFirstPoint = isFirstPoint ? 0 : points.length
+
         // Get absolute control points.
         let [x1, y1, x2, y2] = command.parameters
         if (command.type === PathCommandType.CubicBezierRelative) {
@@ -111,7 +140,6 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
           y2 += currentPoint.y
         }
         // Sample the curve.
-        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleCubicBezier(
           currentPoint,
           { x: x1, y: y1 },
@@ -120,7 +148,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length - 1
+        iLastPoint = points.length
 
         // Set 'previous' control point.
         previousControlPoint = { x: x2, y: y2 }
@@ -129,6 +157,8 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
 
       case PathCommandType.CubicBezierSmoothAbsolute:
       case PathCommandType.CubicBezierSmoothRelative: {
+        iFirstPoint = isFirstPoint ? 0 : points.length
+
         // S/s command parameters are [x2, y2, x, y] where:
         // (x2,y2) is the second control point
         // (x,y) is the end point
@@ -146,7 +176,6 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
 
         // Sample the curve.
-        iFirstPoint = points.length
         const sampledPoints = BezierUtils.sampleCubicBezier(
           currentPoint,
           reflectedControlPoint,
@@ -155,7 +184,7 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
         )
         points.push(...sampledPoints)
         currentPoint = command.endPositionAbsolute
-        iLastPoint = points.length - 1
+        iLastPoint = points.length
 
         // Set 'previous' control point.
         previousControlPoint = { x: x2, y: y2 }
@@ -189,12 +218,16 @@ export function samplePath(inputCommands: PathCommand[]): PathSampleResult {
     })
   }
 
+  // Push our final point... making our iLastPoint not OOB.
+  if (points.length > 0) {
+    points.push(currentPoint)
+  }
+
   // Close.
   // Current point should be the same as the first point given our explicit closing geometry.
   if (computePointToPointDistance(currentPoint, points[0]) > EPSILON_INTERSECT) {
     throw new Error('Subpath is not closed.')
   }
-  points.push(currentPoint)
 
   return { pathSamplePoints: points, pathCommands: commands }
 }

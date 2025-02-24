@@ -49,8 +49,9 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
-// import { exportPointsToCSV } from '../utils/debug'
+import { exportPointsToCSV, Plotter } from '../utils/debug'
 
+const plotter = new Plotter()
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
 
@@ -76,6 +77,12 @@ export class PathProcessor {
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
 
+    // Plot the whole path, red.
+    for (const subpath of subpaths) {
+      plotter.addPoints(subpath.samplePoints, 'lines', 'scatter', 'red')
+      plotter.createPlot()
+    }
+
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
 
@@ -95,6 +102,15 @@ export class PathProcessor {
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = identifyClosedRegions(fragments, fragmentMap)
+
+    // Plot each of the closed regions.
+    // const plotter = new Plotter()
+    // for (const region of regions) {
+    //   const points = getRegionPoints(region, fragmentMap)
+    //   plotter.addPoints(points, 'lines', 'scatter', 'blue')
+    //   plotter.createPlot()
+    //   let x = 1
+    // }
 
     /// Handle fill rule.
     let processedRegions: PathRegion[] = []
@@ -158,7 +174,7 @@ export class PathProcessor {
     }
 
     // Compute intersections.
-    const intersections = this.findAllIntersections(subpaths)
+    const intersections = this.findAllIntersections(subpaths, pathCommands)
 
     return { pathCommands, subpaths, intersections }
   }
@@ -458,7 +474,10 @@ export class PathProcessor {
     return tGlobal
   }
 
-  private findAllIntersections(subpaths: Subpath[]): Intersection[] {
+  private findAllIntersections(
+    subpaths: Subpath[],
+    pathCommands: PathCommandEnriched[]
+  ): Intersection[] {
     const allIntersections: Intersection[] = []
 
     // TODO: (Maybe) Make these algebraic and not based on sampled points.
@@ -477,13 +496,38 @@ export class PathProcessor {
       iFirstPoint += subpath.samplePoints.length
     }
 
-    // Find intersections between different subpaths
+    // Find intersections between different subpaths.
     for (let i = 0; i < subpaths.length; i++) {
+      // 🤮
+      // First, get the local (to subpath i) index of the first command that has sample
+      // points, then use that to get the index of the first sample point in the
+      // global sample points array.
+      const iFirstGeomCommandLocalA = subpaths[i].commands.findIndex((x) => x.iFirstPoint !== null)
+      const iFirstPointA =
+        pathCommands[subpaths[i].iFirstCommand + iFirstGeomCommandLocalA].iFirstPoint
+
       for (let j = i; j < subpaths.length; j++) {
         if (i == j) {
           continue
         }
-        const intersections = findIntersectionsBetweenSubpaths(subpaths[i], subpaths[j])
+
+        // Similarly, get the local (to subpath k) index of the first command that has sample
+        // points, then use that to get the index of the first sample point in the
+        // global sample points array.
+        const iFirstGeomCommandLocalB = subpaths[j].commands.findIndex(
+          (x) => x.iFirstPoint !== null
+        )
+        const iFirstPointB =
+          pathCommands[subpaths[j].iFirstCommand + iFirstGeomCommandLocalB].iFirstPoint
+
+        // Pass those values... they'll be used as offsets for intersection indices,
+        // so that the `intersection` object indices are 'global'.
+        const intersections = findIntersectionsBetweenSubpaths(
+          subpaths[i],
+          subpaths[j],
+          iFirstPointA!,
+          iFirstPointB!
+        )
         allIntersections.push(...intersections)
       }
     }
@@ -551,6 +595,14 @@ export class PathProcessor {
     for (const subpath of subpaths) {
       const subpathFragments = this.createSubpathFragments(subpath, pathCommands, splitPlan)
       allFragments.push(...subpathFragments)
+    }
+
+    // Plot fragments one at a time.
+
+    for (const fragment of allFragments) {
+      plotter.addPoints([fragment.start, fragment.end], 'lines', 'scatter', 'blue')
+      plotter.createPlot()
+      let x = 1
     }
 
     return allFragments

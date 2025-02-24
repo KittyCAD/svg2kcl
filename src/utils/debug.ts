@@ -27,7 +27,7 @@ export class Plotter {
   ): void {
     this.plotData.push({
       x: points.map((p) => p.x),
-      y: points.map((p) => p.y),
+      y: points.map((p) => p.y * -1),
       mode,
       type,
       color

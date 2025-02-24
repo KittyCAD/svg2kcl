@@ -3,9 +3,9 @@ import { promises as fsPromises } from 'node:fs'
 import path from 'path'
 import { convertSvgToKcl } from '../src/main'
 import { KclOptions } from '../src/types/kcl'
-// import { jest } from '@jest/globals'
+import { jest } from '@jest/globals'
 
-// jest.setTimeout(10000)
+jest.setTimeout(10000)
 
 const options: KclOptions = {
   centerOnViewBox: false

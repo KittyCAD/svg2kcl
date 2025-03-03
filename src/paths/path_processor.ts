@@ -28,16 +28,13 @@
 // from 'above' on a per-region basis.
 
 import { EPSILON_INTERSECT } from '../constants'
-import { connectFragments } from './fragments/connector'
-import { PathFragment } from './fragments/fragment'
-import { sampleSubpath } from './path'
-import { identifyClosedRegions, orderRegions } from './regions'
-import { subdivideCommand } from './subdivision'
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { FragmentMap, PathFragmentType } from '../types/fragments'
 import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { PathRegion } from '../types/regions'
+import { Plotter } from '../utils/debug'
+import { EvenOddAnalyzer, WindingAnalyzer } from '../utils/fillrule'
 import {
   computePointToPointDistance,
   findIntersectionsBetweenSubpaths,
@@ -45,11 +42,12 @@ import {
   Intersection,
   isPolygonInsidePolygon
 } from '../utils/geometry'
-import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
-import { sampleFragment } from './fragments/fragment'
+import { connectFragments } from './fragments/connector'
+import { PathFragment, sampleFragment } from './fragments/fragment'
+import { buildPlanarGraphFromFragments, buildRegions, getFaces } from './fragments/planar_face'
+import { sampleSubpath } from './path'
 import { getRegionPoints } from './regions'
-import { exportPointsToCSV, Plotter } from '../utils/debug'
-import { buildPlanarGraphFromFragments, getFaces, buildRegions } from './fragments/planar_face'
+import { subdivideCommand } from './subdivision'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -130,10 +128,7 @@ export class PathProcessor {
       let x = 1
     }
 
-    // Convert to commands for KCL output.
-    const orderedRegions = orderRegions(finalRegions)
-
-    return new ProcessedPath(fragmentMap, orderedRegions)
+    return new ProcessedPath(fragmentMap, finalRegions)
   }
 
   // -----------------------------------------------------------------------------------
@@ -287,7 +282,7 @@ export class PathProcessor {
     const regionsToRemove = new Set<string>()
     const fragmentMap = new Map(fragments.map((f) => [f.id, f]))
 
-    // First, build a map of each region's children for faster lookup
+    // Build a map of each region's children for fast lookup
     const childrenMap = new Map<string, PathRegion[]>()
     for (const region of regions) {
       if (region.parentRegionId) {
@@ -298,9 +293,8 @@ export class PathProcessor {
       }
     }
 
-    // Look for nested regions with the same fill status (both filled or both holes)
+    // Look for redundant nested regions
     for (const region of regions) {
-      // Skip if already marked for removal
       if (regionsToRemove.has(region.id)) continue
 
       const parentRegion = regions.find((r) => r.id === region.parentRegionId)
@@ -308,28 +302,18 @@ export class PathProcessor {
 
       // If parent and child have the same fill status (both holes or both filled regions)
       if (region.isHole === parentRegion.isHole) {
-        // Check actual containment
         const regionPoints = getRegionPoints(region, fragmentMap)
         const parentPoints = getRegionPoints(parentRegion, fragmentMap)
 
+        // Check if the child is completely inside the parent
         if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
-          // For filled regions inside filled regions, keep only the innermost one
-          // For holes inside holes, keep only the outermost one
-          if (!region.isHole) {
-            // For filled regions, remove the parent (it's redundant)
-            regionsToRemove.add(parentRegion.id)
+          // If both are filled regions or both are holes, remove the child (region)
+          regionsToRemove.add(region.id)
 
-            // Update the hierarchy - make this region a child of parent's parent
-            region.parentRegionId = parentRegion.parentRegionId
-          } else {
-            // For holes, remove the child (inner hole)
-            regionsToRemove.add(region.id)
-
-            // If this hole had children, reassign them to the parent hole
-            const children = childrenMap.get(region.id) || []
-            for (const child of children) {
-              child.parentRegionId = parentRegion.id
-            }
+          // If the child had children, reassign them to the parent
+          const children = childrenMap.get(region.id) || []
+          for (const child of children) {
+            child.parentRegionId = parentRegion.id
           }
         }
       }
@@ -686,49 +670,4 @@ export class PathProcessor {
 
     return fragments
   }
-
-  // private createSubpathFragments(
-  //   subpath: Subpath,
-  //   pathCommands: PathCommandEnriched[],
-  //   splitPlan: Map<number, number[]>
-  // ): PathFragment[] {
-  //   const fragments: PathFragment[] = []
-
-  //   // Create fragments for commands
-  //   for (let i = subpath.startIndex; i <= subpath.endIndex; i++) {
-  //     const cmd = pathCommands[i]
-  //     const tVals = [...(splitPlan.get(i) || []), 0, 1].sort((a, b) => a - b)
-
-  //     for (let j = 0; j < tVals.length - 1; j++) {
-  //       const tMin = tVals[j]
-  //       const tMax = tVals[j + 1]
-
-  //       if (tMax - tMin < EPSILON_INTERSECT) continue
-
-  //       const fragment = subdivideCommand(cmd, tMin, tMax)
-  //       if (fragment) fragments.push(fragment)
-  //     }
-  //   }
-
-  //   // Add closing fragment if needed.
-  //   if (fragments.length > 0) {
-  //     const firstPoint = fragments[0].start
-  //     const lastPoint = fragments[fragments.length - 1].end
-
-  //     if (computePointToPointDistance(firstPoint, lastPoint) > EPSILON_INTERSECT) {
-  //       // TODO: I think we can throw an error here; this should never happen
-  //       // since we explicitly close all subpaths early in the process.
-  //       fragments.push(
-  //         new PathFragment({
-  //           type: PathFragmentType.Line,
-  //           start: lastPoint,
-  //           end: firstPoint,
-  //           iCommand: subpath.endIndex
-  //         })
-  //       )
-  //     }
-  //   }
-
-  //   return fragments
-  // }
 }

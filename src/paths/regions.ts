@@ -128,42 +128,6 @@ export function dfsFindLoop(
   return null
 }
 
-export function orderRegions(regions: PathRegion[]): PathRegion[] {
-  // Create a map of parent IDs to their children
-  const childrenMap = new Map<string | undefined, PathRegion[]>()
-
-  // Group regions by their parent ID (undefined for top-level regions)
-  for (const region of regions) {
-    const parentId = region.parentRegionId
-    if (!childrenMap.has(parentId)) {
-      childrenMap.set(parentId, [])
-    }
-    childrenMap.get(parentId)!.push(region)
-  }
-
-  // Helper function to traverse the tree depth-first
-  function traverseTree(parentId: string | undefined, result: PathRegion[]): void {
-    // Get all children of this parent
-    const children = childrenMap.get(parentId) || []
-
-    // For each child
-    for (const region of children) {
-      // Add the region first
-      result.push(region)
-
-      // Then recursively process its children
-      traverseTree(region.id, result)
-    }
-  }
-
-  // Start with an empty result array
-  const orderedRegions: PathRegion[] = []
-
-  // Begin traversal from the root (undefined parent)
-  traverseTree(undefined, orderedRegions)
-
-  return orderedRegions
-}
 export function getRegionPoints(region: PathRegion, fragmentMap: FragmentMap): Point[] {
   //  Extracts the ordered boundary points of a region based on its fragment IDs.
   //  This ensures the path reconstruction follows the original path direction.

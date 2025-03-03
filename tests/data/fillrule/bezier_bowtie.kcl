@@ -1,4 +1,5 @@
-sketch001 = startSketchAt([10, -50])
+sketch001 = startSketchOn(XY)
+  |> startProfileAt([10, -50], %)
   |> bezierCurve({
       control1 = [10, 30],
       control2 = [30, 30],
@@ -6,11 +7,12 @@ sketch001 = startSketchAt([10, -50])
     }, %)
   |> line(end = [-40, 0])
   |> close()
-  startSketchAt([50, -50])
+  startSketchOn(XY)
+  |> startProfileAt([50, -50], %)
+  |> line(end = [40, 0])
   |> bezierCurve({
-      control1 = [10, -30],
-      control2 = [30, -30],
-      to = [40, 0]
+      control1 = [-10, -30],
+      control2 = [-30, -30],
+      to = [-40, 0]
     }, %)
-  |> line(end = [-40, 0])
   |> close()

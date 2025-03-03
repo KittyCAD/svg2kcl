@@ -153,33 +153,63 @@ export function buildRegions(
       const nodeA = cycle[i]
       const nodeB = cycle[i + 1]
 
-      // Create the edge key in both possible orders (since we don't know which was used in the map)
-      const edgeKeyForward = `${Math.min(nodeA, nodeB)},${Math.max(nodeA, nodeB)}`
+      // Create the edge key in canonical form (min,max)
+      const edgeKey = `${Math.min(nodeA, nodeB)},${Math.max(nodeA, nodeB)}`
 
       // Look up the fragment ID from our map
-      const fragmentId = fragmentEdgeMap?.get(edgeKeyForward)
+      const fragmentId = fragmentEdgeMap?.get(edgeKey)
 
       if (fragmentId) {
         // Find the fragment to check its direction
         const fragment = fragments.find((f) => f.id === fragmentId)
 
         if (fragment) {
-          // Check if the edge goes in the same direction as the fragment
           const startNodeCoords = nodes[nodeA]
           const endNodeCoords = nodes[nodeB]
 
-          // Determine if the edge is reversed compared to the original fragment
-          const isReversed =
-            computePointToPointDistance(fragment.start, {
-              x: startNodeCoords[0],
-              y: startNodeCoords[1]
-            }) >= EPSILON_INTERSECT ||
-            computePointToPointDistance(fragment.end, {
-              x: endNodeCoords[0],
-              y: endNodeCoords[1]
-            }) >= EPSILON_INTERSECT
+          // Calculate all four possible distances to determine orientation
+          const startToStart = computePointToPointDistance(fragment.start, {
+            x: startNodeCoords[0],
+            y: startNodeCoords[1]
+          })
 
-          orderedFragmentDetails.push({ id: fragmentId, reversed: isReversed })
+          const startToEnd = computePointToPointDistance(fragment.start, {
+            x: endNodeCoords[0],
+            y: endNodeCoords[1]
+          })
+
+          const endToStart = computePointToPointDistance(fragment.end, {
+            x: startNodeCoords[0],
+            y: startNodeCoords[1]
+          })
+
+          const endToEnd = computePointToPointDistance(fragment.end, {
+            x: endNodeCoords[0],
+            y: endNodeCoords[1]
+          })
+
+          // Check which orientation has the smallest total distance
+          const forwardDistance = startToStart + endToEnd
+          const reverseDistance = startToEnd + endToStart
+
+          // If forward distance is smaller, fragment is not reversed
+          // If reverse distance is smaller, fragment is reversed
+          const isReversed = reverseDistance < forwardDistance
+
+          // Additional check for edges that are actually part of the original fragment (not sampled points)
+          // For these, we can be more precise about direction
+          if (
+            (startToStart < EPSILON_INTERSECT && endToEnd < EPSILON_INTERSECT) ||
+            (startToEnd < EPSILON_INTERSECT && endToStart < EPSILON_INTERSECT)
+          ) {
+            // This is an original fragment edge, not a sampled segment
+            // Determine if it's reversed based on which points match
+            const isReversed = startToEnd < EPSILON_INTERSECT
+            orderedFragmentDetails.push({ id: fragmentId, reversed: isReversed })
+          } else {
+            // This is a sampled segment or partial segment
+            orderedFragmentDetails.push({ id: fragmentId, reversed: isReversed })
+          }
         } else {
           console.warn(`Fragment ${fragmentId} not found in fragments array`)
         }

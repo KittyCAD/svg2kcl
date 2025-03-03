@@ -10,12 +10,16 @@ import { FragmentMap } from '../../types/fragments'
 interface PlanarGraph {
   nodes: Array<[number, number]>
   edges: Array<[number, number]>
+  fragmentEdgeMap: Map<string, string>
 }
 
 export function buildPlanarGraphFromFragments(fragments: PathFragment[]): PlanarGraph {
   // We'll store each unique node in 'nodes'.
   // Then we identify edges by node indices.
   const nodes: Array<[number, number]> = []
+
+  // Use a Map to track which fragment each edge belongs to
+  const fragmentEdgeMap = new Map<string, string>()
 
   function getNodeId(point: Point): number {
     for (let i = 0; i < nodes.length; i++) {
@@ -36,14 +40,70 @@ export function buildPlanarGraphFromFragments(fragments: PathFragment[]): Planar
   // Use a Set to avoid duplicate edges (since edges are undirected).
   const edgeSet = new Set<string>()
 
+  // First, ensure all fragment endpoints are registered as nodes
+  const fragmentNodeIds = new Map<string, { startId: number; endId: number }>()
   for (const fragment of fragments) {
     const startId = getNodeId(fragment.start)
     const endId = getNodeId(fragment.end)
+    fragmentNodeIds.set(fragment.id, { startId, endId })
+  }
 
-    // Store edge in a consistent (min, max) order.
-    const a = Math.min(startId, endId)
-    const b = Math.max(startId, endId)
-    edgeSet.add(`${a},${b}`)
+  // Now add edges based on sampled points
+  for (const fragment of fragments) {
+    if (fragment.sampledPoints && fragment.sampledPoints.length > 2) {
+      // Ensure enough points
+      // Don't sample ALL points - that can cause numerical issues
+      // Take a reasonable number of sample points along the curve
+      const numSamples = Math.min(20, fragment.sampledPoints.length)
+      const step = (fragment.sampledPoints.length - 1) / (numSamples - 1)
+
+      let prevId = fragmentNodeIds.get(fragment.id)?.startId
+
+      for (let i = 1; i < numSamples - 1; i++) {
+        const idx = Math.round(i * step)
+        const point = fragment.sampledPoints[idx]
+        const currentId = getNodeId(point)
+
+        if (prevId !== undefined && prevId !== currentId) {
+          // Skip zero-length edges
+          // Store edge in a consistent (min, max) order.
+          const a = Math.min(prevId, currentId)
+          const b = Math.max(prevId, currentId)
+          const edgeKey = `${a},${b}`
+
+          edgeSet.add(edgeKey)
+          fragmentEdgeMap.set(edgeKey, fragment.id)
+        }
+
+        prevId = currentId
+      }
+
+      // Connect the last sampled point to the fragment end point
+      const endId = fragmentNodeIds.get(fragment.id)?.endId
+      if (prevId !== undefined && endId !== undefined && prevId !== endId) {
+        const a = Math.min(prevId, endId)
+        const b = Math.max(prevId, endId)
+        const edgeKey = `${a},${b}`
+
+        edgeSet.add(edgeKey)
+        fragmentEdgeMap.set(edgeKey, fragment.id)
+      }
+    } else {
+      // For fragments with too few sample points, just connect start to end
+      const { startId, endId } = fragmentNodeIds.get(fragment.id) || {
+        startId: undefined,
+        endId: undefined
+      }
+
+      if (startId !== undefined && endId !== undefined && startId !== endId) {
+        const a = Math.min(startId, endId)
+        const b = Math.max(startId, endId)
+        const edgeKey = `${a},${b}`
+
+        edgeSet.add(edgeKey)
+        fragmentEdgeMap.set(edgeKey, fragment.id)
+      }
+    }
   }
 
   // Convert the Set of "a,b" strings into numeric pairs.
@@ -52,9 +112,15 @@ export function buildPlanarGraphFromFragments(fragments: PathFragment[]): Planar
     return [a, b]
   })
 
-  return { nodes, edges }
-}
+  // Verify graph is not empty
+  console.log(`Built graph with ${nodes.length} nodes and ${edges.length} edges`)
 
+  return {
+    nodes,
+    edges,
+    fragmentEdgeMap
+  }
+}
 export function getFaces(graph: PlanarGraph): DiscoveryResult {
   // Create the solver instance.
   const solver = new PlanarFaceTree()
@@ -75,80 +141,148 @@ export function buildRegions(
   fragments: PathFragment[],
   fragmentMap: FragmentMap
 ): PathRegion[] {
-  const { nodes } = graph
+  const { nodes, fragmentEdgeMap } = graph // Extract the fragmentEdgeMap from the graph
   const regions: PathRegion[] = []
   let regionIndex = 0
 
   function findFragmentIds(cycle: number[]): Array<{ id: string; reversed: boolean }> {
-    // Create an array to hold the matched fragment IDs in order and their reversed status
-    const orderedFragmentDetails: Array<{ id: string; reversed: boolean }> = new Array(
-      cycle.length - 1
-    )
+    // Create an array to hold the matched fragment IDs and their reversed status
+    const orderedFragmentDetails: Array<{ id: string; reversed: boolean }> = []
 
     for (let i = 0; i < cycle.length - 1; i++) {
-      const startNode = nodes[cycle[i]]
-      const endNode = nodes[cycle[i + 1]]
-      let matched = false
+      const nodeA = cycle[i]
+      const nodeB = cycle[i + 1]
 
-      // Find the fragment that matches this edge
-      for (const fragment of fragments) {
-        // Check exact direction match first
-        if (
-          computePointToPointDistance(fragment.start, { x: startNode[0], y: startNode[1] }) <
-            EPSILON_INTERSECT &&
-          computePointToPointDistance(fragment.end, { x: endNode[0], y: endNode[1] }) <
-            EPSILON_INTERSECT
-        ) {
-          orderedFragmentDetails[i] = { id: fragment.id, reversed: false }
-          matched = true
-          break
+      // Create the edge key in both possible orders (since we don't know which was used in the map)
+      const edgeKeyForward = `${Math.min(nodeA, nodeB)},${Math.max(nodeA, nodeB)}`
+
+      // Look up the fragment ID from our map
+      const fragmentId = fragmentEdgeMap?.get(edgeKeyForward)
+
+      if (fragmentId) {
+        // Find the fragment to check its direction
+        const fragment = fragments.find((f) => f.id === fragmentId)
+
+        if (fragment) {
+          // Check if the edge goes in the same direction as the fragment
+          const startNodeCoords = nodes[nodeA]
+          const endNodeCoords = nodes[nodeB]
+
+          // Determine if the edge is reversed compared to the original fragment
+          const isReversed =
+            computePointToPointDistance(fragment.start, {
+              x: startNodeCoords[0],
+              y: startNodeCoords[1]
+            }) >= EPSILON_INTERSECT ||
+            computePointToPointDistance(fragment.end, {
+              x: endNodeCoords[0],
+              y: endNodeCoords[1]
+            }) >= EPSILON_INTERSECT
+
+          orderedFragmentDetails.push({ id: fragmentId, reversed: isReversed })
+        } else {
+          console.warn(`Fragment ${fragmentId} not found in fragments array`)
+        }
+      } else {
+        // If we have sampled points, this might be a segment from within a fragment
+        // We can try to match it to the original fragment
+        const startNodeCoords = nodes[nodeA]
+        const endNodeCoords = nodes[nodeB]
+
+        let matched = false
+
+        for (const fragment of fragments) {
+          // Check if both points are on the fragment's path
+          let foundStart = false
+          let foundEnd = false
+          let startIndex = -1
+          let endIndex = -1
+
+          if (fragment.sampledPoints && fragment.sampledPoints.length > 0) {
+            for (let j = 0; j < fragment.sampledPoints.length; j++) {
+              const point = fragment.sampledPoints[j]
+
+              if (
+                computePointToPointDistance(point, {
+                  x: startNodeCoords[0],
+                  y: startNodeCoords[1]
+                }) < EPSILON_INTERSECT
+              ) {
+                foundStart = true
+                startIndex = j
+              }
+
+              if (
+                computePointToPointDistance(point, { x: endNodeCoords[0], y: endNodeCoords[1] }) <
+                EPSILON_INTERSECT
+              ) {
+                foundEnd = true
+                endIndex = j
+              }
+            }
+
+            if (foundStart && foundEnd) {
+              // Found both points on this fragment
+              const isReversed = startIndex > endIndex
+              orderedFragmentDetails.push({ id: fragment.id, reversed: isReversed })
+              matched = true
+              break
+            }
+          }
         }
 
-        // Check reverse direction match
-        if (
-          computePointToPointDistance(fragment.start, { x: endNode[0], y: endNode[1] }) <
-            EPSILON_INTERSECT &&
-          computePointToPointDistance(fragment.end, { x: startNode[0], y: startNode[1] }) <
-            EPSILON_INTERSECT
-        ) {
-          orderedFragmentDetails[i] = { id: fragment.id, reversed: true }
-          matched = true
-          break
+        if (!matched) {
+          console.warn(`Could not find fragment for edge from node ${nodeA} to ${nodeB}`)
         }
-      }
-
-      if (!matched) {
-        console.warn(`Could not find fragment matching edge from ${startNode} to ${endNode}`)
       }
     }
 
-    // Filter out any undefined entries
-    return orderedFragmentDetails.filter((detail) => detail !== undefined)
+    return orderedFragmentDetails
   }
 
   function processFaceTree(tree: any, parentRegionId?: string) {
-    if (tree.cycle && tree.cycle.length >= 1) {
+    if (tree.cycle && tree.cycle.length >= 3) {
+      // Minimum 3 nodes for a valid face
       const regionId = `region-${regionIndex++}`
       const fragmentDetails = findFragmentIds(tree.cycle)
-      const fragmentIds = fragmentDetails.map((detail) => detail.id)
-      const fragmentReversed = fragmentDetails.map((detail) => detail.reversed)
 
-      const boundingBox = calculateBoundingBox(fragmentIds, fragmentMap)
-      const testPoint = calculateTestPoint(fragmentIds, fragmentMap)
+      // Combine adjacent segments from the same fragment
+      const consolidatedDetails: Array<{ id: string; reversed: boolean }> = []
 
-      const region: PathRegion = {
-        id: regionId,
-        fragmentIds,
-        fragmentReversed,
-        boundingBox,
-        testPoint,
-        isHole: !!parentRegionId,
-        basicWindingNumber: 0,
-        totalWindingNumber: 0,
-        parentRegionId
+      for (let i = 0; i < fragmentDetails.length; i++) {
+        const current = fragmentDetails[i]
+
+        if (
+          i === 0 ||
+          current.id !== consolidatedDetails[consolidatedDetails.length - 1].id ||
+          current.reversed !== consolidatedDetails[consolidatedDetails.length - 1].reversed
+        ) {
+          consolidatedDetails.push(current)
+        }
       }
 
-      regions.push(region)
+      const fragmentIds = consolidatedDetails.map((detail) => detail.id)
+      const fragmentReversed = consolidatedDetails.map((detail) => detail.reversed)
+
+      // Only create a region if we found fragments
+      if (fragmentIds.length > 0) {
+        const boundingBox = calculateBoundingBox(fragmentIds, fragmentMap)
+        const testPoint = calculateTestPoint(fragmentIds, fragmentMap)
+
+        const region: PathRegion = {
+          id: regionId,
+          fragmentIds,
+          fragmentReversed,
+          boundingBox,
+          testPoint,
+          isHole: !!parentRegionId,
+          basicWindingNumber: 0,
+          totalWindingNumber: 0,
+          parentRegionId
+        }
+
+        regions.push(region)
+      }
 
       // Process children with this as the parent
       if (tree.children && tree.children.length > 0) {

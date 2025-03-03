@@ -1,3 +1,4 @@
+import { debug } from 'console'
 import { EPSILON_INTERSECT } from '../../constants'
 import { PathFragment } from '../../paths/fragments/fragment'
 import { Vector } from '../../types/base'
@@ -20,6 +21,10 @@ export function connectFragments(fragments: PathFragment[], intersections: Inter
   //
   // If we were to connect sequential fragments where start/end points are coincident
   // with an intersection point, we would be double-counting some geometry.
+
+  const debugDict: {
+    [key: string]: string[]
+  } = {}
 
   // Process each fragment in order
   for (let i = 0; i < fragments.length; i++) {
@@ -88,7 +93,13 @@ export function connectFragments(fragments: PathFragment[], intersections: Inter
     // Sort connections by angle for consistent traversal
     connectedFrags.sort((a, b) => a.angle - b.angle)
     fragment.connectedFragments = connectedFrags
+
+    console.log(`Fragment ${fragment.id} connected to:`, connectedFrags)
+    let connectedIds = connectedFrags.map((frag) => frag.fragmentId)
+    debugDict[fragment.id] = connectedIds
   }
+
+  let x = 1
 }
 
 export function calculateConnectionAngle(from: PathFragment, to: PathFragment): number {

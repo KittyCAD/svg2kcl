@@ -14,6 +14,7 @@ interface PlotData {
   type: string
   color: string
   marker?: string
+  name?: string
 }
 
 export class Plotter {
@@ -23,14 +24,16 @@ export class Plotter {
     points: Point[],
     mode: string = 'lines',
     type: string = 'scatter',
-    color: string = 'blue'
+    color: string = 'blue',
+    name: string = ''
   ): void {
     this.plotData.push({
       x: points.map((p) => p.x),
       y: points.map((p) => p.y * -1),
       mode,
       type,
-      color
+      color,
+      name
     })
   }
 
@@ -42,7 +45,7 @@ export class Plotter {
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
     <body>
-        <div id="plot"></div>
+        <div id="plot" style="height: 100%; width: 100%"></div>
         <script>
             var data = ${JSON.stringify(
               this.plotData.map((d) => ({
@@ -51,6 +54,7 @@ export class Plotter {
                 mode: d.mode,
                 type: d.type,
                 line: { color: d.color },
+                name: d.name,
                 marker: {
                   size: 8,
                   color: d.color,

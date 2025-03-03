@@ -48,7 +48,7 @@ import {
 import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
-// import { exportPointsToCSV, Plotter } from '../utils/debug'
+import { exportPointsToCSV, Plotter } from '../utils/debug'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -85,6 +85,25 @@ export class PathProcessor {
 
     // Use fragments to assemble enclosed regions, compute winding numbers.
     const regions = identifyClosedRegions(fragments, fragmentMap)
+
+    // Plot all the fragments.
+    const plotter = new Plotter()
+    // const allPoints = fragments.flatMap((f) => f.sampledPoints || [])
+    // plotter.addPoints(allPoints!, 'markers', 'scatter', 'red')
+    // plotter.createPlot()
+
+    for (const fragment of fragments) {
+      plotter.addPoints(fragment.sampledPoints!, 'markers', 'scatter', 'red', fragment.id)
+      plotter.createPlot()
+    }
+
+    // Plot regions.
+    for (const region of regions) {
+      const points = getRegionPoints(region, fragmentMap)
+      plotter.addPoints(points, 'markers', 'scatter', 'blue')
+      plotter.createPlot()
+      let x = 1
+    }
 
     // Handle fill rule.
     let processedRegions: PathRegion[] = []

@@ -46,7 +46,7 @@ export class PathFragment implements PathFragmentData {
   //   return uuidv4()
   // }
 
-  private getNextFragmentId(): string {
+  public getNextFragmentId(): string {
     // Start with A (ASCII 65) and increment
     const asciiA = 65
     const lettersInAlphabet = 26

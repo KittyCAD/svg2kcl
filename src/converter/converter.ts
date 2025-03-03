@@ -1,3 +1,5 @@
+import { PathFragment } from '../paths/fragments/fragment'
+import { PathProcessor } from '../paths/path_processor'
 import { Plane3D, Point, ViewBox } from '../types/base'
 import {
   CircleElement,
@@ -9,10 +11,10 @@ import {
   PolylineElement,
   RectangleElement
 } from '../types/elements'
+import { PathFragmentType } from '../types/fragments'
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
-import { PathProcessor } from '../paths/path_processor'
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -511,15 +513,46 @@ export class Converter {
     const operations: KclOperation[] = []
 
     for (const region of processedPath.regions) {
-      // Get commands for only this region's fragments.
-      const regionFragments = region.fragmentIds
-        .map((id) => processedPath.getFragment(id))
-        .filter((fragment) => fragment !== undefined) // Ensure valid fragments.
+      // Get fragments for this region, applying reversals as needed
+      const regionFragments: PathFragment[] = []
 
+      for (let i = 0; i < region.fragmentIds.length; i++) {
+        const id = region.fragmentIds[i]
+        const fragment = processedPath.getFragment(id)
+
+        if (fragment) {
+          if (region.fragmentReversed && region.fragmentReversed[i]) {
+            // Create a reversed copy of the fragment
+            const reversedFragment: PathFragment = {
+              ...fragment,
+              start: { ...fragment.end },
+              end: { ...fragment.start },
+              getNextFragmentId: fragment.getNextFragmentId
+            }
+
+            // Handle control points based on curve type
+            if (fragment.type === PathFragmentType.Quad) {
+              // For quadratic curves, keep the same control point
+              // The control point position doesn't change when reversing a quadratic curve
+              reversedFragment.control1 = fragment.control1 ? { ...fragment.control1 } : undefined
+            } else if (fragment.type === PathFragmentType.Cubic) {
+              // For cubic curves, swap control points
+              reversedFragment.control1 = fragment.control2 ? { ...fragment.control2 } : undefined
+              reversedFragment.control2 = fragment.control1 ? { ...fragment.control1 } : undefined
+            }
+
+            regionFragments.push(reversedFragment)
+          } else {
+            // Use the original fragment
+            regionFragments.push(fragment)
+          }
+        }
+      }
+
+      // Convert the correctly oriented fragments to commands
       const regionCommands = processor.convertFragmentsToCommands(regionFragments)
 
-      // Convert commands to KCL operations. Our fragments are presented as equivalent
-      // to path commands coming from the SVG.
+      // Convert commands to KCL operations
       const kclOps = this.convertPathCommandsToKclOps(regionCommands, path.transform!)
 
       if (region.isHole) {
@@ -527,7 +560,7 @@ export class Converter {
         if (operations.length > 0) {
           operations.push({ type: KclOperationType.Hole, params: { operations: kclOps } })
         } else {
-          console.warn(`Orphan hole detected: ${region.id}`) // Should not happen in a valid hierarchy
+          console.warn(`Orphan hole detected: ${region.id}`)
         }
       } else {
         // Parent regions are added normally.
@@ -537,6 +570,7 @@ export class Converter {
 
     return operations
   }
+
   private convertRectangleToKclOps(rect: RectangleElement): KclOperation[] {
     const operations: KclOperation[] = []
     const { x, y, width, height, rx, ry } = rect

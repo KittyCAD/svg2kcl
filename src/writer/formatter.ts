@@ -62,7 +62,11 @@ export class Formatter {
         if (!this.isStartSketchParams(operation.params)) {
           throw new FormatterError('Invalid StartSketch parameters')
         }
-        return `startSketchAt(${this.formatPoint(operation.params.point)})`
+        // const output = `startSketchAt(${this.formatPoint(operation.params.point)})`
+        const output = `startSketchOn(XY)\n  |> startProfileAt(${this.formatPoint(
+          operation.params.point
+        )}, %)`
+        return output
       }
 
       case KclOperationType.StartSketchOn: {

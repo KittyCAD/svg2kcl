@@ -49,6 +49,7 @@ import { WindingAnalyzer, EvenOddAnalyzer } from '../utils/fillrule'
 import { sampleFragment } from './fragments/fragment'
 import { getRegionPoints } from './regions'
 import { exportPointsToCSV, Plotter } from '../utils/debug'
+import { buildPlanarGraphFromFragments, getFaces, buildRegions } from './fragments/planar_face'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -78,32 +79,36 @@ export class PathProcessor {
     // Extract fragments.
     const { fragments, fragmentMap } = this.extractFragments(pathCommands, subpaths, intersections)
 
-    // Now walk the fragment chain and resample.
+    // Now  walk the fragment chain and resample.
     for (const fragment of fragments) {
       fragment.sampledPoints = sampleFragment(fragment)
     }
 
-    // Use fragments to assemble enclosed regions, compute winding numbers.
-    const regions = identifyClosedRegions(fragments, fragmentMap)
+    // We need to now do planar face discovery.
+    const planarGraph = buildPlanarGraphFromFragments(fragments)
+    const faceForest = getFaces(planarGraph)
+
+    // Get regions.
+    const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)
 
     // Plot all the fragments.
     const plotter = new Plotter()
-    // const allPoints = fragments.flatMap((f) => f.sampledPoints || [])
-    // plotter.addPoints(allPoints!, 'markers', 'scatter', 'red')
-    // plotter.createPlot()
+    const allPoints = fragments.flatMap((f) => f.sampledPoints || [])
+    plotter.addPoints(allPoints!, 'markers', 'scatter', 'red')
+    plotter.createPlot()
 
-    for (const fragment of fragments) {
-      plotter.addPoints(fragment.sampledPoints!, 'markers', 'scatter', 'red', fragment.id)
-      plotter.createPlot()
-    }
+    // for (const fragment of fragments) {
+    //   plotter.addPoints(fragment.sampledPoints!, 'markers', 'scatter', 'red', fragment.id)
+    //   plotter.createPlot()
+    // }
 
     // Plot regions.
-    for (const region of regions) {
-      const points = getRegionPoints(region, fragmentMap)
-      plotter.addPoints(points, 'markers', 'scatter', 'blue')
-      plotter.createPlot()
-      let x = 1
-    }
+    // for (const region of regions) {
+    //   const points = getRegionPoints(region, fragmentMap)
+    //   plotter.addPoints(points, 'markers', 'scatter', 'blue')
+    //   plotter.createPlot()
+    //   let x = 1
+    // }
 
     // Handle fill rule.
     let processedRegions: PathRegion[] = []
@@ -117,6 +122,13 @@ export class PathProcessor {
 
     // Trim out redundant regions.
     const finalRegions = this.cleanup(fragments, processedRegions)
+
+    for (const region of finalRegions) {
+      const points = getRegionPoints(region, fragmentMap)
+      plotter.addPoints(points, 'markers', 'scatter', 'blue', region.id)
+      plotter.createPlot()
+      let x = 1
+    }
 
     // Convert to commands for KCL output.
     const orderedRegions = orderRegions(finalRegions)
@@ -275,18 +287,51 @@ export class PathProcessor {
     const regionsToRemove = new Set<string>()
     const fragmentMap = new Map(fragments.map((f) => [f.id, f]))
 
+    // First, build a map of each region's children for faster lookup
+    const childrenMap = new Map<string, PathRegion[]>()
     for (const region of regions) {
-      if (region.isHole) continue
+      if (region.parentRegionId) {
+        if (!childrenMap.has(region.parentRegionId)) {
+          childrenMap.set(region.parentRegionId, [])
+        }
+        childrenMap.get(region.parentRegionId)!.push(region)
+      }
+    }
+
+    // Look for nested regions with the same fill status (both filled or both holes)
+    for (const region of regions) {
+      // Skip if already marked for removal
+      if (regionsToRemove.has(region.id)) continue
 
       const parentRegion = regions.find((r) => r.id === region.parentRegionId)
       if (!parentRegion) continue
-      if (parentRegion.isHole) continue
 
-      const regionPoints = getRegionPoints(region, fragmentMap)
-      const parentPoints = getRegionPoints(parentRegion, fragmentMap)
+      // If parent and child have the same fill status (both holes or both filled regions)
+      if (region.isHole === parentRegion.isHole) {
+        // Check actual containment
+        const regionPoints = getRegionPoints(region, fragmentMap)
+        const parentPoints = getRegionPoints(parentRegion, fragmentMap)
 
-      if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
-        regionsToRemove.add(region.id)
+        if (isPolygonInsidePolygon(regionPoints, parentPoints)) {
+          // For filled regions inside filled regions, keep only the innermost one
+          // For holes inside holes, keep only the outermost one
+          if (!region.isHole) {
+            // For filled regions, remove the parent (it's redundant)
+            regionsToRemove.add(parentRegion.id)
+
+            // Update the hierarchy - make this region a child of parent's parent
+            region.parentRegionId = parentRegion.parentRegionId
+          } else {
+            // For holes, remove the child (inner hole)
+            regionsToRemove.add(region.id)
+
+            // If this hole had children, reassign them to the parent hole
+            const children = childrenMap.get(region.id) || []
+            for (const child of children) {
+              child.parentRegionId = parentRegion.id
+            }
+          }
+        }
       }
     }
 

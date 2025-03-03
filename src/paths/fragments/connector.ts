@@ -12,16 +12,6 @@ import {
 } from '../../utils/geometry'
 
 export function connectFragments(fragments: PathFragment[], intersections: Intersection[]): void {
-  // The scenarios under which we would 'connect' fragments are:
-  // - A given fragment's endpoint is coincident with the 'next' ordered fragment's
-  //   start point, but that coincident point is not an intersection.
-  // - A given fragment's endpoint is coincident with an intersection point, and there
-  //   exists a fragment starting at that intersection point. This implies that
-  //   this fragment was 'created' by a split operation.
-  //
-  // If we were to connect sequential fragments where start/end points are coincident
-  // with an intersection point, we would be double-counting some geometry.
-
   const debugDict: {
     [key: string]: string[]
   } = {}
@@ -31,62 +21,56 @@ export function connectFragments(fragments: PathFragment[], intersections: Inter
     const fragment = fragments[i]
     const connectedFrags: Array<{ fragmentId: string; angle: number }> = []
 
-    // Get the next fragment in sequence (if any)
-    const nextFragment = i < fragments.length - 1 ? fragments[i + 1] : null
+    // For each fragment, check all other fragments for possible connections
+    for (const otherFragment of fragments) {
+      // Skip self-connection
+      if (otherFragment === fragment) continue
 
-    // Check if this fragment's endpoint is at an intersection
-    const intersectionAtEnd = intersections.find(
-      (intersection) =>
-        computePointToPointDistance(fragment.end, intersection.intersectionPoint) <
-        EPSILON_INTERSECT
-    )
-
-    if (intersectionAtEnd) {
-      // We're at an intersection point
-      // If the next fragment starts here, this is a break point - DON'T connect them
-      const isBreakPoint =
-        nextFragment &&
-        computePointToPointDistance(nextFragment.start, intersectionAtEnd.intersectionPoint) <
-          EPSILON_INTERSECT
-
-      if (!isBreakPoint) {
-        // Only connect sequentially if this isn't a break point
-        if (
-          nextFragment &&
-          computePointToPointDistance(fragment.end, nextFragment.start) < EPSILON_INTERSECT
-        ) {
-          connectedFrags.push({
-            fragmentId: nextFragment.id,
-            angle: calculateConnectionAngle(fragment, nextFragment)
-          })
-        }
-      }
-
-      // Always look for other fragments starting at this intersection
-      // (but not including the next sequential fragment if this is a break point)
-      for (const otherFragment of fragments) {
-        if (otherFragment === fragment || otherFragment === nextFragment) continue
-
-        if (
-          computePointToPointDistance(otherFragment.start, intersectionAtEnd.intersectionPoint) <
-          EPSILON_INTERSECT
-        ) {
+      // Connect if the other fragment's START matches current fragment's END
+      if (computePointToPointDistance(fragment.end, otherFragment.start) < EPSILON_INTERSECT) {
+        try {
+          const angle = calculateConnectionAngle(fragment, otherFragment)
           connectedFrags.push({
             fragmentId: otherFragment.id,
-            angle: calculateConnectionAngle(fragment, otherFragment)
+            angle
+          })
+        } catch (error) {
+          console.warn(
+            `Failed to calculate forward angle for ${fragment.id} to ${otherFragment.id}: ${error}`
+          )
+          // Fallback to a simple direction-based angle if curve calculation fails
+          const dx = otherFragment.start.x - fragment.end.x
+          const dy = otherFragment.start.y - fragment.end.y
+          const angle = Math.atan2(dy, dx)
+          connectedFrags.push({
+            fragmentId: otherFragment.id,
+            angle
           })
         }
       }
-    } else {
-      // Not at an intersection - simple sequential connection
-      if (
-        nextFragment &&
-        computePointToPointDistance(fragment.end, nextFragment.start) < EPSILON_INTERSECT
-      ) {
-        connectedFrags.push({
-          fragmentId: nextFragment.id,
-          angle: calculateConnectionAngle(fragment, nextFragment)
-        })
+
+      // Connect if the other fragment's END matches current fragment's END
+      if (computePointToPointDistance(fragment.end, otherFragment.end) < EPSILON_INTERSECT) {
+        try {
+          // Use a safer reverse connection angle calculation
+          const angle = safeCalculateReverseConnectionAngle(fragment, otherFragment)
+          connectedFrags.push({
+            fragmentId: otherFragment.id,
+            angle
+          })
+        } catch (error) {
+          console.warn(
+            `Failed to calculate reverse angle for ${fragment.id} to ${otherFragment.id}: ${error}`
+          )
+          // Fallback to a simple direction-based angle
+          const dx = otherFragment.end.x - fragment.end.x
+          const dy = otherFragment.end.y - fragment.end.y
+          const angle = Math.atan2(dy, dx)
+          connectedFrags.push({
+            fragmentId: otherFragment.id,
+            angle
+          })
+        }
       }
     }
 
@@ -99,7 +83,49 @@ export function connectFragments(fragments: PathFragment[], intersections: Inter
     debugDict[fragment.id] = connectedIds
   }
 
-  let x = 1
+  console.log('Connection debugging dictionary:', debugDict)
+}
+
+// A safer function for calculating reverse connection angles
+function safeCalculateReverseConnectionAngle(
+  fragment1: PathFragment,
+  fragment2: PathFragment
+): number {
+  // For line segments, we can simply reverse direction
+  if (fragment2.type === PathFragmentType.Line) {
+    // Simple reversal - use end to start direction
+    const dx = fragment2.start.x - fragment2.end.x
+    const dy = fragment2.start.y - fragment2.end.y
+    return Math.atan2(dy, dx)
+  }
+
+  // For curved segments, we need special handling based on curve type
+  if (fragment2.type === PathFragmentType.Quad) {
+    // For quadratic curves, ensure control1 exists
+    if (!fragment2.control1) {
+      throw new Error('Quadratic curve missing control point')
+    }
+
+    // The tangent at the end point of a quadratic curve
+    const dx = fragment2.end.x - fragment2.control1.x
+    const dy = fragment2.end.y - fragment2.control1.y
+    return Math.atan2(-dy, -dx) // Negate to reverse direction
+  }
+
+  if (fragment2.type === PathFragmentType.Cubic) {
+    // For cubic curves, ensure control2 exists
+    if (!fragment2.control2) {
+      throw new Error('Cubic curve missing control point')
+    }
+
+    // The tangent at the end point of a cubic curve
+    const dx = fragment2.end.x - fragment2.control2.x
+    const dy = fragment2.end.y - fragment2.control2.y
+    return Math.atan2(-dy, -dx) // Negate to reverse direction
+  }
+
+  // Fallback - simple direction estimate
+  return Math.atan2(fragment2.start.y - fragment2.end.y, fragment2.start.x - fragment2.end.x)
 }
 
 export function calculateConnectionAngle(from: PathFragment, to: PathFragment): number {

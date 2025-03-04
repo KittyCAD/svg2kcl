@@ -7,19 +7,19 @@ export interface KclOptions {
 
 // The type of operation being performed.
 export enum KclOperationType {
-  StartSketch,
-  StartSketchOn,
-  Line,
-  LineAbsolute,
-  XLineTo,
-  YLineTo,
-  Arc,
-  TangentialArc,
-  BezierCurve,
-  Circle,
-  Polygon,
-  Close,
-  Hole
+  StartSketch = `StartSketch`,
+  StartSketchOn = `StartSketchOn`,
+  Line = `Line`,
+  LineAbsolute = `LineAbsolute`,
+  XLineTo = `XLineTo`,
+  YLineTo = `YLineTo`,
+  Arc = `Arc`,
+  TangentialArc = `TangentialArc`,
+  BezierCurve = `BezierCurve`,
+  Circle = `Circle`,
+  Polygon = `Polygon`,
+  Close = `Close`,
+  Hole = `Hole`
 }
 
 // Parameters for different KCL operations.

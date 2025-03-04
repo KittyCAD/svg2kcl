@@ -1,5 +1,7 @@
-sketch001 = startSketchAt([0, 0])
+sketch001 = startSketchOn(XY)
+  |> startProfileAt([0, 0], %)
   |> line(end = [80, -80])
 
-sketch002 = startSketchAt([20, -80])
+sketch002 = startSketchOn(XY)
+  |> startProfileAt([20, -80], %)
   |> line(end = [80, 80])

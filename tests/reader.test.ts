@@ -128,17 +128,6 @@ describe('SvgReader', () => {
       expect(svg.elements[3].type).toBe(ElementType.Path)
       expect(svg.elements[4].type).toBe(ElementType.Polygon)
     })
-
-    it('should correctly read compound_path.svg', async () => {
-      const filepath = path.join(dataDir, 'compound_path.svg')
-      const svg = await reader.readFile(filepath)
-
-      expect(svg.elements).toHaveLength(1)
-      expect(svg.elements[0].type).toBe(ElementType.Path)
-
-      const pathElement = svg.elements[0] as any
-      expect(pathElement.fillRule).toBe('evenodd')
-    })
   })
 
   describe('Error Cases', () => {

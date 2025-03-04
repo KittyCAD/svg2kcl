@@ -33,13 +33,14 @@ import { PathElement } from '../types/elements'
 import { FragmentMap, PathFragmentType } from '../types/fragments'
 import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { PathRegion } from '../types/regions'
-import { Plotter } from '../utils/debug'
-import { EvenOddAnalyzer, WindingAnalyzer } from '../utils/fillrule'
+import { determineInsideness } from '../utils/fillrule'
 import {
   computePointToPointDistance,
   findIntersectionsBetweenSubpaths,
   findSelfIntersections,
+  getBoundingBoxArea,
   Intersection,
+  isPointInsidePolygon,
   isPolygonInsidePolygon
 } from '../utils/geometry'
 import { connectFragments } from './fragments/connector'
@@ -89,44 +90,15 @@ export class PathProcessor {
     // Get regions.
     const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)
 
-    // Plot all the fragments.
-    const plotter = new Plotter()
-    const allPoints = fragments.flatMap((f) => f.sampledPoints || [])
-    plotter.addPoints(allPoints!, 'markers', 'scatter', 'red')
-    plotter.createPlot()
+    // After building your regions and fragments
+    const { evenOdd, nonZero } = determineInsideness(regions, fragments)
 
-    // for (const fragment of fragments) {
-    //   plotter.addPoints(fragment.sampledPoints!, 'markers', 'scatter', 'red', fragment.id)
-    //   plotter.createPlot()
-    // }
-
-    // Plot regions.
-    // for (const region of regions) {
-    //   const points = getRegionPoints(region, fragmentMap)
-    //   plotter.addPoints(points, 'markers', 'scatter', 'blue')
-    //   plotter.createPlot()
-    //   let x = 1
-    // }
-
-    // Handle fill rule.
-    let processedRegions: PathRegion[] = []
-    if (this.fillRule === FillRule.NonZero) {
-      const windingAnalyzer = new WindingAnalyzer(fragments)
-      processedRegions = windingAnalyzer.analyzeRegions(regions)
-    } else if (this.fillRule === FillRule.EvenOdd) {
-      const evenOddAnalyzer = new EvenOddAnalyzer(fragments)
-      processedRegions = evenOddAnalyzer.analyzeRegions(regions)
-    }
+    // You can use either set depending on your fill rule preference
+    const processedRegions = this.fillRule === FillRule.EvenOdd ? evenOdd : nonZero
 
     // Trim out redundant regions.
-    const finalRegions = this.cleanup(fragments, processedRegions)
-
-    for (const region of finalRegions) {
-      const points = getRegionPoints(region, fragmentMap)
-      plotter.addPoints(points, 'markers', 'scatter', 'blue', region.id)
-      plotter.createPlot()
-      let x = 1
-    }
+    const stackedRegions = this.resolveContainmentHierarchy(processedRegions, fragmentMap)
+    const finalRegions = this.cleanup(fragments, stackedRegions)
 
     return new ProcessedPath(fragmentMap, finalRegions)
   }
@@ -669,5 +641,264 @@ export class PathProcessor {
     }
 
     return fragments
+  }
+
+  private resolveContainmentHierarchy(
+    regions: PathRegion[],
+    fragmentMap: FragmentMap
+  ): PathRegion[] {
+    if (regions.length <= 1) {
+      return regions
+    }
+
+    // Create a copy of regions to avoid modifying the original
+    const processedRegions = structuredClone(regions)
+
+    // Calculate area for each region based on the bounding box
+    const regionsWithArea = processedRegions.map((region) => ({
+      region,
+      area: getBoundingBoxArea(region.boundingBox)
+    }))
+
+    // Sort by area in descending order (largest first)
+    regionsWithArea.sort((a, b) => b.area - a.area)
+
+    // Build the containment hierarchy
+    for (let i = 0; i < regionsWithArea.length; i++) {
+      const current = regionsWithArea[i].region
+
+      // Skip if this is a hole - we'll handle holes in a separate pass
+      if (current.isHole) {
+        continue
+      }
+
+      // Get all regions smaller than the current one
+      const smallerRegions = regionsWithArea.slice(i + 1)
+
+      for (const { region: smaller } of smallerRegions) {
+        // Skip if already has a parent, if it's a hole, or if it's the same region
+        if (smaller.parentRegionId !== undefined || smaller.isHole || smaller.id === current.id) {
+          continue
+        }
+
+        // Check if the smaller region is contained within the current region
+        if (this.isRegionContainedInRegion(smaller, current, fragmentMap)) {
+          // Find if there's a more immediate parent
+          let mostImmediateParent = current
+          let mostImmediateParentArea = regionsWithArea[i].area
+
+          // Check all potential parents between current and smaller
+          for (let j = i + 1; j < regionsWithArea.length; j++) {
+            const potentialParent = regionsWithArea[j].region
+
+            // Skip holes, regions that already have parents, or the region itself
+            if (
+              potentialParent.isHole ||
+              potentialParent.parentRegionId !== undefined ||
+              potentialParent.id === smaller.id
+            ) {
+              continue
+            }
+
+            // If this potential parent contains the smaller region and is itself contained by the current region
+            if (
+              this.isRegionContainedInRegion(smaller, potentialParent, fragmentMap) &&
+              this.isRegionContainedInRegion(potentialParent, current, fragmentMap) &&
+              regionsWithArea[j].area < mostImmediateParentArea
+            ) {
+              mostImmediateParent = potentialParent
+              mostImmediateParentArea = regionsWithArea[j].area
+            }
+          }
+
+          // Double-check we're not setting a region as its own parent
+          if (mostImmediateParent.id !== smaller.id) {
+            smaller.parentRegionId = mostImmediateParent.id
+          }
+        }
+      }
+    }
+
+    // Additional pass to handle holes
+    // For each hole, find the smallest non-hole region that contains it
+    for (const { region } of regionsWithArea) {
+      if (!region.isHole) {
+        continue
+      }
+
+      let smallestContainingRegion: PathRegion | null = null
+      let smallestArea = Infinity
+
+      for (const { region: potentialParent, area } of regionsWithArea) {
+        // Skip if potential parent is a hole, is the same region, or is a child of this region
+        if (
+          potentialParent.isHole ||
+          potentialParent.id === region.id ||
+          potentialParent.parentRegionId === region.id
+        ) {
+          continue
+        }
+
+        if (
+          this.isRegionContainedInRegion(region, potentialParent, fragmentMap) &&
+          area < smallestArea
+        ) {
+          smallestContainingRegion = potentialParent
+          smallestArea = area
+        }
+      }
+
+      if (smallestContainingRegion) {
+        region.parentRegionId = smallestContainingRegion.id
+      }
+    }
+
+    // Track children for each region for easier traversal
+    for (const region of processedRegions) {
+      if (!region.neighborRegionIds) {
+        region.neighborRegionIds = new Set<string>()
+      }
+    }
+
+    // Final validation pass to ensure no circular references
+    this.validateContainmentHierarchy(processedRegions)
+
+    // Build child references
+    for (const region of processedRegions) {
+      if (region.parentRegionId) {
+        const parentIndex = processedRegions.findIndex((r) => r.id === region.parentRegionId)
+        if (parentIndex !== -1) {
+          // Ensure the parent has a neighborRegionIds Set
+          if (!processedRegions[parentIndex].neighborRegionIds) {
+            processedRegions[parentIndex].neighborRegionIds = new Set<string>()
+          }
+          processedRegions[parentIndex].neighborRegionIds!.add(region.id)
+        }
+      }
+    }
+
+    return processedRegions
+  }
+
+  private validateContainmentHierarchy(regions: PathRegion[]): void {
+    const regionMap = new Map<string, PathRegion>()
+
+    // Build a map for easy lookup
+    regions.forEach((region) => {
+      regionMap.set(region.id, region)
+    })
+
+    // Check for self-references and fix them
+    for (const region of regions) {
+      if (region.parentRegionId === region.id) {
+        console.warn(`Region ${region.id} references itself as parent. Fixing.`)
+        region.parentRegionId = undefined
+      }
+    }
+
+    // Check for circular dependencies
+    for (const region of regions) {
+      if (region.parentRegionId) {
+        this.detectCircularReference(region, regionMap, new Set<string>())
+      }
+    }
+  }
+
+  private detectCircularReference(
+    region: PathRegion,
+    regionMap: Map<string, PathRegion>,
+    visitedInPath: Set<string>
+  ): boolean {
+    // If we've seen this region in the current path, we have a cycle
+    if (visitedInPath.has(region.id)) {
+      console.warn(`Circular reference detected involving region ${region.id}. Breaking cycle.`)
+      region.parentRegionId = undefined
+      return true
+    }
+
+    // Add this region to the current path
+    visitedInPath.add(region.id)
+
+    // If no parent, no cycle possible through this path
+    if (!region.parentRegionId) {
+      return false
+    }
+
+    // Get the parent and continue checking
+    const parent = regionMap.get(region.parentRegionId)
+    if (!parent) {
+      // Parent reference is invalid
+      console.warn(
+        `Region ${region.id} references non-existent parent ${region.parentRegionId}. Fixing.`
+      )
+      region.parentRegionId = undefined
+      return false
+    }
+
+    // Recursively check the parent
+    const hasCycle = this.detectCircularReference(parent, regionMap, visitedInPath)
+
+    // If a cycle was detected and fixed higher up, we don't need to do anything else
+    return hasCycle
+  }
+
+  private isRegionContainedInRegion(
+    regionA: PathRegion,
+    regionB: PathRegion,
+    fragments?: FragmentMap
+  ): boolean {
+    // Fast rejection: check if A's bounding box is completely inside B's bounding box
+    if (
+      regionA.boundingBox.xMin < regionB.boundingBox.xMin ||
+      regionA.boundingBox.xMax > regionB.boundingBox.xMax ||
+      regionA.boundingBox.yMin < regionB.boundingBox.yMin ||
+      regionA.boundingBox.yMax > regionB.boundingBox.yMax
+    ) {
+      return false
+    }
+
+    // If we have fragments, we can do an exact polygon check
+    if (fragments) {
+      // First, collect all points from regionB's fragments to form its polygon
+      const polygonB: Point[] = []
+
+      for (let i = 0; i < regionB.fragmentIds.length; i++) {
+        const fragmentId = regionB.fragmentIds[i]
+        const fragment = fragments.get(fragmentId)
+
+        if (!fragment || !fragment.sampledPoints) {
+          console.warn(`Missing or incomplete fragment: ${fragmentId}`)
+          continue
+        }
+
+        // Get points in the right order based on whether the fragment is reversed
+        const points = regionB.fragmentReversed[i]
+          ? [...fragment.sampledPoints].reverse()
+          : fragment.sampledPoints
+
+        // Add points to the polygon
+        for (const point of points) {
+          // Avoid duplicate consecutive points
+          if (
+            polygonB.length === 0 ||
+            polygonB[polygonB.length - 1].x !== point.x ||
+            polygonB[polygonB.length - 1].y !== point.y
+          ) {
+            polygonB.push(point)
+          }
+        }
+      }
+
+      // Check if regionA's test point is inside polygonB
+      // We have a utility function for this already
+      if (polygonB.length >= 3) {
+        // Need at least 3 points for a polygon
+        return isPointInsidePolygon(regionA.testPoint, polygonB)
+      }
+    }
+
+    // If we don't have fragments or couldn't form a valid polygon,
+    // use a simpler check with just the test point and bounding box
+    return true // Assume contained if we've passed the bounding box check
   }
 }

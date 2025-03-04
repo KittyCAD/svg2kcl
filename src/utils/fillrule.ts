@@ -1,185 +1,122 @@
-import { PathFragment } from '../paths/fragments/fragment'
-import { getRegionPoints } from '../paths/regions'
 import { Point } from '../types/base'
-import { FragmentMap } from '../types/fragments'
 import { PathRegion } from '../types/regions'
-import { getBoundingBoxArea, isPolygonInsidePolygon } from './geometry'
+import { PathFragment } from '../paths/fragments/fragment'
 
-interface ContainmentInfo {
-  region: PathRegion
-  containedBy: PathRegion[]
+function doesRayIntersectLineSegment(
+  rayStart: Point,
+  rayEnd: Point,
+  segStart: Point,
+  segEnd: Point
+): boolean {
+  // Fast reject: if segment is completely above or below the ray
+  if (
+    (segStart.y > rayStart.y && segEnd.y > rayStart.y) ||
+    (segStart.y < rayStart.y && segEnd.y < rayStart.y)
+  ) {
+    return false
+  }
+
+  // Fast reject: if segment is completely to the left of ray start
+  if (segStart.x < rayStart.x && segEnd.x < rayStart.x) {
+    return false
+  }
+
+  // If the segment is horizontal and at the same height as the ray,
+  // it's not considered an intersection
+  if (Math.abs(segStart.y - segEnd.y) < 1e-10 && Math.abs(segStart.y - rayStart.y) < 1e-10) {
+    return false
+  }
+
+  // Calculate intersection point
+  if (Math.abs(segStart.y - segEnd.y) < 1e-10) {
+    // Handle horizontal segment edge case
+    return false // Horizontal segment at ray height doesn't count
+  }
+
+  // Calculate x-coordinate of intersection
+  const t = (rayStart.y - segStart.y) / (segEnd.y - segStart.y)
+  if (t < 0 || t > 1) {
+    return false // Intersection point not on segment
+  }
+
+  const intersectX = segStart.x + t * (segEnd.x - segStart.x)
+
+  // The ray goes right, so only count intersections to the right of ray start
+  return intersectX >= rayStart.x
 }
 
-abstract class RegionAnalyzer {
-  protected readonly fragmentMap: FragmentMap
+function calculateWindingDirection(rayStart: Point, segStart: Point, segEnd: Point): number {
+  // Return +1 if segment crosses the ray going "upward" (in standard Y sense),
+  // or -1 if it crosses "downward," or 0 if no crossing or to the left.
+  // This is a simplified version; adjust logic as needed for your sign convention.
+  const yTest = rayStart.y
 
-  constructor(fragments: PathFragment[]) {
-    this.fragmentMap = new Map(fragments.map((f) => [f.id, f]))
-  }
-
-  public analyzeRegions(regions: PathRegion[]): PathRegion[] {
-    this.calculateBasicWinding(regions)
-    const containmentInfo = this.findContainmentRelationships(regions)
-    this.resolveContainmentHierarchy(containmentInfo)
-
-    return regions
-  }
-
-  private getPolygonWinding(points: Point[]): number {
-    // Computes the winding number for a polygon using the shoelace formula.
-    // This determines if a shape is positively (counterclockwise) or negatively
-    // (clockwise) wound.
-    let area = 0
-
-    for (let i = 0; i < points.length; i++) {
-      const p1 = points[i]
-      const p2 = points[(i + 1) % points.length]
-      area += p1.x * p2.y - p2.x * p1.y
-    }
-
-    return area > 0 ? 1 : -1 // Positive: counterclockwise (+1), Negative: clockwise (-1)
-  }
-
-  private calculateBasicWinding(regions: PathRegion[]): void {
-    // Get the winding number for a given polygon without considering containment.
-    for (const region of regions) {
-      const regionPoints = getRegionPoints(region, this.fragmentMap)
-      const localWindingNumber = this.getPolygonWinding(regionPoints)
-      region.basicWindingNumber = localWindingNumber
-      region.totalWindingNumber = localWindingNumber
+  // Does the edge cross horizontal ray at yTest?
+  // We also want to know if it crosses to the right of rayStart.x
+  if (segStart.y > yTest !== segEnd.y > yTest) {
+    // compute X of intersection
+    const t = (yTest - segStart.y) / (segEnd.y - segStart.y)
+    const x = segStart.x + t * (segEnd.x - segStart.x)
+    if (x >= rayStart.x) {
+      return segEnd.y < segStart.y ? -1 : +1
     }
   }
-
-  private findContainmentRelationships(regions: PathRegion[]): ContainmentInfo[] {
-    // Sort largest to smallest area.
-    const sortedRegions = [...regions].sort((a, b) => {
-      const areaA = getBoundingBoxArea(a.boundingBox)
-      const areaB = getBoundingBoxArea(b.boundingBox)
-      return areaB - areaA
-    })
-
-    return sortedRegions.map((region) => ({
-      region,
-      containedBy: this.findContainingRegions(region, sortedRegions)
-    }))
-  }
-
-  private findContainingRegions(region: PathRegion, allRegions: PathRegion[]): PathRegion[] {
-    const regionBBox = region.boundingBox
-    const EPSILON = 1e-10
-
-    // We can eliminate regions where the bounding boxes don't overlap,
-    // and where we have parent/child cycles.
-    const boundingBoxContainers = allRegions.filter((candidate) => {
-      if (candidate === region) return false
-      if (candidate.parentRegionId === region.id) return false
-
-      const candidateBBox = candidate.boundingBox
-      return (
-        regionBBox.xMin >= candidateBBox.xMin - EPSILON &&
-        regionBBox.xMax <= candidateBBox.xMax + EPSILON &&
-        regionBBox.yMin >= candidateBBox.yMin - EPSILON &&
-        regionBBox.yMax <= candidateBBox.yMax + EPSILON
-      )
-    })
-
-    if (boundingBoxContainers.length === 0) return []
-
-    // Do the more expensive polygon containment check.
-    const regionPoints = getRegionPoints(region, this.fragmentMap)
-    return boundingBoxContainers.filter((candidate) =>
-      isPolygonInsidePolygon(regionPoints, getRegionPoints(candidate, this.fragmentMap))
-    )
-  }
-
-  abstract resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void
+  return 0
 }
 
-export class WindingAnalyzer extends RegionAnalyzer {
-  private calculateCumulativeWinding(
-    region: PathRegion,
-    regionsMap: Map<string, PathRegion>
-  ): number {
-    let winding = region.basicWindingNumber
-    let currentRegion = region
-
-    while (currentRegion.parentRegionId) {
-      const parent = regionsMap.get(currentRegion.parentRegionId)
-      if (!parent) break
-      winding += parent.basicWindingNumber
-      currentRegion = parent
-    }
-
-    return winding
+function getFragmentReversedForRegion(region: PathRegion, fragId: string): boolean {
+  const idx = region.fragmentIds.indexOf(fragId)
+  if (idx >= 0) {
+    return region.fragmentReversed[idx]
   }
-
-  public resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void {
-    const regionsMap = new Map(containmentInfo.map((info) => [info.region.id, info.region]))
-
-    for (const { region, containedBy } of containmentInfo) {
-      if (containedBy.length === 0) {
-        region.parentRegionId = undefined
-        region.isHole = false
-        continue
-      }
-
-      containedBy.sort(
-        (a, b) => getBoundingBoxArea(a.boundingBox) - getBoundingBoxArea(b.boundingBox)
-      )
-      const immediateParent = containedBy[0]
-      region.parentRegionId = immediateParent.id
-
-      const totalWindingNumber = this.calculateCumulativeWinding(region, regionsMap)
-      region.totalWindingNumber = totalWindingNumber
-
-      // Nonzero.
-      region.isHole = totalWindingNumber === 0
-    }
-  }
+  return false
 }
 
-export class EvenOddAnalyzer extends RegionAnalyzer {
-  public resolveContainmentHierarchy(containmentInfo: ContainmentInfo[]): void {
-    const regionsMap = new Map(containmentInfo.map((info) => [info.region.id, info.region]))
+export function determineInsideness(
+  regions: PathRegion[],
+  fragments: PathFragment[]
+): { evenOdd: PathRegion[]; nonZero: PathRegion[] } {
+  // Make copies of regions to store both rule results
+  const evenOddRegions = JSON.parse(JSON.stringify(regions))
+  const nonZeroRegions = JSON.parse(JSON.stringify(regions))
 
-    for (const { region, containedBy } of containmentInfo) {
-      if (containedBy.length === 0) {
-        region.parentRegionId = undefined
-        region.isHole = false
-        continue
+  // Process each region
+  for (let i = 0; i < regions.length; i++) {
+    const region = regions[i]
+    const rayStart = region.testPoint
+    const rayEnd = { x: Number.MAX_SAFE_INTEGER, y: rayStart.y }
+
+    let intersectionCount = 0
+    let windingNumber = 0
+
+    // Check against all fragments
+    for (const fragment of fragments) {
+      if (!fragment.sampledPoints)
+        throw new Error(`Missing sampledPoints in fragment ${fragment.id}`)
+
+      for (let j = 0; j < fragment.sampledPoints.length - 1; j++) {
+        const p1 = fragment.sampledPoints[j]
+        const p2 = fragment.sampledPoints[j + 1]
+
+        // Check if ray intersects this segment
+        if (doesRayIntersectLineSegment(rayStart, rayEnd, p1, p2)) {
+          // For even-odd rule
+          intersectionCount++
+
+          // For non-zero rule
+          windingNumber += calculateWindingDirection(rayStart, p1, p2)
+        }
       }
-
-      // Find the smallest region that fully contains this region.
-      containedBy.sort(
-        (a, b) => getBoundingBoxArea(a.boundingBox) - getBoundingBoxArea(b.boundingBox)
-      )
-
-      const immediateParent = containedBy.find((candidate) =>
-        isPolygonInsidePolygon(
-          getRegionPoints(region, this.fragmentMap),
-          getRegionPoints(candidate, this.fragmentMap)
-        )
-      )
-
-      if (!immediateParent) {
-        region.parentRegionId = undefined
-        region.isHole = false
-        continue
-      }
-
-      region.parentRegionId = immediateParent.id
-
-      // Get nesting level.
-      let nestingLevel = 1
-      let currentRegion = immediateParent
-
-      while (currentRegion.parentRegionId) {
-        nestingLevel++
-        currentRegion = regionsMap.get(currentRegion.parentRegionId)!
-      }
-
-      // Even-odd rule: alternate between fill/hole based on nesting level.
-      region.isHole = nestingLevel % 2 !== 0
     }
+
+    // Update even-odd result
+    evenOddRegions[i].isHole = intersectionCount % 2 === 0
+    evenOddRegions[i].basicWindingNumber = intersectionCount
+
+    // Update non-zero result
+    nonZeroRegions[i].isHole = windingNumber === 0
+    nonZeroRegions[i].totalWindingNumber = windingNumber
   }
+
+  return { evenOdd: evenOddRegions, nonZero: nonZeroRegions }
 }

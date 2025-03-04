@@ -16,6 +16,13 @@ import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
 
+// TODO: Improve handling of relative coordinates, particularly prior to `close` calls.
+// Absolute coordinates allow us to get away from rounding/floating point issues.
+// In effect, we were seeing tolerance stackup here with relative coordinates that could
+// yield degenerate geometry, with closing lines intersecting with but overshooting the
+// start point.
+const USE_ABSOLUTE_LINE_COORDS = true
+
 export class ConverterError extends Error {
   constructor(message: string) {
     super(message)
@@ -126,22 +133,29 @@ export class Converter {
       absoluteEnd = { x, y }
     }
 
+    // Store untransformed absolute position for next command
+    this.currentPoint = absoluteEnd
+
     // Transform both the start and end points
     const transformedStart = transform.transformPoint(this.currentPoint)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
-    // Calculate relative position from transformed points for KCL output
-    const relativeEnd = {
-      x: transformedEnd.x - transformedStart.x,
-      y: transformedEnd.y - transformedStart.y
-    }
+    if (USE_ABSOLUTE_LINE_COORDS) {
+      return {
+        type: KclOperationType.LineAbsolute,
+        params: { point: [transformedEnd.x, transformedEnd.y] }
+      }
+    } else {
+      // Calculate relative position from transformed points for KCL output
+      const relativeEnd = {
+        x: transformedEnd.x - transformedStart.x,
+        y: transformedEnd.y - transformedStart.y
+      }
 
-    // Store untransformed absolute position for next command
-    this.currentPoint = absoluteEnd
-
-    return {
-      type: KclOperationType.Line,
-      params: { point: [relativeEnd.x, relativeEnd.y] }
+      return {
+        type: KclOperationType.Line,
+        params: { point: [relativeEnd.x, relativeEnd.y] }
+      }
     }
   }
 

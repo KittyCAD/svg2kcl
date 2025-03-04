@@ -1,15 +1,15 @@
 sketch001 = startSketchOn(XY)
   |> startProfileAt([10, -90], %)
-  |> line(end = [0, 80])
-  |> line(end = [80, 0])
-  |> line(end = [0, -80])
-  |> line(end = [-80, 0])
-  |> line(end = [0, 80])
+  |> line(endAbsolute = [10, -10])
+  |> line(endAbsolute = [90, -10])
+  |> line(endAbsolute = [90, -90])
+  |> line(endAbsolute = [10, -90])
+  |> line(endAbsolute = [10, -10])
   |> close()
   |> hole(
         startSketchOn(XY)
   |> startProfileAt([50, -50], %)
-    |> line(end = [40, 0])
+    |> line(endAbsolute = [90, -50])
     |> bezierCurve({
       control1 = [-10, -30],
       control2 = [-30, -30],
@@ -19,7 +19,7 @@ sketch001 = startSketchOn(XY)
   |> hole(
         startSketchOn(XY)
   |> startProfileAt([75, -45], %)
-    |> line(end = [15, -5])
+    |> line(endAbsolute = [90, -50])
     |> bezierCurve({
       control1 = [-5, 0],
       control2 = [-10, 1.667],

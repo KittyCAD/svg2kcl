@@ -303,6 +303,7 @@ export class PathProcessor {
     if (fragments.length === 0) return commands
 
     let currentPoint = fragments[0].start
+    let startPoint = fragments[0].start
 
     // Start with a move to the first point.
     commands.push({
@@ -316,6 +317,12 @@ export class PathProcessor {
     // a subset of commands; we're only dealing with absolute commands, and only
     // lines, quadratic Béziers, and cubic Béziers.
     for (const fragment of fragments) {
+      // If our fragment end point is close to the start point, use the start point
+      // to avoid floating point errors.
+      if (computePointToPointDistance(fragment.end, startPoint) < EPSILON_INTERSECT) {
+        fragment.end = startPoint
+      }
+
       switch (fragment.type) {
         case PathFragmentType.Line:
           commands.push({

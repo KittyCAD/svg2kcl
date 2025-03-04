@@ -83,6 +83,13 @@ export class Formatter {
         return `|> line(end = ${this.formatPoint(operation.params.point)})`
       }
 
+      case KclOperationType.LineAbsolute: {
+        if (!this.isLineToParams(operation.params)) {
+          throw new FormatterError('Invalid Line parameters')
+        }
+        return `|> line(endAbsolute = ${this.formatPoint(operation.params.point)})`
+      }
+
       case KclOperationType.BezierCurve: {
         if (!this.isBezierCurveParams(operation.params)) {
           throw new FormatterError('Invalid BezierCurve parameters')

@@ -589,6 +589,12 @@ export class Converter {
     const operations: KclOperation[] = []
     const { x, y, width, height, rx, ry } = rect
 
+    // If both rx and ry are specified and they're different, throw an error.
+    // We need elliptical arcs to handle this case.
+    if (rx !== undefined && ry !== undefined && rx !== ry) {
+      throw new Error('KCL conversion does not support rectangles with different rx and ry values')
+    }
+
     if (!rx && !ry) {
       // Regular rectangle, drawn clockwise, y+ve down. Note our KCL line op is relative.
       const points: [number, number][] = [
@@ -597,7 +603,6 @@ export class Converter {
         [0, height],
         [-width, 0]
       ]
-
       operations.push(
         { type: KclOperationType.StartSketch, params: { point: points[0] } },
         ...points.slice(1).map((point) => ({
@@ -608,37 +613,36 @@ export class Converter {
       )
     } else {
       // Rounded rectangle.
-      const effectiveRx = rx || ry || 0
-      const effectiveRy = ry || rx || 0
+      const effectiveRadius = rx || ry || 0
 
-      const startPoint: [number, number] = [x + effectiveRx, y]
+      const startPoint: [number, number] = [x + effectiveRadius, y]
       operations.push({ type: KclOperationType.StartSketch, params: { point: startPoint } })
 
       // Top edge and top-right corner.
       operations.push(
-        { type: KclOperationType.Line, params: { point: [width - effectiveRx, 0] } },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
+        { type: KclOperationType.Line, params: { point: [width - 2 * effectiveRadius, 0] } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } }
       )
 
       // Right edge and bottom-right corner.
       operations.push(
         {
           type: KclOperationType.Line,
-          params: { point: [0, -(height - effectiveRy)] }
+          params: { point: [0, height - 2 * effectiveRadius] }
         },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } }
       )
 
       // Bottom edge and bottom-left corner.
       operations.push(
-        { type: KclOperationType.Line, params: { point: [-(width - effectiveRx), 0] } },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } }
+        { type: KclOperationType.Line, params: { point: [-(width - 2 * effectiveRadius), 0] } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } }
       )
 
       // Left edge and top-left corner.
       operations.push(
-        { type: KclOperationType.Line, params: { point: [0, height - effectiveRy] } },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRx, offset: 90 } },
+        { type: KclOperationType.Line, params: { point: [0, -(height - 2 * effectiveRadius)] } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } },
         { type: KclOperationType.Close, params: null }
       )
     }

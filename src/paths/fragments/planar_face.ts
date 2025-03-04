@@ -294,6 +294,12 @@ export function buildRegions(
       const fragmentIds = consolidatedDetails.map((detail) => detail.id)
       const fragmentReversed = consolidatedDetails.map((detail) => detail.reversed)
 
+      // Mop up wrap around.
+      if (fragmentIds.length > 0 && fragmentIds[0] === fragmentIds[fragmentIds.length - 1]) {
+        fragmentIds.shift()
+        fragmentReversed.shift()
+      }
+
       // Only create a region if we found fragments
       if (fragmentIds.length > 0) {
         const boundingBox = calculateBoundingBox(fragmentIds, fragmentMap)

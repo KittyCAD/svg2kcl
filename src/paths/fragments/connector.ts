@@ -78,12 +78,10 @@ export function connectFragments(fragments: PathFragment[], intersections: Inter
     connectedFrags.sort((a, b) => a.angle - b.angle)
     fragment.connectedFragments = connectedFrags
 
-    console.log(`Fragment ${fragment.id} connected to:`, connectedFrags)
+    // console.log(`Fragment ${fragment.id} connected to:`, connectedFrags)
     let connectedIds = connectedFrags.map((frag) => frag.fragmentId)
     debugDict[fragment.id] = connectedIds
   }
-
-  console.log('Connection debugging dictionary:', debugDict)
 }
 
 // A safer function for calculating reverse connection angles

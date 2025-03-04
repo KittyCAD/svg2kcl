@@ -113,7 +113,7 @@ export function buildPlanarGraphFromFragments(fragments: PathFragment[]): Planar
   })
 
   // Verify graph is not empty
-  console.log(`Built graph with ${nodes.length} nodes and ${edges.length} edges`)
+  // console.log(`Built graph with ${nodes.length} nodes and ${edges.length} edges`)
 
   return {
     nodes,

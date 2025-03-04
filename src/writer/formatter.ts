@@ -62,7 +62,6 @@ export class Formatter {
         if (!this.isStartSketchParams(operation.params)) {
           throw new FormatterError('Invalid StartSketch parameters')
         }
-        // const output = `startSketchAt(${this.formatPoint(operation.params.point)})`
         const output = `startSketchOn(XY)\n  |> startProfileAt(${this.formatPoint(
           operation.params.point
         )}, %)`
@@ -73,7 +72,7 @@ export class Formatter {
         if (!this.isStartSketchOnParams(operation.params)) {
           throw new FormatterError('Invalid StartSketchOn parameters')
         }
-        return `startSketchOn("${operation.params.plane}")`
+        return `startSketchOn(${operation.params.plane})`
       }
 
       case KclOperationType.Line: {
@@ -106,9 +105,9 @@ export class Formatter {
           throw new FormatterError('Invalid Circle parameters')
         }
         let center: [number, number] = [operation.params.x, operation.params.y]
-        return `|> circle({ center = ${this.formatPoint(center)}, radius = ${
+        return `|> circle(center = ${this.formatPoint(center)}, radius = ${
           operation.params.radius
-        } }, %)`
+        })`
       }
 
       case KclOperationType.Close:

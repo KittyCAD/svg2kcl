@@ -1,33 +1,38 @@
-sketch001 = startSketchAt([10, -10])
+sketch001 = startSketchOn(XY)
+  |> startProfileAt([10, -10], %)
   |> line(end = [80, 0])
   |> line(end = [0, -20])
   |> line(end = [-80, 0])
   |> close()
 
-sketch002 = startSketchOn("XY")
-  |> circle({ center = [50, -50], radius = 15 }, %)
+sketch002 = startSketchOn(XY)
+  |> circle(center = [50, -50], radius = 15)
 
-sketch003 = startSketchAt([10, -70])
+sketch003 = startSketchOn(XY)
+  |> startProfileAt([10, -70], %)
   |> line(end = [80, 0])
 
-sketch004 = startSketchAt([20, -80])
+sketch004 = startSketchOn(XY)
+  |> startProfileAt([20, -80], %)
+  |> line(endAbsolute = [50, -80])
   |> bezierCurve({
-      control1 = [10, -6.667],
-      control2 = [20, -6.667],
-      to = [30, 0]
+      control1 = [-10, -6.667],
+      control2 = [-20, -6.667],
+      to = [-30, 0]
     }, %)
-  |> line(end = [-30, 0])
   |> close()
-  startSketchAt([50, -80])
+  startSketchOn(XY)
+  |> startProfileAt([50, -80], %)
   |> bezierCurve({
       control1 = [10, 6.667],
       control2 = [20, 6.667],
       to = [30, 0]
     }, %)
-  |> line(end = [-30, 0])
+  |> line(endAbsolute = [50, -80])
   |> close()
 
-sketch005 = startSketchAt([10, -90])
+sketch005 = startSketchOn(XY)
+  |> startProfileAt([10, -90], %)
   |> line(end = [40, -5])
   |> line(end = [40, 5])
   |> close()

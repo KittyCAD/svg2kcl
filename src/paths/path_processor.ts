@@ -91,7 +91,7 @@ export class PathProcessor {
     const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)
 
     // After building your regions and fragments
-    const { evenOdd, nonZero } = determineInsideness(regions, fragments)
+    const { evenOdd, nonZero } = determineInsideness(regions, fragments, fragmentMap)
 
     // You can use either set depending on your fill rule preference
     const processedRegions = this.fillRule === FillRule.EvenOdd ? evenOdd : nonZero

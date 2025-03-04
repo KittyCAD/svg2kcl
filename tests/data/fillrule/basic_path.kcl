@@ -1,6 +1,5 @@
 sketch001 = startSketchOn(XY)
-  |> startProfileAt([10, -90], %)
-  |> line(endAbsolute = [10, -10])
+  |> startProfileAt([10, -10], %)
   |> line(endAbsolute = [90, -10])
   |> line(endAbsolute = [90, -90])
   |> line(endAbsolute = [10, -90])

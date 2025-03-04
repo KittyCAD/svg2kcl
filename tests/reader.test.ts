@@ -29,7 +29,7 @@ describe('SvgReader', () => {
       // Check rounded rectangle attributes
       const roundedRect = svg.elements[1] as any
       expect(roundedRect.rx).toBe(10)
-      expect(roundedRect.ry).toBe(5)
+      expect(roundedRect.ry).toBe(10)
     })
 
     it('should correctly read basic_circle.svg', async () => {

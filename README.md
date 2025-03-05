@@ -2,6 +2,8 @@
 
 Converts the geometry from an SVG file to a KittyCAD `.kcl` file.
 
+![image](./images/compound_path_evenodd.png)
+
 ## Method
 
 At a high level, the tool converts SVG to KCL by doing the following:

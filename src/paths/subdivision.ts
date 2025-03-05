@@ -93,7 +93,9 @@ export function subdivideQuadratic(
 
   // Split.
   const splitResult = BezierUtils.splitQuadraticBezierRange(
-    { start: startPoint, control: controlPoint, end: endPoint },
+    startPoint,
+    controlPoint,
+    endPoint,
     tMin,
     tMax
   )
@@ -143,7 +145,9 @@ export function subdivideQuadraticSmooth(
 
   // Split using the reflected control point.
   const splitResult = BezierUtils.splitQuadraticBezierRange(
-    { start: startPoint, control: reflectedControlPoint, end: endPoint },
+    startPoint,
+    reflectedControlPoint,
+    endPoint,
     tMin,
     tMax
   )
@@ -197,12 +201,10 @@ export function subdivideCubic(cmd: PathCommandEnriched, tMin: number, tMax: num
 
   // Split.
   const splitResult = BezierUtils.splitCubicBezierRange(
-    {
-      start: startPoint,
-      control1: control1Point,
-      control2: control2Point,
-      end: endPoint
-    },
+    startPoint,
+    control1Point,
+    control2Point,
+    endPoint,
     tMin,
     tMax
   )
@@ -260,12 +262,10 @@ export function subdivideCubicSmooth(
 
   // Split using both control points.
   const splitResult = BezierUtils.splitCubicBezierRange(
-    {
-      start: startPoint,
-      control1: control1Point,
-      control2: control2Point,
-      end: endPoint
-    },
+    startPoint,
+    control1Point,
+    control2Point,
+    endPoint,
     tMin,
     tMax
   )

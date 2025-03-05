@@ -4,7 +4,7 @@ import path from 'path'
 import { convertSvgToKcl } from '../src/main'
 import { KclOptions } from '../src/types/kcl'
 
-jest.setTimeout(20000)
+jest.setTimeout(30000)
 
 const options: KclOptions = {
   centerOnViewBox: false

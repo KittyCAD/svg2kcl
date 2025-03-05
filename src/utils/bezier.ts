@@ -17,17 +17,19 @@ export interface SplitBezierRangeResult {
 }
 
 export class BezierUtils {
+  private static readonly BEZIER_COMMAND_TYPES = new Set([
+    PathCommandType.QuadraticBezierAbsolute,
+    PathCommandType.QuadraticBezierRelative,
+    PathCommandType.QuadraticBezierSmoothAbsolute,
+    PathCommandType.QuadraticBezierSmoothRelative,
+    PathCommandType.CubicBezierAbsolute,
+    PathCommandType.CubicBezierRelative,
+    PathCommandType.CubicBezierSmoothAbsolute,
+    PathCommandType.CubicBezierSmoothRelative
+  ])
+
   public static isBezierCommand(type: PathCommandType): boolean {
-    return (
-      type === PathCommandType.QuadraticBezierAbsolute ||
-      type === PathCommandType.QuadraticBezierRelative ||
-      type === PathCommandType.QuadraticBezierSmoothAbsolute ||
-      type === PathCommandType.QuadraticBezierSmoothRelative ||
-      type === PathCommandType.CubicBezierAbsolute ||
-      type === PathCommandType.CubicBezierRelative ||
-      type === PathCommandType.CubicBezierSmoothAbsolute ||
-      type === PathCommandType.CubicBezierSmoothRelative
-    )
+    return BezierUtils.BEZIER_COMMAND_TYPES.has(type)
   }
 
   public static sampleQuadraticBezier(
@@ -79,26 +81,39 @@ export class BezierUtils {
     return points
   }
 
-  public static evaluateQuadraticBezier(t: number, p0: Point, p1: Point, p2: Point): Point {
+  public static evaluateQuadraticBezier(
+    t: number,
+    start: Point,
+    control: Point,
+    end: Point
+  ): Point {
     const mt = 1 - t
     return {
-      x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
-      y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y
+      x: mt * mt * start.x + 2 * mt * t * control.x + t * t * end.x,
+      y: mt * mt * start.y + 2 * mt * t * control.y + t * t * end.y
     }
   }
 
-  public static evaluateCubicBezier(t: number, p0: Point, p1: Point, p2: Point, p3: Point): Point {
+  public static evaluateCubicBezier(
+    t: number,
+    start: Point,
+    control1: Point,
+    control2: Point,
+    end: Point
+  ): Point {
     const mt = 1 - t
     const mt2 = mt * mt
     const t2 = t * t
     return {
-      x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
-      y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y
+      x: mt2 * mt * start.x + 3 * mt2 * t * control1.x + 3 * mt * t2 * control2.x + t2 * t * end.x,
+      y: mt2 * mt * start.y + 3 * mt2 * t * control1.y + 3 * mt * t2 * control2.y + t2 * t * end.y
     }
   }
 
   public static splitQuadraticBezier(
-    { start, control, end }: { start: Point; control: Point; end: Point },
+    start: Point,
+    control: Point,
+    end: Point,
     t: number
   ): SplitBezierResult {
     const p01 = {
@@ -122,7 +137,9 @@ export class BezierUtils {
   }
 
   public static splitQuadraticBezierRange(
-    { start, control, end }: { start: Point; control: Point; end: Point },
+    start: Point,
+    control: Point,
+    end: Point,
     t1: number,
     t2: number
   ): SplitBezierRangeResult {
@@ -131,18 +148,16 @@ export class BezierUtils {
     }
 
     // First split at t2 (point further along the curve).
-    const splitT2 = BezierUtils.splitQuadraticBezier({ start, control, end }, t2)
+    const splitT2 = BezierUtils.splitQuadraticBezier(start, control, end, t2)
     const beforeT2 = splitT2.first
     const afterT2 = splitT2.second
 
     // Then split the first portion at t1/t2 to get the range.
     const relativeT1 = t1 / t2 // Normalize t1 relative to t2.
     const splitT1 = BezierUtils.splitQuadraticBezier(
-      {
-        start: beforeT2[0],
-        control: beforeT2[1],
-        end: beforeT2[2]
-      },
+      beforeT2[0],
+      beforeT2[1],
+      beforeT2[2],
       relativeT1
     )
 
@@ -156,12 +171,10 @@ export class BezierUtils {
   }
 
   public static splitCubicBezier(
-    {
-      start,
-      control1,
-      control2,
-      end
-    }: { start: Point; control1: Point; control2: Point; end: Point },
+    start: Point,
+    control1: Point,
+    control2: Point,
+    end: Point,
     t: number
   ): SplitBezierResult {
     const p01 = {
@@ -197,12 +210,10 @@ export class BezierUtils {
   }
 
   public static splitCubicBezierRange(
-    {
-      start,
-      control1,
-      control2,
-      end
-    }: { start: Point; control1: Point; control2: Point; end: Point },
+    start: Point,
+    control1: Point,
+    control2: Point,
+    end: Point,
     t1: number,
     t2: number
   ): SplitBezierRangeResult {
@@ -211,19 +222,17 @@ export class BezierUtils {
     }
 
     // First split at t2 (point further along the curve).
-    const splitT2 = BezierUtils.splitCubicBezier({ start, control1, control2, end }, t2)
+    const splitT2 = BezierUtils.splitCubicBezier(start, control1, control2, end, t2)
     const beforeT2 = splitT2.first // [start, p01, p02, splitPoint2]
     const afterT2 = splitT2.second // [splitPoint2, p12, p21, end]
 
     // Then split the first portion at t1/t2 to get the range.
     const relativeT1 = t1 / t2 // Normalize t1 relative to t2.
     const splitT1 = BezierUtils.splitCubicBezier(
-      {
-        start: beforeT2[0], // original start
-        control1: beforeT2[1], // p01
-        control2: beforeT2[2], // p02
-        end: beforeT2[3] // splitPoint2
-      },
+      beforeT2[0], // original start
+      beforeT2[1], // p01
+      beforeT2[2], // p02
+      beforeT2[3], // splitPoint2
       relativeT1
     )
 
@@ -237,18 +246,22 @@ export class BezierUtils {
   }
 
   public static splitQuadraticBezierSmooth(
-    { start, prevControl, end }: { start: Point; prevControl?: Point; end: Point },
+    start: Point,
+    prevControl: Point | undefined,
+    end: Point,
     t: number
   ): SplitBezierResult {
     const control = prevControl
       ? { x: 2 * start.x - prevControl.x, y: 2 * start.y - prevControl.y } // Reflect previous control.
       : start // If no previous control, assume it's the start point (degenerate).
 
-    return BezierUtils.splitQuadraticBezier({ start, control, end }, t)
+    return BezierUtils.splitQuadraticBezier(start, control, end, t)
   }
 
   public static splitCubicBezierSmooth(
-    { start, control2, end }: { start: Point; control2: Point; end: Point },
+    start: Point,
+    control2: Point,
+    end: Point,
     t: number
   ): SplitBezierResult {
     const p21 = {

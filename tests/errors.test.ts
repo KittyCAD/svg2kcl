@@ -1,7 +1,11 @@
 import { describe, expect, it } from '@jest/globals'
-import path from 'path'
+import path, { dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { convertSvgToKcl } from '../src/main'
 import { KclOptions } from '../src/types/kcl'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 const options: KclOptions = {
   centerOnViewBox: false

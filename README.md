@@ -235,17 +235,17 @@ Parameters that drive these processes are defined in `src/constants.ts`.
 To use the tool from the command line, run:
 
 ```bash
-ts-node src/main.ts ./tests/data/examples/project_payload.svg
+node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg
 ```
 
 To specify an output file, use:
 
 ```bash
-ts-node src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl
+node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl
 ```
 
 To center the geometry on x=0, y=0, use:
 
 ```bash
-ts-node src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl --center
+node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl --center
 ```

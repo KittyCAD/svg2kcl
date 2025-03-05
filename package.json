@@ -5,15 +5,11 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "build": "tsc --module es2015 --target es2015 --outDir dist",
-    "test": "jest",
+    "build": "tsc --module es2020 --target es2020 --outDir dist",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "dev": "http-server .",
     "start": "npm run build && npm run dev",
-    "convert": "ts-node ./src/main.ts"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node"
+    "example": "node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg"
   },
   "author": "",
   "license": "ISC",

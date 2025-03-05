@@ -1,9 +1,12 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it, jest } from '@jest/globals'
 import { promises as fsPromises } from 'node:fs'
-import path from 'path'
+import path, { dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { convertSvgToKcl } from '../src/main'
 import { KclOptions } from '../src/types/kcl'
-import { jest } from '@jest/globals'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 jest.setTimeout(100000)
 

@@ -1,8 +1,12 @@
-import { Point } from '../types/base'
-import { PathCommandEnriched, PathCommand, PathCommandType, PathSampleResult } from '../types/paths'
-import { BezierUtils } from '../utils/bezier'
-import { computePointToPointDistance, isPointInsidePolygon } from '../utils/geometry'
 import { EPSILON_INTERSECT } from '../constants'
+import { Point } from '../types/base'
+import { PathCommand, PathCommandEnriched, PathCommandType, PathSampleResult } from '../types/paths'
+import {
+  calculateReflectedControlPoint,
+  sampleCubicBezier,
+  sampleQuadraticBezier
+} from '../utils/bezier'
+import { computePointToPointDistance } from '../utils/geometry'
 
 export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
   // Our objective here is to sample the path into a series of points, while also
@@ -87,7 +91,7 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
         }
 
         // Sample the curve.
-        const sampledPoints = BezierUtils.sampleQuadraticBezier(
+        const sampledPoints = sampleQuadraticBezier(
           currentPoint,
           { x: x1, y: y1 },
           command.endPositionAbsolute
@@ -107,13 +111,13 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
 
         // Smooth quadratic Bézier only takes end point as parameter.
         // First control point is reflection of previous control point.
-        const reflectedControlPoint = BezierUtils.calculateReflectedControlPoint(
+        const reflectedControlPoint = calculateReflectedControlPoint(
           previousControlPoint,
           currentPoint
         )
 
         // Sample the curve using the reflected control point.
-        const sampledPoints = BezierUtils.sampleQuadraticBezier(
+        const sampledPoints = sampleQuadraticBezier(
           currentPoint,
           reflectedControlPoint,
           command.endPositionAbsolute
@@ -140,7 +144,7 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
           y2 += currentPoint.y
         }
         // Sample the curve.
-        const sampledPoints = BezierUtils.sampleCubicBezier(
+        const sampledPoints = sampleCubicBezier(
           currentPoint,
           { x: x1, y: y1 },
           { x: x2, y: y2 },
@@ -170,13 +174,13 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
         }
 
         // First control point is reflection of previous second control point.
-        const reflectedControlPoint = BezierUtils.calculateReflectedControlPoint(
+        const reflectedControlPoint = calculateReflectedControlPoint(
           previousControlPoint,
           currentPoint
         )
 
         // Sample the curve.
-        const sampledPoints = BezierUtils.sampleCubicBezier(
+        const sampledPoints = sampleCubicBezier(
           currentPoint,
           reflectedControlPoint,
           { x: x2, y: y2 },

@@ -1,11 +1,10 @@
-import { PathFragment } from './fragment'
-import { Point } from '../../types/base'
-import { computePointToPointDistance } from '../../utils/geometry'
+import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { EPSILON_INTERSECT } from '../../constants'
-import { PlanarFaceTree, DiscoveryResult } from 'planar-face-discovery'
-import { PathRegion } from '../../types/regions'
-import { calculateBoundingBox, calculateTestPoint } from './fragment'
+import { Point } from '../../types/base'
 import { FragmentMap } from '../../types/fragments'
+import { PathRegion } from '../../types/regions'
+import { computePointToPointDistance } from '../../utils/geometry'
+import { calculateBoundingBox, calculateTestPoint, PathFragment } from './fragment'
 
 interface PlanarGraph {
   nodes: Array<[number, number]>

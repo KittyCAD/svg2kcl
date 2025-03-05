@@ -1,15 +1,13 @@
-import { debug } from 'console'
 import { EPSILON_INTERSECT } from '../../constants'
 import { PathFragment } from '../../paths/fragments/fragment'
 import { Vector } from '../../types/base'
 import { PathFragmentType } from '../../types/fragments'
+import { Intersection, computePointToPointDistance } from '../../utils/geometry'
 import {
-  computePointToPointDistance,
   computeTangentToCubicFragment,
   computeTangentToLineFragment,
-  computeTangentToQuadraticFragment,
-  Intersection
-} from '../../utils/geometry'
+  computeTangentToQuadraticFragment
+} from '../../paths/fragments/fragment'
 
 export function connectFragments(fragments: PathFragment[], intersections: Intersection[]): void {
   const debugDict: {

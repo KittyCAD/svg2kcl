@@ -1,9 +1,10 @@
 import { v4 as uuidv4 } from 'uuid'
 import { Point } from '../../types/base'
 import { FragmentMap, PathFragmentData, PathFragmentType } from '../../types/fragments'
-import { BezierUtils } from '../../utils/bezier'
 import { N_CURVE_SAMPLES_BOUNDARY } from '../../constants'
 import { sampleLine } from '../../utils/geometry'
+import { sampleQuadraticBezier, sampleCubicBezier } from '../../utils/bezier'
+import { Vector } from '../../types/base'
 
 export class PathFragment implements PathFragmentData {
   id: string
@@ -117,7 +118,7 @@ export function sampleFragment(fragment: PathFragment): Point[] {
       return sampleLine(fragment.start, fragment.end, N_CURVE_SAMPLES_BOUNDARY)
 
     case PathFragmentType.Quad:
-      return BezierUtils.sampleQuadraticBezier(
+      return sampleQuadraticBezier(
         fragment.start,
         fragment.control1!,
         fragment.end,
@@ -125,12 +126,55 @@ export function sampleFragment(fragment: PathFragment): Point[] {
       )
 
     case PathFragmentType.Cubic:
-      return BezierUtils.sampleCubicBezier(
+      return sampleCubicBezier(
         fragment.start,
         fragment.control1!,
         fragment.control2!,
         fragment.end,
         N_CURVE_SAMPLES_BOUNDARY
       )
+  }
+}
+
+export function computeTangentToLineFragment(fragment: PathFragment): Vector {
+  return {
+    x: fragment.end.x - fragment.start.x,
+    y: fragment.end.y - fragment.start.y
+  }
+}
+
+export function computeTangentToQuadraticFragment(fragment: PathFragment, t: number): Vector {
+  // Quadratic Bézier derivative.
+  // B'(t) = 2(1-t)(P1-P0) + 2t(P2-P1)
+  const { start, control1, end } = fragment
+
+  if (!control1) {
+    throw new Error('control1 missing for quadratic bezier fragment')
+  }
+
+  return {
+    x: 2 * (1 - t) * (control1.x - start.x) + 2 * t * (end.x - control1.x),
+    y: 2 * (1 - t) * (control1.y - start.y) + 2 * t * (end.y - control1.y)
+  }
+}
+
+export function computeTangentToCubicFragment(fragment: PathFragment, t: number): Vector {
+  // Cubic Bézier derivative
+  // B'(t) = 3(1-t)²(P1-P0) + 6(1-t)t(P2-P1) + 3t²(P3-P2)
+  const { start, control1, control2, end } = fragment
+
+  if (!control1 || !control2) {
+    throw new Error('Control points missing for cubic bezier fragment')
+  }
+
+  return {
+    x:
+      3 * (1 - t) ** 2 * (control1.x - start.x) +
+      6 * (1 - t) * t * (control2.x - control1.x) +
+      3 * t ** 2 * (end.x - control2.x),
+    y:
+      3 * (1 - t) ** 2 * (control1.y - start.y) +
+      6 * (1 - t) * t * (control2.y - control1.y) +
+      3 * t ** 2 * (end.y - control2.y)
   }
 }

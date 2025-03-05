@@ -1,27 +1,17 @@
 import { EPSILON_INTERSECT } from '../constants'
-import { PathFragment } from '../paths/fragments/fragment'
-import { LineSegment, Point, Vector } from '../types/base'
+import { Point, LineSegment } from '../types/base'
 import { Subpath } from '../types/paths'
 
 export interface Intersection {
-  // Describes an intersection between two segments, with segments produced by
-  // sampling a path.
-  intersectionPoint: Point // Intersection coordinates.
-  iSegmentA: number // Index of segment A in the segment array.
-  iSegmentB: number // Index of segment B in the segment array.
-  tA: number // How far into segment A the intersection is, [0, 1].
-  tB: number // How far into segment B the intersection is, [0, 1].
+  intersectionPoint: Point // Intersection coordinates
+  iSegmentA: number // Index of segment A in the segment array
+  iSegmentB: number // Index of segment B in the segment array
+  tA: number // How far into segment A the intersection is, [0, 1]
+  tB: number // How far into segment B the intersection is, [0, 1]
 }
 
-export function computePointToPointDistance(p1: Point, p2: Point): number {
-  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
-}
-
-export function interpolateLine(p0: Point, p1: Point, t: number): Point {
-  return {
-    x: (1 - t) * p0.x + t * p1.x,
-    y: (1 - t) * p0.y + t * p1.y
-  }
+export function computePointToPointDistance(point1: Point, point2: Point): number {
+  return Math.sqrt((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2)
 }
 
 export function sampleLine(start: Point, end: Point, numSamples: number): Point[] {
@@ -33,6 +23,80 @@ export function sampleLine(start: Point, end: Point, numSamples: number): Point[
   return points
 }
 
+export function interpolateLine(start: Point, end: Point, t: number): Point {
+  return {
+    x: (1 - t) * start.x + t * end.x,
+    y: (1 - t) * start.y + t * end.y
+  }
+}
+
+export function isPointOnLineSegment(
+  point: Point,
+  segmentStart: Point,
+  segmentEnd: Point
+): boolean {
+  // Check if point is collinear with the line segment.
+  const crossProduct =
+    (point.y - segmentStart.y) * (segmentEnd.x - segmentStart.x) -
+    (point.x - segmentStart.x) * (segmentEnd.y - segmentStart.y)
+
+  if (Math.abs(crossProduct) > EPSILON_INTERSECT) {
+    return false // Not collinear.
+  }
+
+  // Check if point is within the segment bounds using dot product.
+  const dotProduct =
+    (point.x - segmentStart.x) * (segmentEnd.x - segmentStart.x) +
+    (point.y - segmentStart.y) * (segmentEnd.y - segmentStart.y)
+
+  if (dotProduct < 0) {
+    return false // Point is beyond segmentStart..
+  }
+
+  const squaredLengthSegment =
+    (segmentEnd.x - segmentStart.x) ** 2 + (segmentEnd.y - segmentStart.y) ** 2
+
+  if (dotProduct > squaredLengthSegment) {
+    return false // Point is beyond segmentEnd.
+  }
+
+  return true // Point lies on the segment.
+}
+
+export function calculateCentroid(points: Point[]): Point {
+  if (points.length === 0) {
+    throw new Error('Cannot calculate centroid of empty points array.')
+  }
+
+  let sumX = 0
+  let sumY = 0
+
+  for (const point of points) {
+    sumX += point.x
+    sumY += point.y
+  }
+
+  return {
+    x: sumX / points.length,
+    y: sumY / points.length
+  }
+}
+
+export function calculatePolygonArea(points: Point[]): number {
+  // Calculate the area of a polygon using the shoelace formula.
+  // https://en.wikipedia.org/wiki/Shoelace_formula
+  let area = 0
+  const n = points.length
+
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n
+    area += points[i].x * points[j].y
+    area -= points[j].x * points[i].y
+  }
+
+  return area / 2
+}
+
 export function getBoundingBoxArea(boundingBox: {
   xMin: number
   xMax: number
@@ -42,91 +106,65 @@ export function getBoundingBoxArea(boundingBox: {
   return (boundingBox.xMax - boundingBox.xMin) * (boundingBox.yMax - boundingBox.yMin)
 }
 
-export function isLeft(p0: Point, p1: Point, p2: Point): number {
-  // Computes whether a point lies to the left (+) or right (-) of a directed line segment.
-  // This is a determinant-based test for relative orientation.
-  return (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)
+export function isLeft(lineStart: Point, lineEnd: Point, point: Point): number {
+  // The 2D cross product of AB and AP vectors.
+  return (
+    (lineEnd.x - lineStart.x) * (point.y - lineStart.y) -
+    (point.x - lineStart.x) * (lineEnd.y - lineStart.y)
+  )
 }
 
-export function isPointInsidePolygon(point: Point, polygon: Point[]): boolean {
-  // Determines if a point is inside a polygon using the nonzero winding rule.
-  // See: https://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html
-  // And: https://ocw.mit.edu/courses/18-900-geometry-and-topology-in-the-plane-spring-2023/mit18_900s23_lec3.pdf
-  let wn = 0 // Winding number counter.
-  let j = polygon.length - 1
-
-  for (let i = 0; i < polygon.length; i++) {
-    const pi = polygon[i]
-    const pj = polygon[j]
-
-    // Determine crossing direction.
-    if (pi.y <= point.y) {
-      if (pj.y > point.y && isLeft(pi, pj, point) > 0) {
-        wn++ // Upward crossing adds to winding number.
-      }
-    } else {
-      if (pj.y <= point.y && isLeft(pi, pj, point) < 0) {
-        wn-- // Downward crossing subtracts from winding number.
-      }
-    }
-
-    j = i // Move to next segment.
+export function doesRayIntersectLineSegment(
+  rayStart: Point,
+  rayEnd: Point,
+  segmentStart: Point,
+  segmentEnd: Point
+): boolean {
+  // Fast reject: if segment is completely above or below the ray.
+  if (
+    (segmentStart.y > rayStart.y && segmentEnd.y > rayStart.y) ||
+    (segmentStart.y < rayStart.y && segmentEnd.y < rayStart.y)
+  ) {
+    return false
   }
 
-  return wn !== 0 // A nonzero winding number means the point is inside.
-}
-
-export function isPolygonInsidePolygon(inner: Point[], outer: Point[]): boolean {
-  for (const vertex of inner) {
-    // If any vertex is outside, the whole shape is not inside.
-    if (!isPointInsidePolygon(vertex, outer) && !isPointOnEdge(vertex, outer)) {
-      return false
-    }
+  // Fast reject: if segment is completely to the left of ray start.
+  if (segmentStart.x < rayStart.x && segmentEnd.x < rayStart.x) {
+    return false
   }
-  return true
-}
 
-export function isPointOnSegment(p: Point, a: Point, b: Point): boolean {
-  // Helper function to check if a point lies on a line segment.
-  const crossProduct = (p.y - a.y) * (b.x - a.x) - (p.x - a.x) * (b.y - a.y)
-  if (Math.abs(crossProduct) > EPSILON_INTERSECT) return false // Not collinear.
-
-  const dotProduct = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)
-  if (dotProduct < 0) return false // Beyond 'a'.
-
-  const squaredLengthBA = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)
-  if (dotProduct > squaredLengthBA) return false // Beyond 'b'.
-
-  return true // Lies within the segment bounds.
-}
-
-export function isPointOnEdge(point: Point, polygon: Point[]): boolean {
-  for (let i = 0; i < polygon.length; i++) {
-    const p1 = polygon[i]
-    const p2 = polygon[(i + 1) % polygon.length] // Wraps around to first point.
-
-    if (isPointOnSegment(point, p1, p2)) {
-      return true // Point lies exactly on an edge.
-    }
+  // If the segment is horizontal and at the same height as the ray,
+  // it's not considered an intersection.
+  if (
+    Math.abs(segmentStart.y - segmentEnd.y) < EPSILON_INTERSECT &&
+    Math.abs(segmentStart.y - rayStart.y) < EPSILON_INTERSECT
+  ) {
+    return false
   }
-  return false
-}
 
-export function isClockwise(points: Point[]): boolean {
-  let sum = 0
-  for (let i = 0; i < points.length - 1; i++) {
-    const curr = points[i]
-    const next = points[i + 1]
-    sum += (next.x - curr.x) * (next.y + curr.y)
+  // Calculate intersection point.
+  if (Math.abs(segmentStart.y - segmentEnd.y) < EPSILON_INTERSECT) {
+    // Handle horizontal segment edge case.
+    return false // Horizontal segment at ray height doesn't count.
   }
-  return sum > 0
+
+  // Calculate x-coordinate of intersection.
+  const t = (rayStart.y - segmentStart.y) / (segmentEnd.y - segmentStart.y)
+  if (t < 0 || t > 1) {
+    return false // Intersection point not on segment.
+  }
+
+  const intersectX = segmentStart.x + t * (segmentEnd.x - segmentStart.x)
+
+  // The ray goes right, so only count intersections to the right of ray start.
+  return intersectX >= rayStart.x
 }
 
 export function findSelfIntersections(points: Point[], startIndex: number): Intersection[] {
   let intersections: Intersection[] = []
-  const segments: LineSegment[] = [] // Segments composed two points.
+  const segments: LineSegment[] = [] // Segments composed of two points.
 
-  // Break path into segments.
+  // Break path into segments
   for (let i = 0; i < points.length - 1; i++) {
     segments.push({
       start: points[i],
@@ -137,55 +175,33 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
   let comparedPairs: Map<number, number[]> = new Map()
 
   // Compare each segment pair for intersections.
-  // Skip adjacent segments because these would always intersect.
+  // Skip adjacent segments because these would always intersect:
   // Segment 1: A----B
   // Segment 2:      B----C
   for (let i = 0; i < segments.length; i++) {
     for (let j = i + 2; j < segments.length; j++) {
-      // Track.
+      // Track
       if (!comparedPairs.has(i)) {
         comparedPairs.set(i, [])
       }
       comparedPairs.get(i)!.push(j)
 
-      // Compare each segment pair for intersections.
-      // Skip adjacent segments because these would always intersect.
-      // Segment 1: A----B
-      // Segment 2:      B----C
       const seg1 = segments[i]
       const seg2 = segments[j]
 
       // Cross product of AB and CD. Our vectors are 2D, so we only need the z component.
-      // https://www.mathsisfun.com/algebra/vectors-cross-product.html
-      // KA Stroud, Engineering Mathematics, 7th Edition, p535
-      const [abx, aby, ,] = [seg1.end.x - seg1.start.x, seg1.end.y - seg1.start.y, 0]
-      const [cdx, cdy, ,] = [seg2.end.x - seg2.start.x, seg2.end.y - seg2.start.y, 0]
+      const [abx, aby] = [seg1.end.x - seg1.start.x, seg1.end.y - seg1.start.y]
+      const [cdx, cdy] = [seg2.end.x - seg2.start.x, seg2.end.y - seg2.start.y]
 
-      // const cx = aby * cdz - abz * cdy // Will always be zero.
-      // const cy = abz * cdx - abx * cdz // Will always be zero.
-      const cz = abx * cdy - aby * cdx
+      // Calculate determinant (z-component of cross product).
+      const det = abx * cdy - aby * cdx
 
-      // Handily, cz is the determinant of the matrix:
-      const det = cz
-
-      // If A cross B is zero, then the two segments are parallel.
-      const EPSILON_DET = EPSILON_INTERSECT
-      if (Math.abs(det) < EPSILON_DET) {
+      // If determinant is zero, then the two segments are parallel.
+      if (Math.abs(det) < EPSILON_INTERSECT) {
         continue
       }
 
-      // Using parametric equations for the two lines, we can find intersection point.
-      // P(t) = P1 + t(P2 - P1)
-      // http://www.it.hiof.no/~borres/j3d/math/param/p-param.html
-      //
-      // This gives us a t value that increases as we move along the line; fraction
-      // into the segment where the intersection occurs.
-      //
-      // Do the actual solve with Cramer's Rule.
-      // https://en.wikipedia.org/wiki/Cramer%27s_rule
-      //
-      // Ax=b
-      // xi = det(Ai)/det(A) for i = 1:n, where Ai is A with column i replaced by b.
+      // Use Cramer's Rule to find intersection parameters.
       const detA1 =
         (seg2.end.x - seg2.start.x) * (seg1.start.y - seg2.start.y) -
         (seg2.end.y - seg2.start.y) * (seg1.start.x - seg2.start.x)
@@ -196,7 +212,7 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
         (seg1.end.y - seg1.start.y) * (seg1.start.x - seg2.start.x)
       let ub = detA2 / det
 
-      // Check of overall split points are within tolerance.
+      // Check if intersection parameters are within valid range.
       const isUaValid = ua >= -EPSILON_INTERSECT && ua <= 1 + EPSILON_INTERSECT
       const isUbValid = ub >= -EPSILON_INTERSECT && ub <= 1 + EPSILON_INTERSECT
 
@@ -204,7 +220,7 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
         continue
       }
 
-      // Then sanity check if we're at our endpoints.
+      // Check if intersection is at endpoints of both segments.
       const isUaAtEndpoint =
         Math.abs(ua) < EPSILON_INTERSECT || Math.abs(ua - 1) < EPSILON_INTERSECT
       const isUbAtEndpoint =
@@ -214,11 +230,11 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
         continue
       }
 
-      // Clip ua and ub within the valid range [0,1].
+      // Clamp intersection parameters to valid range [0,1].
       ua = Math.max(0, Math.min(1, ua))
       ub = Math.max(0, Math.min(1, ub))
 
-      // Include endpoints.
+      // Calculate the intersection point.
       const intersectionPoint = {
         x: seg1.start.x + ua * (seg1.end.x - seg1.start.x),
         y: seg1.start.y + ua * (seg1.end.y - seg1.start.y)
@@ -231,23 +247,25 @@ export function findSelfIntersections(points: Point[], startIndex: number): Inte
       intersections.push({
         iSegmentA: globalSegmentAIndex,
         iSegmentB: globalSegmentBIndex,
-        intersectionPoint: intersectionPoint, // Actual coordinates of the intersection.
-        tA: ua, // Fraction along segment A: ua.
-        tB: ub // Fraction along segment B: ub.
+        intersectionPoint,
+        tA: ua,
+        tB: ub
       })
     }
   }
 
-  // Dedupe intersections—which could crop up where our splitline runs through
-  // the adjacent start/end points of two segments.
+  // Deduplicate intersections.
+  // This could happen where our splitline runs through adjacent segments.
   intersections = intersections.filter(
     (inter, index, self) =>
       index ===
       self.findIndex(
         (other) =>
           other.iSegmentB === inter.iSegmentB &&
-          computePointToPointDistance(other.intersectionPoint, inter.intersectionPoint) <
-            EPSILON_INTERSECT
+          Math.sqrt(
+            (other.intersectionPoint.x - inter.intersectionPoint.x) ** 2 +
+              (other.intersectionPoint.y - inter.intersectionPoint.y) ** 2
+          ) < EPSILON_INTERSECT
       )
   )
 
@@ -264,7 +282,7 @@ export function findIntersectionsBetweenSubpaths(
   const points1 = subpathA.samplePoints
   const points2 = subpathB.samplePoints
 
-  // Compare each line segment in subpath1 with each line segment in subpath2
+  // Compare each line segment in subpath1 with each line segment in subpath2.
   for (let i = 0; i < points1.length - 1; i++) {
     const seg1Start = points1[i]
     const seg1End = points1[i + 1]
@@ -283,7 +301,7 @@ export function findIntersectionsBetweenSubpaths(
       // If determinant is zero, lines are parallel
       if (Math.abs(det) < EPSILON_INTERSECT) continue
 
-      // Use Cramer's Rule to find intersection point
+      // Use Cramer's Rule to find intersection point.
       const detA1 =
         (seg2End.x - seg2Start.x) * (seg1Start.y - seg2Start.y) -
         (seg2End.y - seg2Start.y) * (seg1Start.x - seg2Start.x)
@@ -294,14 +312,14 @@ export function findIntersectionsBetweenSubpaths(
       const t1 = detA1 / det
       const t2 = detA2 / det
 
-      // Check if intersection lies within both segments
+      // Check if intersection lies within both segments.
       if (
         t1 > EPSILON_INTERSECT &&
         t1 < 1 - EPSILON_INTERSECT &&
         t2 > EPSILON_INTERSECT &&
         t2 < 1 - EPSILON_INTERSECT
       ) {
-        // Calculate intersection point
+        // Calculate intersection point.
         const intersectionPoint = {
           x: seg1Start.x + t1 * (seg1End.x - seg1Start.x),
           y: seg1Start.y + t1 * (seg1End.y - seg1Start.y)
@@ -314,7 +332,7 @@ export function findIntersectionsBetweenSubpaths(
         intersections.push({
           iSegmentA: globalSegmentAIndex,
           iSegmentB: globalSegmentBIndex,
-          intersectionPoint: intersectionPoint,
+          intersectionPoint,
           tA: t1,
           tB: t2
         })
@@ -323,53 +341,4 @@ export function findIntersectionsBetweenSubpaths(
   }
 
   return intersections
-}
-
-export function computeTangentToLineFragment(fragment: PathFragment): Vector {
-  return {
-    x: fragment.end.x - fragment.start.x,
-    y: fragment.end.y - fragment.start.y
-  }
-}
-
-export function computeTangentToQuadraticFragment(fragment: PathFragment, t: number): Vector {
-  // Quadratic Bézier derivative.
-  // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-  const { start, control1, end } = fragment
-  return {
-    x: 2 * (1 - t) * (control1!.x - start.x) + 2 * t * (end.x - control1!.x),
-    y: 2 * (1 - t) * (control1!.y - start.y) + 2 * t * (end.y - control1!.y)
-  }
-}
-
-export function computeTangentToCubicFragment(fragment: PathFragment, t: number): Vector {
-  // Cubic Bézier derivative.
-  // https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
-  // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-  const { start, control1, control2, end } = fragment
-  return {
-    x:
-      3 * (1 - t) ** 2 * (control1!.x - start.x) +
-      6 * (1 - t) * t * (control2!.x - control1!.x) +
-      3 * t ** 2 * (end.x - control2!.x),
-    y:
-      3 * (1 - t) ** 2 * (control1!.y - start.y) +
-      6 * (1 - t) * t * (control2!.y - control1!.y) +
-      3 * t ** 2 * (end.y - control2!.y)
-  }
-}
-
-export function computeAngleBetweenVectors(
-  v1: { x: number; y: number },
-  v2: { x: number; y: number }
-): number {
-  // See: calculateConnectionAngle
-  // Calculate cross and dot products.
-  const cross = v1.x * v2.y - v1.y * v2.x
-  const dot = v1.x * v2.x + v1.y * v2.y
-
-  // Compute signed angle in radians (range [-π, π]).
-  // Positive angle = counterclockwise rotation from v2 to v1.
-  // Negative angle = clockwise rotation from v2 to v1.
-  return Math.atan2(cross, dot)
 }

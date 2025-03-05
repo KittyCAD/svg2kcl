@@ -7,3 +7,6 @@ export const N_CURVE_SAMPLES = 500
 
 // Number of samples to take when sampling Bézier curve fragments for boundary detection.
 export const N_CURVE_SAMPLES_BOUNDARY = 500
+
+// Number of samples to take around polygon boundary for fillrule test.
+export const N_BOUNDARY_SAMPLES_FILLRULE = 20

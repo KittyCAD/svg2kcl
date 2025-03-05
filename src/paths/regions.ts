@@ -5,7 +5,6 @@ import { Point } from '../types/base'
 import { FragmentMap } from '../types/fragments'
 import { PathRegion } from '../types/regions'
 import { computePointToPointDistance } from '../utils/geometry'
-// import { exportPointsToCSV } from '../utils/debug'
 
 export function identifyClosedRegions(
   fragments: PathFragment[],

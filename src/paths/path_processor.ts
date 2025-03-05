@@ -39,10 +39,9 @@ import {
   findIntersectionsBetweenSubpaths,
   findSelfIntersections,
   getBoundingBoxArea,
-  Intersection,
-  isPointInsidePolygon,
-  isPolygonInsidePolygon
+  Intersection
 } from '../utils/geometry'
+import { isPointInsidePolygon, isPolygonInsidePolygon } from '../utils/polygon'
 import { connectFragments } from './fragments/connector'
 import { PathFragment, sampleFragment } from './fragments/fragment'
 import { buildPlanarGraphFromFragments, buildRegions, getFaces } from './fragments/planar_face'

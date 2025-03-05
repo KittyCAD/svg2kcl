@@ -1,6 +1,6 @@
 import { Point } from './base'
 
-export interface PathRegion {
+export type PathRegion = {
   id: string
   fragmentIds: string[] // List of IDs of path fragments forming the region.
   fragmentReversed: boolean[] // Indicates if each fragment needs to be reversed

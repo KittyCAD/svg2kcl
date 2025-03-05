@@ -1,31 +1,23 @@
-import { Transform } from '../utils/transform'
-
-export interface Point {
+export type Point = {
   x: number
   y: number
 }
 
-export interface Vector {
+export type Vector = {
   x: number
   y: number
 }
 
-export interface LineSegment {
+export type LineSegment = {
   start: Point
   end: Point
 }
 
-export interface ViewBox {
+export type ViewBox = {
   xMin: number
   yMin: number
   width: number
   height: number
-}
-
-export interface ElementProperties {
-  id?: string
-  transform?: Transform
-  fillRule?: FillRule
 }
 
 export enum FillRule {

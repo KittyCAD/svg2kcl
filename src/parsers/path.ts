@@ -1,5 +1,5 @@
-import { FillRule, Point } from '../types/base'
-import { PathCommand, PathCommandType, SvgPathCommandMap } from '../types/paths'
+import { FillRule } from '../types/base'
+import { ParsedPath, PathCommandType, PathState, SvgPathCommandMap } from '../types/paths'
 import { Transform } from '../utils/transform'
 import { ParseError } from './exceptions'
 
@@ -9,23 +9,6 @@ const UNSUPPORTED_COMMANDS = [
   PathCommandType.EllipticalArcAbsolute,
   PathCommandType.EllipticalArcRelative
 ]
-
-export interface ParsedPath {
-  commands: PathCommand[]
-  startPosition: Point
-  fillRule: FillRule
-}
-
-interface PathState {
-  command: PathCommandType
-  values: number[]
-  valueBuffer: string
-  currentPoint: Point
-  isPathOpen: boolean
-  isValuePushed: boolean
-  subPathStart: Point | null // Track the start of current subpath
-  firstMoveCompleted: boolean
-}
 
 export class SvgPathParser {
   private state!: PathState

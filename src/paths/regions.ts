@@ -142,6 +142,5 @@ export function getRegionPoints(region: PathRegion, fragmentMap: FragmentMap): P
     points.push(...fragment.sampledPoints)
   }
 
-  // exportPointsToCSV(points)
   return points
 }

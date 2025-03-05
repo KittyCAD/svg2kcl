@@ -10,7 +10,7 @@ export enum PathFragmentType {
   Cubic = 'cubic'
 }
 
-export interface PathFragmentData {
+export type PathFragmentData = {
   // An internal, intermediate representation of a path 'fragment'. We may produce
   // a bunch of these when splitting paths, but we need more context than would be
   // provided by the sort of new PathCommand object we produce when re-emitting

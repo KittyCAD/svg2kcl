@@ -1,29 +1,29 @@
 import { Plane3D } from './base'
 
 // Options that control KCL output generation.
-export interface KclOptions {
+export type KclOptions = {
   centerOnViewBox?: boolean
 }
 
 // The type of operation being performed.
 export enum KclOperationType {
-  StartSketch = `StartSketch`,
-  StartSketchOn = `StartSketchOn`,
-  Line = `Line`,
-  LineAbsolute = `LineAbsolute`,
-  XLineTo = `XLineTo`,
-  YLineTo = `YLineTo`,
-  Arc = `Arc`,
-  TangentialArc = `TangentialArc`,
-  BezierCurve = `BezierCurve`,
-  Circle = `Circle`,
-  Polygon = `Polygon`,
-  Close = `Close`,
-  Hole = `Hole`
+  StartSketch = 'startSketch',
+  StartSketchOn = 'startSketchOn',
+  Line = 'line',
+  LineAbsolute = 'lineAbsolute',
+  XLineTo = 'xLineTo',
+  YLineTo = 'yLineTo',
+  Arc = 'arc',
+  TangentialArc = 'tangentialArc',
+  BezierCurve = 'bezierCurve',
+  Circle = 'circle',
+  Polygon = 'polygon',
+  Close = 'close',
+  Hole = 'hole'
 }
 
 // Parameters for different KCL operations.
-export interface StartSketchParams {
+export type StartSketchParams = {
   point: [number, number]
 }
 
@@ -31,46 +31,46 @@ export type StartSketchOnParams = {
   plane: Plane3D
 }
 
-export interface LineToParams {
+export type LineToParams = {
   point: [number, number]
 }
 
-export interface BezierCurveParams {
+export type BezierCurveParams = {
   control1: [number, number]
   control2: [number, number]
   to: [number, number]
 }
 
-export interface XLineToParams {
+export type XLineToParams = {
   x: number
 }
 
-export interface YLineToParams {
+export type YLineToParams = {
   y: number
 }
 
-export interface ArcParams {
+export type ArcParams = {
   radius: number
   angle: number // In degrees.
 }
 
-export interface TangentialArcParams {
+export type TangentialArcParams = {
   radius: number
   offset: number
 }
 
-export interface CircleParams {
+export type CircleParams = {
   radius: number
   x: number
   y: number
 }
 
-export interface PolygonParams {
+export type PolygonParams = {
   sides: number
   radius: number
 }
 
-export interface HoleParams {
+export type HoleParams = {
   operations: KclOperation[]
 }
 
@@ -90,18 +90,18 @@ export type KclOperationParams =
   | null // For operations like close that have no parameters.
 
 // A single KCL operation.
-export interface KclOperation {
+export type KclOperation = {
   type: KclOperationType
   params: KclOperationParams
 }
 
 // A complete KCL shape definition.
-export interface KclShape {
+export type KclShape = {
   operations: KclOperation[]
   variable?: string // The variable name this shape is assigned to, if any.
 }
 
 // The complete KCL output.
-export interface KclOutput {
+export type KclOutput = {
   shapes: KclShape[]
 }

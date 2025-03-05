@@ -2,18 +2,18 @@ import { ViewBox } from './base'
 import { Element } from './elements'
 
 // Representation of an SVG doc and its elements.
-export interface Svg {
+export type Svg = {
   viewBox: ViewBox
   elements: Element[]
 }
 
-export interface RawSvgElement {
+export type RawSvgElement = {
   type: string
   attributes: Record<string, string>
   children?: RawSvgElement[]
 }
 
-export interface RawSvg {
+export type RawSvg = {
   viewBox?: string
   width?: string | number
   height?: string | number

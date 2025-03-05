@@ -1,4 +1,4 @@
-import { Point } from './base'
+import { FillRule, Point } from './base'
 
 // Raw SVG path related types.
 // -------------------------------------------------------------------------------------
@@ -73,15 +73,33 @@ export interface PathCommandEnriched extends PathCommand {
   previousControlPoint?: Point // Last control point for the previous Bezier command.
 }
 
-export interface Subpath {
+export type Subpath = {
   iFirstCommand: number // Index in commands array.
   iLastCommand: number // Index in commands array.
   commands: PathCommandEnriched[]
   samplePoints: Point[]
 }
 
-export interface PathSampleResult {
+export type PathSampleResult = {
   // Represents a sampled path for self-intersection detection.
   pathSamplePoints: Point[] // Sampled points for the full path.
   pathCommands: PathCommandEnriched[] // Set of enriched commands for the full path
+}
+
+// Used in path parsing.
+export type PathState = {
+  command: PathCommandType
+  values: number[]
+  valueBuffer: string
+  currentPoint: Point
+  isPathOpen: boolean
+  isValuePushed: boolean
+  subPathStart: Point | null // Track the start of current subpath
+  firstMoveCompleted: boolean
+}
+
+export interface ParsedPath {
+  commands: PathCommand[]
+  startPosition: Point
+  fillRule: FillRule
 }

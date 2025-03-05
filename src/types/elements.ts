@@ -1,5 +1,7 @@
-import { ElementProperties, FillRule, Point } from './base'
+import { Transform } from '../utils/transform'
+import { FillRule, Point } from './base'
 import { PathCommand } from './paths'
+
 export enum ElementType {
   Circle = 'circle',
   Ellipse = 'ellipse',
@@ -9,6 +11,12 @@ export enum ElementType {
   Polygon = 'polygon',
   Polyline = 'polyline',
   Rectangle = 'rect'
+}
+
+export type ElementProperties = {
+  id?: string
+  transform?: Transform
+  fillRule?: FillRule
 }
 
 export interface PathElement extends ElementProperties {

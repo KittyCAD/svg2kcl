@@ -29,8 +29,6 @@ export class PathFragment implements PathFragmentData {
     fragmentId: string
   }[]
 
-  private static fragmentIdCounter: number = 0
-
   constructor(params: Omit<PathFragmentData, 'id'>) {
     this.id = this.getNextFragmentId()
     this.type = params.type
@@ -42,27 +40,8 @@ export class PathFragment implements PathFragmentData {
     this.connectedFragments = params.connectedFragments
   }
 
-  // private getNextFragmentId(): string {
-  //   return uuidv4()
-  // }
-
   public getNextFragmentId(): string {
-    // Start with A (ASCII 65) and increment
-    const asciiA = 65
-    const lettersInAlphabet = 26
-
-    // Calculate the ID
-    let id = ''
-    let counter = PathFragment.fragmentIdCounter++
-
-    // Generate multi-letter IDs when we exceed Z (e.g., AA, AB, etc.)
-    do {
-      const remainder = counter % lettersInAlphabet
-      id = String.fromCharCode(asciiA + remainder) + id
-      counter = Math.floor(counter / lettersInAlphabet) - 1
-    } while (counter >= 0)
-
-    return id
+    return uuidv4()
   }
 }
 

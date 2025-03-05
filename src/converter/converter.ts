@@ -121,7 +121,7 @@ export class Converter {
         throw new ConverterError(`Invalid line command: ${command.type}`)
     }
 
-    // First get absolute positions for the end point
+    // First get absolute positions for the end point.
     let absoluteEnd: Point
 
     if (isRelative) {
@@ -133,10 +133,10 @@ export class Converter {
       absoluteEnd = { x, y }
     }
 
-    // Store untransformed absolute position for next command
+    // Store untransformed absolute position for next command.
     this.currentPoint = absoluteEnd
 
-    // Transform both the start and end points
+    // Transform both the start and end points.
     const transformedStart = transform.transformPoint(this.currentPoint)
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
@@ -146,7 +146,7 @@ export class Converter {
         params: { point: [transformedEnd.x, transformedEnd.y] }
       }
     } else {
-      // Calculate relative position from transformed points for KCL output
+      // Calculate relative position from transformed points for KCL output.
       const relativeEnd = {
         x: transformedEnd.x - transformedStart.x,
         y: transformedEnd.y - transformedStart.y

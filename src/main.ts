@@ -37,12 +37,16 @@ async function main() {
     process.exit(1)
   }
 
-  const inputFile = args[0]
+  // Separate flags from file arguments.
+  const flags = args.filter((arg) => arg.startsWith('--'))
+  const fileArgs = args.filter((arg) => !arg.startsWith('--'))
+
+  const inputFile = fileArgs[0]
   // Default output file is input filename with .kcl extension.
-  const outputFile = args[1] || inputFile.replace(/\.[^/.]+$/, '') + '.kcl'
+  const outputFile = fileArgs[1] || inputFile.replace(/\.[^/.]+$/, '') + '.kcl'
 
   const options: KclOptions = {
-    centerOnViewBox: args.includes('--center')
+    centerOnViewBox: flags.includes('--center')
   }
 
   try {

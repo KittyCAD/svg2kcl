@@ -141,9 +141,11 @@ export class Converter {
     const transformedEnd = transform.transformPoint(absoluteEnd)
 
     if (USE_ABSOLUTE_LINE_COORDS) {
+      // Apply centering here.
+      const centeredEnd = this.centerPoint(transformedEnd)
       return {
         type: KclOperationType.LineAbsolute,
-        params: { point: [transformedEnd.x, transformedEnd.y] }
+        params: { point: [centeredEnd.x, centeredEnd.y] }
       }
     } else {
       // Calculate relative position from transformed points for KCL output.

@@ -1,7 +1,7 @@
 import { N_BOUNDARY_SAMPLES_FILLRULE } from '../constants'
 import { PathFragment } from '../paths/fragments/fragment'
 import { getRegionPoints } from '../paths/regions'
-import { Point } from '../types/base'
+import { FillRule, Point } from '../types/base'
 import { FragmentMap } from '../types/fragments'
 import { PathRegion } from '../types/regions'
 import {
@@ -83,8 +83,9 @@ export function calculateWindingDirection(
 export function determineInsideness(
   regions: PathRegion[],
   fragments: PathFragment[],
-  fragmentMap: FragmentMap
-): { evenOdd: PathRegion[]; nonZero: PathRegion[] } {
+  fragmentMap: FragmentMap,
+  fillRule: FillRule
+): PathRegion[] {
   // Make copies of regions to store both rule results.
   const evenOddRegions = structuredClone(regions)
   const nonZeroRegions = structuredClone(regions)
@@ -150,7 +151,9 @@ export function determineInsideness(
     )
   }
 
-  return { evenOdd: evenOddRegions, nonZero: nonZeroRegions }
+  let output = fillRule === FillRule.EvenOdd ? evenOddRegions : nonZeroRegions
+
+  return output
 }
 
 export function generateMultipleTestPoints(region: PathRegion, fragmentMap: FragmentMap): Point[] {

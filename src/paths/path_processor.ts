@@ -33,7 +33,6 @@ import { PathElement } from '../types/elements'
 import { FragmentMap, PathFragmentType } from '../types/fragments'
 import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { PathRegion } from '../types/regions'
-import { determineInsideness } from '../utils/fillrule'
 import {
   computePointToPointDistance,
   findIntersectionsBetweenSubpaths,
@@ -41,7 +40,7 @@ import {
   getBoundingBoxArea,
   Intersection
 } from '../utils/geometry'
-import { isPointInsidePolygon, isPolygonInsidePolygon } from '../utils/polygon'
+import { determineInsideness, isPointInsidePolygon, isPolygonInsidePolygon } from '../utils/polygon'
 import { connectFragments } from './fragments/connector'
 import { PathFragment, sampleFragment } from './fragments/fragment'
 import { buildPlanarGraphFromFragments, buildRegions, getFaces } from './fragments/planar_face'
@@ -70,7 +69,7 @@ export class PathProcessor {
     this.fillRule = element.fillRule as FillRule
   }
 
-  public process(): ProcessedPath {
+  public processPath(): ProcessedPath {
     // Analyze path structure and find intersections.
     const { pathCommands, subpaths, intersections } = this.analyzePath()
 
@@ -86,14 +85,11 @@ export class PathProcessor {
     const planarGraph = buildPlanarGraphFromFragments(fragments)
     const faceForest = getFaces(planarGraph)
 
-    // Get regions.
+    // Get regions from faces.
     const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)
 
-    // After building your regions and fragments
-    const { evenOdd, nonZero } = determineInsideness(regions, fragments, fragmentMap)
-
-    // You can use either set depending on your fill rule preference
-    const processedRegions = this.fillRule === FillRule.EvenOdd ? evenOdd : nonZero
+    // Now, for each region, compute the evenodd/nonzero 'insideness'.
+    const processedRegions = determineInsideness(regions, fragments, fragmentMap, this.fillRule)
 
     // Trim out redundant regions.
     const stackedRegions = this.resolveContainmentHierarchy(processedRegions, fragmentMap)

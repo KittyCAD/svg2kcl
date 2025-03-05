@@ -522,7 +522,7 @@ export class Converter {
   private convertPathToKclOps(path: PathElement): KclOperation[] {
     // Process path to regions and fragments.
     const processor = new PathProcessor(path)
-    const processedPath = processor.process()
+    const processedPath = processor.processPath()
 
     const operations: KclOperation[] = []
 

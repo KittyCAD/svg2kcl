@@ -28,11 +28,21 @@ export async function convertSvgToKcl(
 }
 
 async function main() {
-  const inputFile = './tests/data/project_payload.svg'
-  const outputFile = './output.kcl'
+  // Get command line arguments.
+  const args = process.argv.slice(2)
+
+  if (args.length < 1) {
+    console.log('Usage: ts-node main.ts <inputFile> [outputFile] [--center]')
+    console.log('Example: ts-node main.ts ./input.svg ./output.kcl --center')
+    process.exit(1)
+  }
+
+  const inputFile = args[0]
+  // Default output file is input filename with .kcl extension.
+  const outputFile = args[1] || inputFile.replace(/\.[^/.]+$/, '') + '.kcl'
 
   const options: KclOptions = {
-    centerOnViewBox: true // Center the output on the Svg viewBox.
+    centerOnViewBox: args.includes('--center')
   }
 
   try {
@@ -43,4 +53,8 @@ async function main() {
   }
 }
 
-// main()
+// Run the main function if this file is executed directly.
+const isMainModule = import.meta.url === `file://${process.argv[1]}`
+if (isMainModule) {
+  main()
+}

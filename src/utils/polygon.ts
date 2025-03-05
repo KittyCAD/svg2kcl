@@ -34,7 +34,7 @@ export function isPointInsidePolygon(point: Point, polygon: Point[]): boolean {
     // Check if edge crosses horizontal ray from point.
     if (prevVertex.y <= point.y) {
       if (currentVertex.y > point.y && isLeft(prevVertex, currentVertex, point) > 0) {
-        // Upward crossing, ray crosses edge from right to left
+        // Upward crossing, ray crosses edge from right to left.
         windingNumber++
       }
     } else {

@@ -9,4 +9,4 @@ export const N_CURVE_SAMPLES = 500
 export const N_CURVE_SAMPLES_BOUNDARY = 100
 
 // Number of samples to take around polygon boundary for fillrule test.
-export const N_BOUNDARY_SAMPLES_FILLRULE = 20
+export const N_BOUNDARY_SAMPLES_FILLRULE = 100

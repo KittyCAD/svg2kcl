@@ -24,7 +24,6 @@ export interface PathFragmentData {
   iCommand: number
   connectedFragments?: {
     fragmentId: string
-    angle: number
   }[]
 }
 

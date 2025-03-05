@@ -10,5 +10,4 @@ export interface PathRegion {
   basicWindingNumber: number
   totalWindingNumber: number
   parentRegionId?: string
-  neighborRegionIds?: Set<string>
 }

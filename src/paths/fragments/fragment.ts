@@ -27,7 +27,6 @@ export class PathFragment implements PathFragmentData {
   // Store a list of fragments that are connected to this one.
   connectedFragments?: {
     fragmentId: string
-    angle: number
   }[]
 
   private static fragmentIdCounter: number = 0
@@ -159,7 +158,7 @@ export function computeTangentToQuadraticFragment(fragment: PathFragment, t: num
 }
 
 export function computeTangentToCubicFragment(fragment: PathFragment, t: number): Vector {
-  // Cubic Bézier derivative
+  // Cubic Bézier derivative.
   // B'(t) = 3(1-t)²(P1-P0) + 6(1-t)t(P2-P1) + 3t²(P3-P2)
   const { start, control1, control2, end } = fragment
 

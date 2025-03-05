@@ -1,8 +1,7 @@
 import { FillRule, Point } from '../types/base'
-import { PathCommandType, SvgPathCommandMap } from '../types/paths'
+import { PathCommand, PathCommandType, SvgPathCommandMap } from '../types/paths'
 import { Transform } from '../utils/transform'
 import { ParseError } from './exceptions'
-import { PathCommand } from '../types/paths'
 
 const DEFAULT_FILL_RULE = FillRule.NonZero
 
@@ -31,10 +30,8 @@ interface PathState {
 export class SvgPathParser {
   private state!: PathState
   private path!: ParsedPath
-  private transform: Transform
 
   constructor() {
-    this.transform = new Transform()
     this.resetState()
   }
 
@@ -152,7 +149,7 @@ export class SvgPathParser {
         }
       }
 
-      // Every move command starts a new subpath
+      // Every move command starts a new subpath.
       this.state.subPathStart = { ...this.state.currentPoint }
       this.state.isPathOpen = true
 
@@ -184,7 +181,7 @@ export class SvgPathParser {
       return
     }
 
-    // Update currentPoint for absolute commands
+    // Update currentPoint for absolute commands.
     switch (this.state.command) {
       case PathCommandType.LineAbsolute:
         this.state.currentPoint = { x: parameters[0], y: parameters[1] }
@@ -246,7 +243,7 @@ export class SvgPathParser {
         break
     }
 
-    // Push the command
+    // Push the command.
     this.path.commands.push({
       type: this.state.command,
       parameters,
@@ -303,7 +300,6 @@ export class SvgPathParser {
     inheritedFillRule?: FillRule
   ): ParsedPath {
     // Reset.
-    this.transform = transform
     this.resetState()
 
     this.path = {

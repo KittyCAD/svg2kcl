@@ -239,7 +239,7 @@ export class PathProcessor {
   ): { fragments: PathFragment[]; fragmentMap: FragmentMap } {
     const splitPlan = this.buildSplitPlan(pathCommands, intersections)
     const fragments = this.createPathFragments(subpaths, pathCommands, splitPlan)
-    connectFragments(fragments, intersections)
+    connectFragments(fragments)
 
     const fragmentMap = new Map()
     for (const fragment of fragments) {
@@ -759,13 +759,6 @@ export class PathProcessor {
       }
     }
 
-    // Track children for each region for easier traversal
-    for (const region of processedRegions) {
-      if (!region.neighborRegionIds) {
-        region.neighborRegionIds = new Set<string>()
-      }
-    }
-
     // Final validation pass to ensure no circular references
     this.validateContainmentHierarchy(processedRegions)
 
@@ -773,13 +766,6 @@ export class PathProcessor {
     for (const region of processedRegions) {
       if (region.parentRegionId) {
         const parentIndex = processedRegions.findIndex((r) => r.id === region.parentRegionId)
-        if (parentIndex !== -1) {
-          // Ensure the parent has a neighborRegionIds Set
-          if (!processedRegions[parentIndex].neighborRegionIds) {
-            processedRegions[parentIndex].neighborRegionIds = new Set<string>()
-          }
-          processedRegions[parentIndex].neighborRegionIds!.add(region.id)
-        }
       }
     }
 

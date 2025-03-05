@@ -13,7 +13,7 @@ const options: KclOptions = {
 
 const dataDir = path.join(__dirname, 'data', 'fillrule')
 
-describe('SVG Fill Rule Tests NonZero', () => {
+describe('SVG Fill Rule Tests', () => {
   it('should correctly convert nonzero_basic.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'nonzero_basic.svg')
     const outputPath = path.join(dataDir, 'output.kcl')

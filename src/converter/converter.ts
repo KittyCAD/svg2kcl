@@ -623,7 +623,7 @@ export class Converter {
       // Top edge and top-right corner.
       operations.push(
         { type: KclOperationType.Line, params: { point: [width - 2 * effectiveRadius, 0] } },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } }
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, angle: -90 } }
       )
 
       // Right edge and bottom-right corner.
@@ -632,19 +632,19 @@ export class Converter {
           type: KclOperationType.Line,
           params: { point: [0, height - 2 * effectiveRadius] }
         },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } }
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, angle: -90 } }
       )
 
       // Bottom edge and bottom-left corner.
       operations.push(
         { type: KclOperationType.Line, params: { point: [-(width - 2 * effectiveRadius), 0] } },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } }
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, angle: -90 } }
       )
 
       // Left edge and top-left corner.
       operations.push(
         { type: KclOperationType.Line, params: { point: [0, -(height - 2 * effectiveRadius)] } },
-        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, offset: -90 } },
+        { type: KclOperationType.TangentialArc, params: { radius: effectiveRadius, angle: -90 } },
         { type: KclOperationType.Close, params: null }
       )
     }

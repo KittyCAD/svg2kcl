@@ -1,7 +1,7 @@
 sketch001 = startSketchOn(XY)
-  |> startProfileAt([0, 0], %)
+  |> startProfile(at = [0, 0])
   |> line(end = [80, -80])
 
 sketch002 = startSketchOn(XY)
-  |> startProfileAt([20, -80], %)
+  |> startProfile(at = [20, -80])
   |> line(end = [80, 80])

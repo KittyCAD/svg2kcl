@@ -21,7 +21,7 @@ sketch004 = startSketchOn(XY)
          end = [-30, 0]
      )
   |> close()
-startSketchOn(XY)
+  startSketchOn(XY)
   |> startProfile(at = [50, -80])
   |> bezierCurve(
          control1 = [10, 6.667],

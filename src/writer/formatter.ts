@@ -94,10 +94,10 @@ export class Formatter {
           throw new FormatterError('Invalid BezierCurve parameters')
         }
         return `|> bezierCurve(
-      control1 = ${this.formatPoint(operation.params.control1)},
-      control2 = ${this.formatPoint(operation.params.control2)},
-      end = ${this.formatPoint(operation.params.to)}
-      )`
+         control1 = ${this.formatPoint(operation.params.control1)},
+         control2 = ${this.formatPoint(operation.params.control2)},
+         end = ${this.formatPoint(operation.params.end)}
+     )`
       }
 
       case KclOperationType.Circle: {
@@ -120,7 +120,7 @@ export class Formatter {
         const holeOps = operation.params.operations
           .map((op) => this.formatOperation(op))
           .join('\n    ')
-        return `|> hole(tool =
+        return `|> subtract2d(tool =
         ${holeOps})`
       }
 
@@ -142,7 +142,7 @@ export class Formatter {
         if (!('angle' in operation.params)) {
           throw new FormatterError('Invalid TangentialArc parameters')
         }
-        return `|> tangentialArc(radius = ${operation.params.radius}, offset = ${operation.params.angle})`
+        return `|> tangentialArc(radius = ${operation.params.radius}, angle = ${operation.params.angle})`
       }
 
       case KclOperationType.XLine: {

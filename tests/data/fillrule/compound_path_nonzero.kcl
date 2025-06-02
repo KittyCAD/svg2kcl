@@ -5,25 +5,48 @@ sketch001 = startSketchOn(XY)
   |> line(endAbsolute = [10, -90])
   |> line(endAbsolute = [10, -10])
   |> close()
-  |> subtract2d(tool =   startSketchOn(XY)
-    |> startProfile(at = [60, -60])
+  |> subtract2d(tool =
+        startSketchOn(XY)
+  |> startProfile(at = [60, -60])
     |> line(endAbsolute = [70, -60])
     |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve(control1 = [-2.948, -1.965], control2 = [-5.896, -2.193], end = [-8.844, -0.682])
-    |> bezierCurve(control1 = [-0.409, 1.234], control2 = [-0.795, 2.573], end = [-1.156, 4.015])
+    |> bezierCurve(
+         control1 = [-2.948, -1.965],
+         control2 = [-5.896, -2.193],
+         end = [-8.844, -0.682]
+     )
+    |> bezierCurve(
+         control1 = [-0.409, 1.234],
+         control2 = [-0.795, 2.573],
+         end = [-1.156, 4.015]
+     )
     |> close())
-  |> subtract2d(tool =   startSketchOn(XY)
-    |> startProfile(at = [63.745, -70])
+  |> subtract2d(tool =
+        startSketchOn(XY)
+  |> startProfile(at = [63.745, -70])
     |> line(endAbsolute = [70, -70])
     |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve(control1 = [1.22, 0.813], control2 = [2.44, 1.924], end = [3.66, 3.333])
+    |> bezierCurve(
+         control1 = [1.22, 0.813],
+         control2 = [2.44, 1.924],
+         end = [3.66, 3.333]
+     )
     |> line(endAbsolute = [80, -60])
-    |> bezierCurve(control1 = [-3.943, -15.773], control2 = [-10.997, -19.107], end = [-16.255, -10])
+    |> bezierCurve(
+         control1 = [-3.943, -15.773],
+         control2 = [-10.997, -19.107],
+         end = [-16.255, -10]
+     )
     |> close())
-  |> subtract2d(tool =   startSketchOn(XY)
-    |> startProfile(at = [70, -50])
+  |> subtract2d(tool =
+        startSketchOn(XY)
+  |> startProfile(at = [70, -50])
     |> line(endAbsolute = [80, -50])
-    |> bezierCurve(control1 = [-2.113, -4.227], control2 = [-4.227, -7.56], end = [-6.34, -10])
+    |> bezierCurve(
+         control1 = [-2.113, -4.227],
+         control2 = [-4.227, -7.56],
+         end = [-6.34, -10]
+     )
     |> line(endAbsolute = [70, -60])
     |> line(endAbsolute = [70, -50])
     |> close())

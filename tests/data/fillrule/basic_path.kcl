@@ -5,13 +5,23 @@ sketch001 = startSketchOn(XY)
   |> line(endAbsolute = [10, -90])
   |> line(endAbsolute = [10, -10])
   |> close()
-  |> subtract2d(tool =   startSketchOn(XY)
-    |> startProfile(at = [50, -50])
+  |> subtract2d(tool =
+        startSketchOn(XY)
+  |> startProfile(at = [50, -50])
     |> line(endAbsolute = [90, -50])
-    |> bezierCurve(control1 = [-10, -30], control2 = [-30, -30], end = [-40, 0])
+    |> bezierCurve(
+         control1 = [-10, -30],
+         control2 = [-30, -30],
+         end = [-40, 0]
+     )
     |> close())
-  |> subtract2d(tool =   startSketchOn(XY)
-    |> startProfile(at = [75, -45])
+  |> subtract2d(tool =
+        startSketchOn(XY)
+  |> startProfile(at = [75, -45])
     |> line(endAbsolute = [90, -50])
-    |> bezierCurve(control1 = [-5, 0], control2 = [-10, 1.667], end = [-15, 5])
+    |> bezierCurve(
+         control1 = [-5, 0],
+         control2 = [-10, 1.667],
+         end = [-15, 5]
+     )
     |> close())

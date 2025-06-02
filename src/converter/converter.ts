@@ -231,7 +231,7 @@ export class Converter {
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
-        to: [relativeEnd.x, relativeEnd.y]
+        end: [relativeEnd.x, relativeEnd.y]
       }
     }
   }
@@ -301,7 +301,7 @@ export class Converter {
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
-        to: [relativeEnd.x, relativeEnd.y]
+        end: [relativeEnd.x, relativeEnd.y]
       }
     }
   }
@@ -374,7 +374,7 @@ export class Converter {
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
-        to: [relativeEnd.x, relativeEnd.y]
+        end: [relativeEnd.x, relativeEnd.y]
       }
     }
   }
@@ -443,7 +443,7 @@ export class Converter {
       params: {
         control1: [relativeControl1.x, relativeControl1.y],
         control2: [relativeControl2.x, relativeControl2.y],
-        to: [relativeEnd.x, relativeEnd.y]
+        end: [relativeEnd.x, relativeEnd.y]
       }
     }
   }

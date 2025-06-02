@@ -1,11 +1,19 @@
 sketch001 = startSketchOn(XY)
   |> startProfile(at = [50, -100])
   |> line(endAbsolute = [142.043, -87.728])
-  |> bezierCurve(control1 = [-23.79, -12.613], control2 = [-54.471, -33.371], end = [-92.043, -62.272])
+  |> bezierCurve(
+         control1 = [-23.79, -12.613],
+         control2 = [-54.471, -33.371],
+         end = [-92.043, -62.272]
+     )
   |> line(endAbsolute = [50, -100])
   |> close()
-startSketchOn(XY)
+  startSketchOn(XY)
   |> startProfile(at = [142.043, -87.727])
-  |> bezierCurve(control1 = [31.085, 16.481], control2 = [50.404, 19.057], end = [57.957, 7.727])
+  |> bezierCurve(
+         control1 = [31.085, 16.481],
+         control2 = [50.404, 19.057],
+         end = [57.957, 7.727]
+     )
   |> line(endAbsolute = [142.043, -87.727])
   |> close()

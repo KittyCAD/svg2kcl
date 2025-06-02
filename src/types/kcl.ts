@@ -38,7 +38,7 @@ export type LineToParams = {
 export type BezierCurveParams = {
   control1: [number, number]
   control2: [number, number]
-  to: [number, number]
+  end: [number, number]
 }
 
 export type XLineParams = {

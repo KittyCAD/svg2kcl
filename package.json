@@ -1,15 +1,14 @@
 {
   "name": "svg2kcl",
   "version": "1.0.0",
-  "type": "module",
   "description": "",
   "main": "main.js",
   "scripts": {
-    "build": "tsc --module es2020 --target es2020 --outDir dist",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "build": "tsc",
+    "test": "jest",
     "dev": "http-server .",
     "start": "npm run build && npm run dev",
-    "example": "node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg"
+    "example": "node -r ts-node/register src/main.ts ./tests/data/examples/project_payload.svg"
   },
   "author": "",
   "license": "ISC",

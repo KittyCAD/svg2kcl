@@ -4,8 +4,8 @@ import { fileURLToPath } from 'url'
 import { SvgReader, SvgReadError } from '../src/reader/base'
 import { ElementType } from '../src/types/elements'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+// const __filename = fileURLToPath(import.meta.url)
+// const __dirname = dirname(__filename)
 
 const dataDir = path.join(__dirname, 'data', 'elements')
 

@@ -44,4 +44,4 @@ yarn.lock
 tests/**/*/output.kcl
 
 # VSCode
-.vscode
+# .vscode

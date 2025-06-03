@@ -47,6 +47,7 @@ import { buildPlanarGraphFromFragments, buildRegions, getFaces } from './fragmen
 import { sampleSubpath } from './path'
 import { getRegionPoints } from './regions'
 import { subdivideCommand } from './subdivision'
+import { classifyRegions } from './classify_regions'
 
 export class ProcessedPath {
   constructor(private readonly fragmentMap: FragmentMap, public readonly regions: PathRegion[]) {}
@@ -87,6 +88,10 @@ export class PathProcessor {
 
     // Get regions from faces.
     const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)
+
+    // Classify regions as holes or solids.
+    const holeMap = classifyRegions(regions, fragmentMap, this.fillRule)
+    regions.forEach((r) => (r.isHole = holeMap.get(r.id)!))
 
     // Now, for each region, compute the evenodd/nonzero 'insideness'.
     const processedRegions = determineInsideness(regions, fragments, fragmentMap, this.fillRule)

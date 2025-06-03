@@ -3,10 +3,12 @@
 export const EPSILON_INTERSECT = 1e-3
 
 // Number of samples to take when sampling Bézier curves for intersection detection.
-export const N_CURVE_SAMPLES = 500
+const SENSITIVITY = 5
+
+export const N_CURVE_SAMPLES = 100 * SENSITIVITY
 
 // Number of samples to take when sampling fragments for boundary detection.
-export const N_CURVE_SAMPLES_BOUNDARY = 100
+export const N_CURVE_SAMPLES_BOUNDARY = 20 * SENSITIVITY
 
 // Number of samples to take around polygon boundary for fillrule test.
-export const N_BOUNDARY_SAMPLES_FILLRULE = 100
+export const N_BOUNDARY_SAMPLES_FILLRULE = 20 * SENSITIVITY

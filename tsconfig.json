@@ -16,7 +16,11 @@
             "node",
             "jsdom"
         ],
-        "sourceMap": true
+        "sourceMap": true,
+        "typeRoots": [
+            "./src/types",
+            "./node_modules/@types"
+        ]
     },
     "include": [
         "src/**/*.ts",

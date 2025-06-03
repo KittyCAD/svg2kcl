@@ -1,0 +1,434 @@
+sketch001 = startSketchOn(XY)
+  |> startProfile(at = [0.536, -40.583])
+  |> bezierCurve(
+         control1 = [1.169, 3.806],
+         control2 = [2.522, 8.447],
+         end = [5.246, 13.97]
+     )
+  |> bezierCurve(
+         control1 = [-0.197, 0.37],
+         control2 = [0.448, -1.082],
+         end = [1.833, 1.278]
+     )
+  |> bezierCurve(
+         control1 = [-1.385, -2.36],
+         control2 = [-2.03, -0.908],
+         end = [-1.833, -1.278]
+     )
+  |> bezierCurve(
+         control1 = [-0.197, 0.37],
+         control2 = [0.448, -1.082],
+         end = [1.833, 1.278]
+     )
+  |> bezierCurve(
+         control1 = [0.84, 1.845],
+         control2 = [1.525, 3.877],
+         end = [2.584, 5.67]
+     )
+  |> line(endAbsolute = [10.743, -19.538])
+  |> bezierCurve(
+         control1 = [0.545, 3.164],
+         control2 = [7.384, 8.017],
+         end = [9.419, 10.46]
+     )
+  |> line(endAbsolute = [20.302, -10.011])
+  |> bezierCurve(
+         control1 = [4.441, 4.164],
+         control2 = [12.355, 6.955],
+         end = [16.811, 8.943]
+     )
+  |> bezierCurve(
+         control1 = [-1.17, -1.295],
+         control2 = [2.62, 0.129],
+         end = [5.352, 0.295]
+     )
+  |> bezierCurve(
+         control1 = [-0.862, -0.482],
+         control2 = [-1.716, -0.857],
+         end = [-2.524, -1.424]
+     )
+  |> bezierCurve(
+         control1 = [3.278, 0.782],
+         control2 = [3.121, -0.32],
+         end = [6.471, 0.122]
+     )
+  |> bezierCurve(
+         control1 = [-1.175, -0.171],
+         control2 = [-2.603, -0.637],
+         end = [-2.375, -0.815]
+     )
+  |> bezierCurve(
+         control1 = [3.745, -0.434],
+         control2 = [4.317, 1.158],
+         end = [7.782, 0.004]
+     )
+  |> line(endAbsolute = [51.6, -1.863])
+  |> bezierCurve(
+         control1 = [4.813, -1.738],
+         control2 = [5.821, -1.443],
+         end = [11.051, -4.217]
+     )
+  |> bezierCurve(
+         control1 = [1.838, -0.089],
+         control2 = [2.02, 1.131],
+         end = [4.795, 0.002]
+     )
+  |> bezierCurve(
+         control1 = [0.488, -0.857],
+         control2 = [-0.111, -1.015],
+         end = [3.295, -3.043]
+     )
+  |> bezierCurve(
+         control1 = [0.38, 0.151],
+         control2 = [-0.678, 1.114],
+         end = [-1.516, 1.881]
+     )
+  |> bezierCurve(
+         control1 = [6.849, -3.662],
+         control2 = [14.294, -11.466],
+         end = [16.564, -19.818]
+     )
+  |> bezierCurve(
+         control1 = [-2.125, 3.918],
+         control2 = [-0.219, -1.998],
+         end = [-0.949, -1.691]
+     )
+  |> bezierCurve(
+         control1 = [0.947, -2.555],
+         control2 = [1.723, -5.196],
+         end = [2.203, -7.922]
+     )
+  |> bezierCurve(
+         control1 = [-0.629, 2.236],
+         control2 = [-2, 7.634],
+         end = [-4.404, 11.117]
+     )
+  |> bezierCurve(
+         control1 = [-0.196, -2.248],
+         control2 = [-3.098, 1.551],
+         end = [-1.512, -3.396]
+     )
+  |> bezierCurve(
+         control1 = [1.209, -1.752],
+         control2 = [0.246, 1.777],
+         end = [1.736, -1.337]
+     )
+  |> bezierCurve(
+         control1 = [-1.49, 3.114],
+         control2 = [-0.527, -0.415],
+         end = [-1.736, 1.337]
+     )
+  |> bezierCurve(
+         control1 = [1.209, -1.752],
+         control2 = [0.246, 1.777],
+         end = [1.736, -1.337]
+     )
+  |> bezierCurve(
+         control1 = [0.023, -1.48],
+         control2 = [0.588, -2.951],
+         end = [0.916, -4.88]
+     )
+  |> bezierCurve(
+         control1 = [-0.51, 0.084],
+         control2 = [-1.137, 2.132],
+         end = [-1.512, 1.562]
+     )
+  |> bezierCurve(
+         control1 = [0.517, -2.426],
+         control2 = [1.367, -3.691],
+         end = [1.691, -3.877]
+     )
+  |> bezierCurve(
+         control1 = [-0.166, -0.406],
+         control2 = [-0.596, 0.379],
+         end = [-0.625, -1.271]
+     )
+  |> bezierCurve(
+         control1 = [0.198, -3.799],
+         control2 = [1.065, -2.196],
+         end = [1.473, -2.377]
+     )
+  |> bezierCurve(
+         control1 = [-0.414, -1.869],
+         control2 = [-2.088, -4.069],
+         end = [-1.262, -7.285]
+     )
+  |> bezierCurve(
+         control1 = [-0.237, 0.974],
+         control2 = [-0.699, 1.955],
+         end = [-1.051, 2.878]
+     )
+  |> bezierCurve(
+         control1 = [-0.326, -2.746],
+         control2 = [0.608, -3.281],
+         end = [-0.66, -6.609]
+     )
+  |> bezierCurve(
+         control1 = [0.914, 3],
+         control2 = [0.814, 5.707],
+         end = [-0.047, 4.403]
+     )
+  |> bezierCurve(
+         control1 = [0.381, -4.264],
+         control2 = [-3.373, -7.538],
+         end = [-2.967, -10.234]
+     )
+  |> line(endAbsolute = [77.727, -56.473])
+  |> bezierCurve(
+         control1 = [-2.957, -4.287],
+         control2 = [-0.068, -2.361],
+         end = [-2.082, -5.609]
+     )
+  |> bezierCurve(
+         control1 = [0.738, 1.276],
+         control2 = [-0.387, 0.526],
+         end = [0.574, 1.971]
+     )
+  |> bezierCurve(
+         control1 = [-0.638, -0.037],
+         control2 = [-2.846, -2.715],
+         end = [-4.867, -4.289]
+     )
+  |> bezierCurve(
+         control1 = [-7.945, -6.369],
+         control2 = [-17.43, -7.201],
+         end = [-26.612, -3.771]
+     )
+  |> bezierCurve(
+         control1 = [-0.357, -0.293],
+         control2 = [1.641, -1.859],
+         end = [3.11, -2.615]
+     )
+  |> bezierCurve(
+         control1 = [3.498, -1.293],
+         control2 = [7.453, -1.344],
+         end = [10.566, -1.229]
+     )
+  |> bezierCurve(
+         control1 = [-6.728, -2.814],
+         control2 = [-19.577, 2.858],
+         end = [-23.78, 10.383]
+     )
+  |> bezierCurve(
+         control1 = [0.951, -0.207],
+         control2 = [4.208, -5.289],
+         end = [6.646, -6.115]
+     )
+  |> bezierCurve(
+         control1 = [-1.441, 1.155],
+         control2 = [-2.556, 2.625],
+         end = [-3.589, 4.137]
+     )
+  |> bezierCurve(
+         control1 = [1.947, -2.238],
+         control2 = [4.315, -4.066],
+         end = [6.901, -5.277]
+     )
+  |> bezierCurve(
+         control1 = [-0.166, 0.629],
+         control2 = [0.714, 0.754],
+         end = [-0.511, 1.58]
+     )
+  |> bezierCurve(
+         control1 = [-7.783, 5.965],
+         control2 = [-12.384, 11.036],
+         end = [-10.787, 22.773]
+     )
+  |> bezierCurve(
+         control1 = [1.187, 0.896],
+         control2 = [1.503, 5.792],
+         end = [4.227, 7.507]
+     )
+  |> bezierCurve(
+         control1 = [1.66, 3.668],
+         control2 = [6.634, 7.047],
+         end = [11.951, 7.131]
+     )
+  |> bezierCurve(
+         control1 = [5.428, 0.299],
+         control2 = [10.008, -2.896],
+         end = [12.309, -5.91]
+     )
+  |> bezierCurve(
+         control1 = [-4.189, 3.904],
+         control2 = [-11.045, 5.092],
+         end = [-16.893, 2.197]
+     )
+  |> bezierCurve(
+         control1 = [-5.979, -2.689],
+         control2 = [-9.524, -9.275],
+         end = [-9.007, -15.832]
+     )
+  |> bezierCurve(
+         control1 = [0.222, 0.327],
+         control2 = [0.419, 0.125],
+         end = [0.526, 0.934]
+     )
+  |> bezierCurve(
+         control1 = [-0.183, -12.744],
+         control2 = [13.733, -22.084],
+         end = [23.751, -17.371]
+     )
+  |> line(endAbsolute = [60.279, -66.142])
+  |> bezierCurve(
+         control1 = [4.062, 1.108],
+         control2 = [3.537, 2.022],
+         end = [6.193, 3.846]
+     )
+  |> bezierCurve(
+         control1 = [-0.207, -0.428],
+         control2 = [-1.789, -1.52],
+         end = [-0.846, -1.541]
+     )
+  |> bezierCurve(
+         control1 = [1.292, 0.343],
+         control2 = [5.329, 4.099],
+         end = [7.313, 5.863]
+     )
+  |> bezierCurve(
+         control1 = [0.91, 1.963],
+         control2 = [-0.484, 1.062],
+         end = [0.787, 3.53]
+     )
+  |> line(endAbsolute = [75.279, -53.668])
+  |> bezierCurve(
+         control1 = [0.863, 2.496],
+         control2 = [1.82, 3.906],
+         end = [1.713, 6.812]
+     )
+  |> line(endAbsolute = [76.084, -48.768])
+  |> bezierCurve(
+         control1 = [1.334, 4.039],
+         control2 = [0.564, 8.436],
+         end = [0.752, 12.238]
+     )
+  |> line(endAbsolute = [76.465, -36.43])
+  |> bezierCurve(
+         control1 = [-0.326, 9.565],
+         control2 = [-8.594, 19.731],
+         end = [-15.953, 23.17]
+     )
+  |> bezierCurve(
+         control1 = [-6.342, 2.93],
+         control2 = [-16.106, 3.432],
+         end = [-20.617, 1.225]
+     )
+  |> bezierCurve(
+         control1 = [0.621, 0.55],
+         control2 = [3.095, 0.781],
+         end = [2.35, 1.205]
+     )
+  |> bezierCurve(
+         control1 = [-7.063, -0.702],
+         control2 = [-5.486, -2.463],
+         end = [-10.9, -3.846]
+     )
+  |> bezierCurve(
+         control1 = [-1.485, -1.434],
+         control2 = [4.335, 1.15],
+         end = [1.203, -0.709]
+     )
+  |> bezierCurve(
+         control1 = [-2.904, -0.801],
+         control2 = [-4.257, 0.506],
+         end = [-8.56, -3.947]
+     )
+  |> bezierCurve(
+         control1 = [0.383, -0.62],
+         control2 = [2.731, 1.832],
+         end = [0.772, -0.629]
+     )
+  |> bezierCurve(
+         control1 = [-4.044, 0.502],
+         control2 = [-12.776, -9.252],
+         end = [-14.63, -12.486]
+     )
+  |> line(endAbsolute = [11.1, -32.614])
+  |> bezierCurve(
+         control1 = [-1.592, -3.988],
+         control2 = [-3.685, -6.531],
+         end = [-3.97, -8.92]
+     )
+  |> bezierCurve(
+         control1 = [-0.411, -5.875],
+         control2 = [-2.463, -16.587],
+         end = [0.386, -19.881]
+     )
+  |> line(endAbsolute = [7.24, -64.165])
+  |> bezierCurve(
+         control1 = [0.391, -0.78],
+         control2 = [0.686, -1.575],
+         end = [1.172, -2.307]
+     )
+  |> line(endAbsolute = [7.778, -66.523])
+  |> bezierCurve(
+         control1 = [2.997, -9.453],
+         control2 = [3.219, -0.176],
+         end = [7.176, -9.994]
+     )
+  |> bezierCurve(
+         control1 = [-0.574, 0.193],
+         control2 = [-1.154, 0.404],
+         end = [-1.99, 1.533]
+     )
+  |> bezierCurve(
+         control1 = [-0.1, -0.861],
+         control2 = [1.217, -3.445],
+         end = [2.784, -5.461]
+     )
+  |> line(endAbsolute = [15.085, -81.203])
+  |> bezierCurve(
+         control1 = [0.872, -1.584],
+         control2 = [1.676, -1.931],
+         end = [2.281, -2.484]
+     )
+  |> bezierCurve(
+         control1 = [-3.256, 1.777],
+         control2 = [3.02, -5.857],
+         end = [3.587, -6.83]
+     )
+  |> line(endAbsolute = [21.453, -89.626])
+  |> bezierCurve(
+         control1 = [-0.072, -1.281],
+         control2 = [0.919, -2.935],
+         end = [2.779, -5.23]
+     )
+  |> line(endAbsolute = [25.78, -94.795])
+  |> bezierCurve(
+         control1 = [0.638, -1.261],
+         control2 = [2.971, -3.539],
+         end = [4.386, -3.646]
+     )
+  |> line(endAbsolute = [29.225, -99.67])
+  |> bezierCurve(
+         control1 = [3.552, -1.125],
+         control2 = [1.725, -1.492],
+         end = [6.091, -3.037]
+     )
+  |> line(endAbsolute = [34.435, -101.15])
+  |> bezierCurve(
+         control1 = [2.226, -1.932],
+         control2 = [2.915, -3.622],
+         end = [6.058, -5.102]
+     )
+  |> bezierCurve(
+         control1 = [4.357, -1.519],
+         control2 = [4.935, -0.918],
+         end = [9.408, -2.197]
+     )
+  |> bezierCurve(
+         control1 = [-3.791, 0.11],
+         control2 = [-8.248, 0.069],
+         end = [-11.245, 1.141]
+     )
+  |> bezierCurve(
+         control1 = [-20.447, 5.538],
+         control2 = [-39.153, 29.524],
+         end = [-37.785, 54.228]
+     )
+  |> bezierCurve(
+         control1 = [-0.315, 5.002],
+         control2 = [0.498, 11.252],
+         end = [-0.335, 12.497]
+     )
+  |> close()

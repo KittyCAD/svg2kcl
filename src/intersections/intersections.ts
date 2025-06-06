@@ -227,10 +227,10 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
 
   // Get the Bezier as a polynomial in t:
   // P(t) = A * (bx0 + 3 * bx1 * t + 3 * bx2 * t^2 + bx3 * t^3) + B * (by0 + 3 * by1 * t + 3 * by2 * t^2 + by3 * t^3) + C = 0
-  const c3 = A * (-bx0 + 3 * bx1 - 3 * bx2 + bx3) + B * (-by0 + 3 * by1 - 3 * by2 + by3)
-  const c2 = A * (3 * bx0 - 6 * bx1 + 3 * bx2) + B * (3 * by0 - 6 * by1 + 3 * by2)
-  const c1 = A * (-3 * bx0 + 3 * bx1) + B * (-3 * by0 + 3 * by1)
-  const c0 = A * bx0 + B * by0 + C
+  const c3 = A * (-bx0 + 3 * bx1 - 3 * bx2 + bx3) + B * (-by0 + 3 * by1 - 3 * by2 + by3) // Cube
+  const c2 = A * (3 * bx0 - 6 * bx1 + 3 * bx2) + B * (3 * by0 - 6 * by1 + 3 * by2) // Quad
+  const c1 = A * (-3 * bx0 + 3 * bx1) + B * (-3 * by0 + 3 * by1) // Linear
+  const c0 = A * bx0 + B * by0 + C // Constant
 
   const roots = solveCubic(c3, c2, c1, c0)
   const intersections: Intersection[] = []
@@ -275,6 +275,9 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
   intersections.forEach((intersection) => {
     plotter.plotPoint(intersection.point, 'green')
   })
+
+  // Note intersection count.
+  plotter.addTitle(`Intersections: ${intersections.length}`)
 
   plotter.save('image.png')
   // --------------------------------------------------------------------------

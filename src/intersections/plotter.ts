@@ -66,8 +66,8 @@ export class Plotter {
   }
 
   drawAxes(): void {
-    this.ctx.strokeStyle = '#cccccc'
-    this.ctx.lineWidth = 1
+    this.ctx.strokeStyle = '#000000'
+    this.ctx.lineWidth = 2
     this.ctx.setLineDash([])
 
     this.ctx.beginPath()
@@ -85,6 +85,23 @@ export class Plotter {
     this.ctx.moveTo(this.margin, this.margin)
     this.ctx.lineTo(this.margin, this.height - this.margin)
     this.ctx.stroke()
+
+    this.ctx.fillStyle = '#333'
+    this.ctx.font = '12px Arial'
+    this.ctx.textAlign = 'center'
+    this.ctx.textBaseline = 'top'
+    // X axis min
+    this.ctx.fillText(this.minX.toString(), this.margin, this.height - this.margin + 5)
+    // X axis max
+    this.ctx.fillText(this.maxX.toString(), this.width - this.margin, this.height - this.margin + 5)
+    this.ctx.textAlign = 'right'
+    this.ctx.textBaseline = 'middle'
+    // Y axis min
+    this.ctx.fillText(this.minY.toString(), this.margin - 5, this.height - this.margin)
+    // Y axis max
+    this.ctx.fillText(this.maxY.toString(), this.margin - 5, this.margin)
+    this.ctx.textAlign = 'left'
+    this.ctx.textBaseline = 'alphabetic'
   }
 
   plotLine(line: Line, color = 'blue', lineWidth = 2, label?: string): void {

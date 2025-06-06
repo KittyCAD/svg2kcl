@@ -128,6 +128,36 @@ export function quadraticToCubic(start: Point, control: Point, end: Point): Bezi
   }
 }
 
+function getBezierBounds(bezier: Bezier) {
+  // Find extrema in x and y for cubic Bezier
+  function cubicDerivativeRoots(p0: number, p1: number, p2: number, p3: number) {
+    // Derivative: 3(-p0 + 3p1 - 3p2 + p3)t^2 + 6(p0 - 2p1 + p2)t + 3(p1 - p0)
+    const a = -3 * p0 + 9 * p1 - 9 * p2 + 3 * p3
+    const b = 6 * p0 - 12 * p1 + 6 * p2
+    const c = 3 * (p1 - p0)
+    const roots = solveQuadratic(a, b, c)
+    return roots.filter((t) => t > 0 && t < 1)
+  }
+
+  const ts = [0, 1]
+  ts.push(
+    ...cubicDerivativeRoots(bezier.start.x, bezier.control1.x, bezier.control2.x, bezier.end.x)
+  )
+  ts.push(
+    ...cubicDerivativeRoots(bezier.start.y, bezier.control1.y, bezier.control2.y, bezier.end.y)
+  )
+
+  const xs = ts.map((t) => evaluateBezier(t, bezier).x)
+  const ys = ts.map((t) => evaluateBezier(t, bezier).y)
+
+  return {
+    xMin: Math.min(...xs),
+    xMax: Math.max(...xs),
+    yMin: Math.min(...ys),
+    yMax: Math.max(...ys)
+  }
+}
+
 // Intersection functions.
 export function getLineLineIntersection(line1: Line, line2: Line): Intersection[] {
   const d1x = line1.end.x - line1.start.x
@@ -179,6 +209,8 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 }
 
 export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersection[] {
+  // See: https://www.particleincell.com/2013/cubic-line-intersection/
+  // See: https://pomax.github.io/bezierinfo/
   const A = line.start.y - line.end.y
   const B = line.end.x - line.start.x
   const C = line.start.x * line.end.y - line.end.x * line.start.y
@@ -193,6 +225,8 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
   const by2 = bezier.control2.y
   const by3 = bezier.end.y
 
+  // Get the Bezier as a polynomial in t:
+  // P(t) = A * (bx0 + 3 * bx1 * t + 3 * bx2 * t^2 + bx3 * t^3) + B * (by0 + 3 * by1 * t + 3 * by2 * t^2 + by3 * t^3) + C = 0
   const c3 = A * (-bx0 + 3 * bx1 - 3 * bx2 + bx3) + B * (-by0 + 3 * by1 - 3 * by2 + by3)
   const c2 = A * (3 * bx0 - 6 * bx1 + 3 * bx2) + B * (3 * by0 - 6 * by1 + 3 * by2)
   const c1 = A * (-3 * bx0 + 3 * bx1) + B * (-3 * by0 + 3 * by1)
@@ -223,8 +257,31 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
     }
   }
 
+  // Plotter.
+  // --------------------------------------------------------------------------
+  const bezierBounds = getBezierBounds(bezier)
+  const xMin = Math.min(line.start.x, line.end.x, bezierBounds.xMin)
+  const xMax = Math.max(line.start.x, line.end.x, bezierBounds.xMax)
+  const yMin = Math.min(line.start.y, line.end.y, bezierBounds.yMin)
+  const yMax = Math.max(line.start.y, line.end.y, bezierBounds.yMax)
+
+  const plotter = new Plotter()
+  plotter.clear()
+  plotter.setBounds(xMin, yMin, xMax, yMax)
+
+  plotter.plotLine(line, 'blue')
+  plotter.plotBezier(bezier, 'red')
+
+  intersections.forEach((intersection) => {
+    plotter.plotPoint(intersection.point, 'green')
+  })
+
+  plotter.save('image.png')
+  // --------------------------------------------------------------------------
+
   return intersections
 }
+
 export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   return []
 }

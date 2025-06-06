@@ -1,3 +1,5 @@
+import { Plotter } from './plotter'
+
 const EPSILON = 1e-6
 
 export interface Point {
@@ -150,6 +152,25 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
       x: line1.start.x + t1 * d1x,
       y: line1.start.y + t1 * d1y
     }
+
+    // Plotter.
+    // --------------------------------------------------------------------------
+    const xMin = Math.min(line1.start.x, line1.end.x, line2.start.x, line2.end.x)
+    const xMax = Math.max(line1.start.x, line1.end.x, line2.start.x, line2.end.x)
+    const yMin = Math.min(line1.start.y, line1.end.y, line2.start.y, line2.end.y)
+    const yMax = Math.max(line1.start.y, line1.end.y, line2.start.y, line2.end.y)
+
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(xMin, yMin, xMax, yMax)
+
+    plotter.plotLine(line1, 'blue')
+    plotter.plotLine(line2, 'red')
+
+    plotter.plotPoint(point)
+
+    plotter.save('image.png')
+    // --------------------------------------------------------------------------
 
     return [{ point, t1, t2 }]
   }

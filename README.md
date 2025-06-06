@@ -1,8 +1,12 @@
 # svg2kcl
 
-Converts the geometry from an SVG file to a KittyCAD `.kcl` file.
+An experimental approach for the conversion of geometry from an SVG file a KittyCAD `.kcl` format.
 
 ![image](./images/compound_path_evenodd.png)
+
+## TL;DR
+
+Please see [limitations](#limitations) and [usage](#usage).
 
 ## Method
 
@@ -212,7 +216,7 @@ The following SVG geometry features are not supported:
 - Rounded rectangles with diverging `rx` and `ry` values.
 - Paths with `arc` commands.
 
-### Path Processing
+### Path Processing: Non-Convex and Complex Geometries
 
 As described above, the path processing approach is dependent on a number of operations with sampled
 and discretized representations of underlying geometry.
@@ -224,9 +228,15 @@ intersection points.
 
 Similarly, region analysis is based on winding number calculations, which are performed on 'dumb'
 representations of closed regions constructed from sampled representations of fragments. This
-approach determines the even-odd or non-zero fill status. Because the series of points which are
-subject to this test are offset from the polygon boundary towards the polygon centroid, this
-approach is likely to fall over for U-shaped and other complex polygons.
+approach determines the even-odd or non-zero fill status.
+
+Because the series of points which are subject to this test are offset from the polygon boundary
+towards the polygon centroid, this approach is likely to fail for U-shaped and other complex or
+non-convex polygons.
+
+Similarly, with suitably complex geometries—likely on the order of tens of geometric elements within
+a given SVG— the adopted method may result in out of memory errors. This may be mitigated by
+reducing curve sample density, but ought to be addressed by implementing analytical methods.
 
 Parameters that drive these processes are defined in `src/constants.ts`.
 
@@ -235,17 +245,17 @@ Parameters that drive these processes are defined in `src/constants.ts`.
 To use the tool from the command line, run:
 
 ```bash
-node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg
+npx ts-node src/main.ts ./tests/data/examples/project_payload.svg
 ```
 
 To specify an output file, use:
 
 ```bash
-node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl
+npx ts-node src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl
 ```
 
 To center the geometry on x=0, y=0, use:
 
 ```bash
-node --loader ts-node/esm src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl --center
+npx ts-node src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl --center
 ```

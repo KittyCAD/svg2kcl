@@ -1,135 +1,135 @@
 sketch001 = startSketchOn(XY)
-  |> startProfileAt([10, -10], %)
+  |> startProfile(at = [10, -10])
   |> line(endAbsolute = [90, -10])
   |> line(endAbsolute = [90, -90])
   |> line(endAbsolute = [10, -90])
   |> line(endAbsolute = [10, -10])
   |> close()
-  |> hole(
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([20, -50], %)
-    |> bezierCurve({
-      control1 = [3.333, 6.667],
-      control2 = [6.667, 11.111],
-      to = [10, 13.333]
-    }, %)
+  |> startProfile(at = [20, -50])
+    |> bezierCurve(
+         control1 = [3.333, 6.667],
+         control2 = [6.667, 11.111],
+         end = [10, 13.333]
+     )
     |> line(endAbsolute = [30, -50])
     |> line(endAbsolute = [20, -50])
-    |> close(), %)
-  |> hole(
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([30, -30], %)
+  |> startProfile(at = [30, -30])
     |> line(endAbsolute = [70, -30])
     |> line(endAbsolute = [70, -50])
     |> line(endAbsolute = [56.255, -50])
-    |> bezierCurve({
-      control1 = [-2.625, 4.547],
-      control2 = [-5.698, 5.993],
-      to = [-8.608, 4.337]
-    }, %)
-    |> bezierCurve({
-      control1 = [-5.882, 9.919],
-      control2 = [-11.765, 12.918],
-      to = [-17.647, 8.996]
-    }, %)
+    |> bezierCurve(
+         control1 = [-2.625, 4.547],
+         control2 = [-5.698, 5.993],
+         end = [-8.608, 4.337]
+     )
+    |> bezierCurve(
+         control1 = [-5.882, 9.919],
+         control2 = [-11.765, 12.918],
+         end = [-17.647, 8.996]
+     )
     |> line(endAbsolute = [30, -30])
-    |> close(), %)
-  |> hole(
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([30, -50], %)
+  |> startProfile(at = [30, -50])
     |> line(endAbsolute = [43.745, -50])
-    |> bezierCurve({
-      control1 = [-1.409, -2.44],
-      control2 = [-2.689, -5.773],
-      to = [-3.745, -10]
-    }, %)
+    |> bezierCurve(
+         control1 = [-1.409, -2.44],
+         control2 = [-2.689, -5.773],
+         end = [-3.745, -10]
+     )
     |> line(endAbsolute = [56.34, -60])
-    |> bezierCurve({
-      control1 = [1.605, -1.854],
-      control2 = [3.211, -3.192],
-      to = [4.816, -4.015]
-    }, %)
-    |> bezierCurve({
-      control1 = [0.789, -2.383],
-      control2 = [1.661, -4.378],
-      to = [2.589, -5.985]
-    }, %)
+    |> bezierCurve(
+         control1 = [1.605, -1.854],
+         control2 = [3.211, -3.192],
+         end = [4.816, -4.015]
+     )
+    |> bezierCurve(
+         control1 = [0.789, -2.383],
+         control2 = [1.661, -4.378],
+         end = [2.589, -5.985]
+     )
     |> line(endAbsolute = [30, -70])
     |> line(endAbsolute = [30, -50])
-    |> close(), %)
-  |> hole(
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([43.745, -50], %)
-    |> bezierCurve({
-      control1 = [1.224, 2.12],
-      control2 = [2.545, 3.565],
-      to = [3.901, 4.337]
-    }, %)
-    |> bezierCurve({
-      control1 = [0.784, -1.323],
-      control2 = [1.569, -2.768],
-      to = [2.353, -4.337]
-    }, %)
+  |> startProfile(at = [43.745, -50])
+    |> bezierCurve(
+         control1 = [1.224, 2.12],
+         control2 = [2.545, 3.565],
+         end = [3.901, 4.337]
+     )
+    |> bezierCurve(
+         control1 = [0.784, -1.323],
+         control2 = [1.569, -2.768],
+         end = [2.353, -4.337]
+     )
     |> line(endAbsolute = [43.745, -50])
-    |> close(), %)
-  |> hole(
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([50, -50], %)
+  |> startProfile(at = [50, -50])
     |> line(endAbsolute = [56.255, -50])
-    |> bezierCurve({
-      control1 = [1.409, -2.44],
-      control2 = [2.689, -5.773],
-      to = [3.745, -10]
-    }, %)
+    |> bezierCurve(
+         control1 = [1.409, -2.44],
+         control2 = [2.689, -5.773],
+         end = [3.745, -10]
+     )
     |> line(endAbsolute = [56.34, -60])
-    |> bezierCurve({
-      control1 = [-2.113, 2.44],
-      control2 = [-4.227, 5.773],
-      to = [-6.34, 10]
-    }, %)
-    |> close(), %)
-  |> hole(
+    |> bezierCurve(
+         control1 = [-2.113, 2.44],
+         control2 = [-4.227, 5.773],
+         end = [-6.34, 10]
+     )
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([60, -60], %)
+  |> startProfile(at = [60, -60])
     |> line(endAbsolute = [70, -60])
     |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve({
-      control1 = [-2.948, -1.965],
-      control2 = [-5.896, -2.193],
-      to = [-8.844, -0.682]
-    }, %)
-    |> bezierCurve({
-      control1 = [-0.409, 1.234],
-      control2 = [-0.795, 2.573],
-      to = [-1.156, 4.015]
-    }, %)
-    |> close(), %)
-  |> hole(
+    |> bezierCurve(
+         control1 = [-2.948, -1.965],
+         control2 = [-5.896, -2.193],
+         end = [-8.844, -0.682]
+     )
+    |> bezierCurve(
+         control1 = [-0.409, 1.234],
+         control2 = [-0.795, 2.573],
+         end = [-1.156, 4.015]
+     )
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([63.745, -70], %)
+  |> startProfile(at = [63.745, -70])
     |> line(endAbsolute = [70, -70])
     |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve({
-      control1 = [1.22, 0.813],
-      control2 = [2.44, 1.924],
-      to = [3.66, 3.333]
-    }, %)
+    |> bezierCurve(
+         control1 = [1.22, 0.813],
+         control2 = [2.44, 1.924],
+         end = [3.66, 3.333]
+     )
     |> line(endAbsolute = [80, -60])
-    |> bezierCurve({
-      control1 = [-3.943, -15.773],
-      control2 = [-10.997, -19.107],
-      to = [-16.255, -10]
-    }, %)
-    |> close(), %)
-  |> hole(
+    |> bezierCurve(
+         control1 = [-3.943, -15.773],
+         control2 = [-10.997, -19.107],
+         end = [-16.255, -10]
+     )
+    |> close())
+  |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfileAt([70, -50], %)
+  |> startProfile(at = [70, -50])
     |> line(endAbsolute = [80, -50])
-    |> bezierCurve({
-      control1 = [-2.113, -4.227],
-      control2 = [-4.227, -7.56],
-      to = [-6.34, -10]
-    }, %)
+    |> bezierCurve(
+         control1 = [-2.113, -4.227],
+         control2 = [-4.227, -7.56],
+         end = [-6.34, -10]
+     )
     |> line(endAbsolute = [70, -60])
     |> line(endAbsolute = [70, -50])
-    |> close(), %)
+    |> close())

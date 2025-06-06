@@ -41,7 +41,7 @@ export class Formatter {
   }
 
   private isBezierCurveParams(params: any): params is BezierCurveParams {
-    return params && 'control1' in params && 'control2' in params && 'to' in params
+    return params && 'control1' in params && 'control2' in params && 'end' in params
   }
 
   private isCircleParams(params: any): params is CircleParams {
@@ -62,9 +62,9 @@ export class Formatter {
         if (!this.isStartSketchParams(operation.params)) {
           throw new FormatterError('Invalid StartSketch parameters')
         }
-        const output = `startSketchOn(XY)\n  |> startProfileAt(${this.formatPoint(
+        const output = `startSketchOn(XY)\n  |> startProfile(at = ${this.formatPoint(
           operation.params.point
-        )}, %)`
+        )})`
         return output
       }
 
@@ -93,11 +93,11 @@ export class Formatter {
         if (!this.isBezierCurveParams(operation.params)) {
           throw new FormatterError('Invalid BezierCurve parameters')
         }
-        return `|> bezierCurve({
-      control1 = ${this.formatPoint(operation.params.control1)},
-      control2 = ${this.formatPoint(operation.params.control2)},
-      to = ${this.formatPoint(operation.params.to)}
-    }, %)`
+        return `|> bezierCurve(
+         control1 = ${this.formatPoint(operation.params.control1)},
+         control2 = ${this.formatPoint(operation.params.control2)},
+         end = ${this.formatPoint(operation.params.end)}
+     )`
       }
 
       case KclOperationType.Circle: {
@@ -120,8 +120,8 @@ export class Formatter {
         const holeOps = operation.params.operations
           .map((op) => this.formatOperation(op))
           .join('\n    ')
-        return `|> hole(
-        ${holeOps}, %)`
+        return `|> subtract2d(tool =
+        ${holeOps})`
       }
 
       case KclOperationType.Arc: {
@@ -132,31 +132,31 @@ export class Formatter {
         ) {
           throw new FormatterError('Invalid Arc parameters')
         }
-        return `|> arc({ radius = ${operation.params.radius}, angle = ${operation.params.angle} }, %)`
+        return `|> arc(radius = ${operation.params.radius}, angle = ${operation.params.angle})`
       }
 
       case KclOperationType.TangentialArc: {
         if (!operation.params || !('radius' in operation.params)) {
           throw new FormatterError('Invalid TangentialArc parameters')
         }
-        if (!('offset' in operation.params)) {
+        if (!('angle' in operation.params)) {
           throw new FormatterError('Invalid TangentialArc parameters')
         }
-        return `|> tangentialArc({ radius = ${operation.params.radius}, offset = ${operation.params.offset} }, %)`
+        return `|> tangentialArc(radius = ${operation.params.radius}, angle = ${operation.params.angle})`
       }
 
-      case KclOperationType.XLineTo: {
+      case KclOperationType.XLine: {
         if (!operation.params || !('x' in operation.params)) {
           throw new FormatterError('Invalid XLineTo parameters')
         }
-        return `|> xLineTo({ x = ${operation.params.x} }, %)`
+        return `|> xLine({ endAbsolute = ${operation.params.x} })`
       }
 
-      case KclOperationType.YLineTo: {
+      case KclOperationType.YLine: {
         if (!operation.params || !('y' in operation.params)) {
           throw new FormatterError('Invalid YLineTo parameters')
         }
-        return `|> yLineTo({ y = ${operation.params.y} }, %)`
+        return `|> yLine({ endAbsolute = ${operation.params.y} })`
       }
 
       case KclOperationType.Polygon: {
@@ -167,7 +167,7 @@ export class Formatter {
         ) {
           throw new FormatterError('Invalid Polygon parameters')
         }
-        return `|> polygon({ numSides = ${operation.params.sides}, radius = ${operation.params.radius} }, %)`
+        return `|> polygon({ numSides = ${operation.params.sides}, radius = ${operation.params.radius} })`
       }
 
       default:

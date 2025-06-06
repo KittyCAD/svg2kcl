@@ -11,8 +11,8 @@ export enum KclOperationType {
   StartSketchOn = 'startSketchOn',
   Line = 'line',
   LineAbsolute = 'lineAbsolute',
-  XLineTo = 'xLineTo',
-  YLineTo = 'yLineTo',
+  XLine = 'xLine',
+  YLine = 'yLine',
   Arc = 'arc',
   TangentialArc = 'tangentialArc',
   BezierCurve = 'bezierCurve',
@@ -38,15 +38,15 @@ export type LineToParams = {
 export type BezierCurveParams = {
   control1: [number, number]
   control2: [number, number]
-  to: [number, number]
+  end: [number, number]
 }
 
-export type XLineToParams = {
-  x: number
+export type XLineParams = {
+  endAbsolute: number
 }
 
-export type YLineToParams = {
-  y: number
+export type YLineParams = {
+  endAbsolute: number
 }
 
 export type ArcParams = {
@@ -56,7 +56,7 @@ export type ArcParams = {
 
 export type TangentialArcParams = {
   radius: number
-  offset: number
+  angle: number
 }
 
 export type CircleParams = {
@@ -79,8 +79,8 @@ export type KclOperationParams =
   | StartSketchParams
   | StartSketchOnParams
   | LineToParams
-  | XLineToParams
-  | YLineToParams
+  | XLineParams
+  | YLineParams
   | ArcParams
   | TangentialArcParams
   | BezierCurveParams

@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url'
 import { convertSvgToKcl } from '../src/main'
 import { KclOptions } from '../src/types/kcl'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+// const __filename = fileURLToPath(import.meta.url)
+// const __dirname = dirname(__filename)
 
 jest.setTimeout(30000)
 
@@ -30,4 +30,18 @@ describe('SVG to KCL Conversion', () => {
     // Compare output with expected result.
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
   })
+
+  // it('should correctly convert debian.svg to KCL', async () => {
+  //   const inputPath = path.join(dataDir, 'debian.svg')
+  //   const outputPath = path.join(dataDir, 'output.kcl')
+  //   const expectedKclPath = path.join(dataDir, 'debian.kcl')
+
+  //   // Run the conversion.
+  //   await convertSvgToKcl(inputPath, outputPath, options)
+  //   const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+  //   const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+  //   // Compare output with expected result.
+  //   expect(actualKcl.trim()).toBe(expectedKcl.trim())
+  // })
 })

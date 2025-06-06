@@ -1,0 +1,5 @@
+sketch001 = startSketchOn(XY)
+  |> circle(center = [30, -30], radius = 20)
+
+sketch002 = startSketchOn(XY)
+  |> circle(center = [70, -70], radius = 25)

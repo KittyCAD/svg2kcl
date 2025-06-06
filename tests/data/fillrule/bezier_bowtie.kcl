@@ -1,0 +1,18 @@
+sketch001 = startSketchOn(XY)
+  |> startProfile(at = [10, -50])
+  |> bezierCurve(
+         control1 = [10, 30],
+         control2 = [30, 30],
+         end = [40, 0]
+     )
+  |> line(endAbsolute = [10, -50])
+  |> close()
+  startSketchOn(XY)
+  |> startProfile(at = [50, -50])
+  |> line(endAbsolute = [90, -50])
+  |> bezierCurve(
+         control1 = [-10, -30],
+         control2 = [-30, -30],
+         end = [-40, 0]
+     )
+  |> close()

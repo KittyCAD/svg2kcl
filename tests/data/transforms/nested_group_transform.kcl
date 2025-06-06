@@ -1,0 +1,7 @@
+sketch001 = startSketchOn(XY)
+  |> startProfile(at = [100, -128.284])
+  |> line(endAbsolute = [128.284, -156.569])
+  |> line(endAbsolute = [100, -184.853])
+  |> line(endAbsolute = [71.716, -156.569])
+  |> line(endAbsolute = [100, -128.284])
+  |> close()

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer clockwise, inner counter-clockwise for hole -->
+  <path fill-rule="nonzero"
+    d="
+    M 50,50    
+    L 250,50   
+    L 250,250  
+    L 50,250   
+              
+
+    M 100,100  
+    L 100,200  
+    L 200,200  
+    L 200,100  
+             
+  " />
+</svg>

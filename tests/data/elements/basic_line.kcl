@@ -1,0 +1,7 @@
+sketch001 = startSketchOn(XY)
+  |> startProfile(at = [0, 0])
+  |> line(end = [80, -80])
+
+sketch002 = startSketchOn(XY)
+  |> startProfile(at = [20, -80])
+  |> line(end = [80, 80])

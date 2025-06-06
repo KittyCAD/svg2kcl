@@ -1,0 +1,18 @@
+sketch001 = startSketchOn(XY)
+  |> startProfile(at = [10, -10])
+  |> line(end = [30, 0])
+  |> line(end = [0, -30])
+  |> line(end = [-30, 0])
+  |> close()
+
+sketch002 = startSketchOn(XY)
+  |> circle(center = [70, -25], radius = 15)
+
+sketch003 = startSketchOn(XY)
+  |> startProfile(at = [10, -50])
+  |> line(end = [80, 0])
+
+sketch004 = startSketchOn(XY)
+  |> startProfile(at = [10, -70])
+  |> line(end = [40, -20])
+  |> line(end = [40, 20])

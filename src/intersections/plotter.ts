@@ -37,10 +37,10 @@ export class Plotter {
   }
 
   setBounds(minX: number, minY: number, maxX: number, maxY: number): void {
-    this.minX = minX
-    this.minY = minY
-    this.maxX = maxX
-    this.maxY = maxY
+    this.minX = Math.floor(minX)
+    this.minY = Math.floor(minY)
+    this.maxX = Math.ceil(maxX)
+    this.maxY = Math.ceil(maxY)
     this.updateScale()
     this.drawAxes()
   }

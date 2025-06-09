@@ -1,10 +1,10 @@
 {
     "compilerOptions": {
-        "target": "ES2020",
-        "module": "CommonJS",
-        "moduleResolution": "node",
+        "target": "ES2022", // modern syntax support
+        "module": "ESNext", // output ESM
+        "moduleResolution": "bundler", // handles ESM better (Node >=16.9+)
         "lib": [
-            "ES2020",
+            "ES2022",
             "DOM"
         ],
         "strict": true,
@@ -16,7 +16,8 @@
             "node",
             "jsdom"
         ],
-        "sourceMap": true
+        "sourceMap": true,
+        "noEmit": true // prevents ts from emitting JS if you're using ts-jest
     },
     "include": [
         "src/**/*.ts",

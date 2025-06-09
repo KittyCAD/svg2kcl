@@ -2,7 +2,8 @@
   "name": "svg2kcl",
   "version": "1.0.0",
   "description": "",
-  "main": "main.js",
+  "main": "main.ts",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -15,6 +16,7 @@
   "dependencies": {
     "canvas": "^2.11.2",
     "fast-xml-parser": "^4.5.1",
+    "flo-poly": "^7.0.0",
     "jsdom": "^24.1.0",
     "planar-face-discovery": "^2.0.7",
     "uuid": "^11.0.5"

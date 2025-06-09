@@ -112,27 +112,23 @@ export function evaluateBezier(t: number, bezier: Bezier): Point {
   }
 }
 
-export function getBezierBounds(bezier: Bezier) {
+export function getBezierBounds(b: Bezier): Bounds {
   // Find extrema in x and y for cubic Bezier
   function cubicDerivativeRoots(p0: number, p1: number, p2: number, p3: number) {
     // Derivative: 3(-p0 + 3p1 - 3p2 + p3)t^2 + 6(p0 - 2p1 + p2)t + 3(p1 - p0)
     const a = -3 * p0 + 9 * p1 - 9 * p2 + 3 * p3
-    const b = 6 * p0 - 12 * p1 + 6 * p2
+    const b_ = 6 * p0 - 12 * p1 + 6 * p2
     const c = 3 * (p1 - p0)
-    const roots = solveQuadratic(a, b, c)
+    const roots = solveQuadratic(a, b_, c)
     return roots.filter((t) => t > 0 && t < 1)
   }
 
   const ts = [0, 1]
-  ts.push(
-    ...cubicDerivativeRoots(bezier.start.x, bezier.control1.x, bezier.control2.x, bezier.end.x)
-  )
-  ts.push(
-    ...cubicDerivativeRoots(bezier.start.y, bezier.control1.y, bezier.control2.y, bezier.end.y)
-  )
+  ts.push(...cubicDerivativeRoots(b.start.x, b.control1.x, b.control2.x, b.end.x))
+  ts.push(...cubicDerivativeRoots(b.start.y, b.control1.y, b.control2.y, b.end.y))
 
-  const xs = ts.map((t) => evaluateBezier(t, bezier).x)
-  const ys = ts.map((t) => evaluateBezier(t, bezier).y)
+  const xs = ts.map((t) => evaluateBezier(t, b).x)
+  const ys = ts.map((t) => evaluateBezier(t, b).y)
 
   return {
     xMin: Math.min(...xs),

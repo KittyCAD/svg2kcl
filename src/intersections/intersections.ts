@@ -4,7 +4,6 @@ import {
   evaluateBezier,
   fatLineReject,
   getBezierBounds,
-  getBezierBoundsSimple,
   makeFatLine,
   solveCubic,
   subdivideBezier
@@ -181,10 +180,10 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     s2: [number, number],
     depth: number
   ): void => {
-    if (!boxesOverlap(getBezierBoundsSimple(b1), getBezierBoundsSimple(b2))) return
+    if (!boxesOverlap(getBezierBounds(b1), getBezierBounds(b2))) return
 
-    const bb1 = getBezierBoundsSimple(b1)
-    const bb2 = getBezierBoundsSimple(b2)
+    const bb1 = getBezierBounds(b1)
+    const bb2 = getBezierBounds(b2)
     const w1 = Math.max(bb1.xMax - bb1.xMin, bb1.yMax - bb1.yMin)
     const w2 = Math.max(bb2.xMax - bb2.xMin, bb2.yMax - bb2.yMin)
 

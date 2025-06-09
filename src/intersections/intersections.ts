@@ -175,31 +175,49 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
 
   const recurse = (
     b1: Bezier,
-    s1: [number, number],
+    s1: [number, number], // Segment interval for b1.
     b2: Bezier,
-    s2: [number, number],
-    depth: number
+    s2: [number, number], // Segment interval for b2.
+    depth: number // Current recursion depth.
   ): void => {
     if (!boxesOverlap(getBezierBounds(b1), getBezierBounds(b2))) return
 
+    // Get the largest bounding box dimension for each bezier; width or height.
     const bb1 = getBezierBounds(b1)
     const bb2 = getBezierBounds(b2)
-    const w1 = Math.max(bb1.xMax - bb1.xMin, bb1.yMax - bb1.yMin)
-    const w2 = Math.max(bb2.xMax - bb2.xMin, bb2.yMax - bb2.yMin)
+    const lMax1 = Math.max(bb1.xMax - bb1.xMin, bb1.yMax - bb1.yMin)
+    const lMax2 = Math.max(bb2.xMax - bb2.xMin, bb2.yMax - bb2.yMin)
 
-    if ((w1 < EPS_BBOX && w2 < EPS_BBOX) || depth >= MAX_RECURSION_DEPTH) {
+    // When the box is 'flat' enough, return midpoint of overlapping bounding boxes.
+    if ((lMax1 < EPS_BBOX && lMax2 < EPS_BBOX) || depth >= MAX_RECURSION_DEPTH) {
+      // Get midpoint of the overlapping bounding boxes.
+      const xStart = Math.max(bb1.xMin, bb2.xMin)
+      const xEnd = Math.min(bb1.xMax, bb2.xMax)
+      const xMid = (xStart + xEnd) * 0.5
+
+      const yStart = Math.max(bb1.yMin, bb2.yMin)
+      const yEnd = Math.min(bb1.yMax, bb2.yMax)
+      const yMid = (yStart + yEnd) * 0.5
+
       const point: Point = {
-        x: (Math.max(bb1.xMin, bb2.xMin) + Math.min(bb1.xMax, bb2.xMax)) * 0.5,
-        y: (Math.max(bb1.yMin, bb2.yMin) + Math.min(bb1.yMax, bb2.yMax)) * 0.5
+        x: xMid,
+        y: yMid
       }
-      out.push({ point, t1: (s1[0] + s1[1]) * 0.5, t2: (s2[0] + s2[1]) * 0.5 })
+
+      // Use the midpoint of the segment intervals.
+      const t1Mid = (s1[0] + s1[1]) * 0.5
+      const t2Mid = (s2[0] + s2[1]) * 0.5
+
+      out.push({ point, t1: t1Mid, t2: t2Mid })
       return
     }
 
-    const fl = w1 < w2 ? makeFatLine(b1) : makeFatLine(b2)
-    if (w1 < w2 ? fatLineReject(b2, fl) : fatLineReject(b1, fl)) return
+    // We don't use the cubic strip (because hard), just use fat line against
+    // AABB.
+    const fl = lMax1 < lMax2 ? makeFatLine(b1) : makeFatLine(b2)
+    if (lMax1 < lMax2 ? fatLineReject(b2, fl) : fatLineReject(b1, fl)) return
 
-    if (w1 >= w2) {
+    if (lMax1 >= lMax2) {
       const [l, lt, r, rt] = subdivideBezier(b1, 0.5, s1[0], s1[1])
       recurse(l, lt, b2, s2, depth + 1)
       recurse(r, rt, b2, s2, depth + 1)
@@ -210,7 +228,8 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     }
   }
 
-  recurse(bezier1, [0, 1], bezier2, [0, 1], 0)
+  let tFull: [number, number] = [0, 1]
+  recurse(bezier1, tFull, bezier2, tFull, 0)
 
   // Remove duplicates. This uses a higher eps than the normal line intersection because
   // we're looking for duplicate points. Use l2 norm to compare points.

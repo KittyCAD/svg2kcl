@@ -226,7 +226,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
       }
     }
 
-    const arcT = angNorm / (sweep || 2 * Math.PI) // avoid /0 if full circle
+    const arcT = angNorm / (sweep || 2 * Math.PI) // Avoid divide by zero if full circle.
 
     // Deduplicate – skip if coincident (tangent root pair)
     for (const h of intersections) {

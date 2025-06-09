@@ -18,6 +18,7 @@ import {
   MAX_RECURSION_DEPTH
 } from './constants'
 import { Plotter } from './plotter'
+import { allRootsCertified } from 'flo-poly'
 
 // Saves us a few sqrt calls in the line intersection check.
 const EPS_LINE_INTERSECTION_SQUARED = Math.pow(EPS_LINE_INTERSECTION, 2)
@@ -403,7 +404,142 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
 }
 
 export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection[] {
-  return []
+  // Method:
+  // - Normalize circle to unit circle at origin for numerical stability.
+  // - Convert Bezier from Bernstein to power basis polynomial form.
+  // - Substitute into circle equation to create 6th degree polynomial.
+  // - Compute sextic coefficients via convolution of cubic x(t) and y(t) terms.
+  // - Solve using certified root finding with interval arithmetic.
+  // - Filter roots to valid parameter range [0,1].
+  // - Evaluate Bezier at each root to get intersection coordinates.
+  // - Validate intersections lie within arc's angular sweep.
+  // - Compute arc parameters and remove duplicate solutions.
+  // - Return intersection points with both curve parameters.
+
+  const intersections: Intersection[] = []
+
+  // Bring circle to origin and unit radius.
+  const toUnit = (p: Point): Point => ({
+    x: (p.x - arc.center.x) / arc.radius,
+    y: (p.y - arc.center.y) / arc.radius
+  })
+
+  const p0 = toUnit(bezier.start)
+  const p1 = toUnit(bezier.control1)
+  const p2 = toUnit(bezier.control2)
+  const p3 = toUnit(bezier.end)
+
+  // Cubic Bézier to power-basis coefficients
+  //    x(s) = ax s^3 + bx s^2 + cx s + dx   (same for y)
+  const toPower = (p0: number, p1: number, p2: number, p3: number) => ({
+    a: -p0 + 3 * p1 - 3 * p2 + p3,
+    b: 3 * p0 - 6 * p1 + 3 * p2,
+    c: -3 * p0 + 3 * p1,
+    d: p0
+  })
+
+  const X = toPower(p0.x, p1.x, p2.x, p3.x)
+  const Y = toPower(p0.y, p1.y, p2.y, p3.y)
+
+  // Build sextic coefficients for f(s)=x^2+y^2−1.
+  // Do the convolution explicitly once (degree <=3 × degree <=3)...
+  const c = new Array<number>(7).fill(0)
+
+  const addTerm = (deg: number, coef: number) => {
+    c[6 - deg] += coef
+  } // High to low.
+
+  // Do convolution of x(s) and y(s) coefficients to get 6th order cursed polynomial.
+  const coeffs = [X.d, X.c, X.b, X.a] // X(t): constant, linear, quadratic, cubic.
+  const coefft = [Y.d, Y.c, Y.b, Y.a] // Y(t): constant, linear, quadratic, cubic.
+
+  for (let i = 0; i <= 3; ++i) {
+    for (let j = 0; j <= 3; ++j) {
+      addTerm(i + j, coeffs[i] * coeffs[j] + coefft[i] * coefft[j])
+    }
+  }
+  // Subtract the 1 from the circle equation.
+  c[6] -= 1
+
+  // Solve sextic, keep real roots in [0,1]
+
+  // Convert to double-double format: [low, high] where low=0 for exact coefficients
+  const pDoubleDouble = c.map((coeff) => [0, coeff])
+
+  const rootIntervals = allRootsCertified(
+    pDoubleDouble, // Coefficients in double-double format.
+    0, // Lower bound.
+    1 // Upper bound.
+  )
+
+  // Extract the root values (use midpoint of interval).
+  const roots = rootIntervals
+    .map((interval) => (interval.tS + interval.tE) / 2)
+    .filter((s) => s > -EPS_LINE_INTERSECTION && s < 1 + EPS_LINE_INTERSECTION)
+    .sort((a, b) => a - b)
+
+  // Compute the arc sweep once.
+  const sweep = normalizeSweep(arc.startAngle, arc.endAngle, arc.clockwise)
+
+  rootLoop: for (const t of roots) {
+    // Evaluate Bezier at parameter t.
+    const point = evaluateBezier(t, bezier)
+
+    // Check angle position against the arc sweep.
+    const relX = point.x - arc.center.x
+    const relY = point.y - arc.center.y
+    const angle = Math.atan2(relY, relX)
+    const angleNorm = normalizeAngle(angle, arc.startAngle, arc.clockwise)
+
+    if (sweep < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
+      if (angleNorm < -EPS_ANGLE_INTERSECTION || angleNorm - sweep > EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    }
+
+    const arcT = angleNorm / (sweep || 2 * Math.PI)
+
+    // Deduplicate near-identical Bezier parameters.
+    for (const hit of intersections) {
+      if (Math.abs(hit.t1 - t) < EPS_ROOT_DUPE) continue rootLoop
+    }
+
+    intersections.push({
+      point,
+      t1: Math.max(0, Math.min(1, t)), // Bezier parameter
+      t2: Math.max(0, Math.min(1, arcT)) // Arc parameter
+    })
+  }
+
+  // Plotter.
+  // --------------------------------------------------------------------------
+  const bezierBounds = getBezierBounds(bezier)
+  const arcBounds = {
+    xMin: arc.center.x - arc.radius,
+    xMax: arc.center.x + arc.radius,
+    yMin: arc.center.y - arc.radius,
+    yMax: arc.center.y + arc.radius
+  }
+
+  const xMin = Math.min(bezierBounds.xMin, arcBounds.xMin)
+  const xMax = Math.max(bezierBounds.xMax, arcBounds.xMax)
+  const yMin = Math.min(bezierBounds.yMin, arcBounds.yMin)
+  const yMax = Math.max(bezierBounds.yMax, arcBounds.yMax)
+
+  const plotter = new Plotter()
+  plotter.clear()
+  plotter.setBounds(xMin, yMin, xMax, yMax)
+
+  plotter.plotBezier(bezier, 'blue')
+  plotter.plotArc(arc, 'red')
+
+  intersections.forEach(({ point }) => plotter.plotPoint(point, 'black'))
+
+  plotter.addTitle(`Intersections: ${intersections.length}`)
+  plotter.save('image.png')
+  // ------------------------------------------------------------------------
+
+  return intersections
 }
 
 export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {

@@ -225,7 +225,7 @@ export class Plotter {
     })
   }
 
-  plotPoint(point: Point, color = 'black', radius = 3, label?: string): void {
+  plotPoint(point: Point, color = 'black', radius = 5, label?: string): void {
     const transformedPoint = this.transformPoint(point)
 
     this.ctx.fillStyle = color

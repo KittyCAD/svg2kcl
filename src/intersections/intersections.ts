@@ -78,7 +78,7 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
     plotter.plotLine(line1, 'blue')
     plotter.plotLine(line2, 'red')
 
-    plotter.plotPoint(point)
+    plotter.plotPoint(point, 'black')
 
     plotter.save('image.png')
     // --------------------------------------------------------------------------
@@ -154,7 +154,7 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
   plotter.plotBezier(bezier, 'red')
 
   intersections.forEach((intersection) => {
-    plotter.plotPoint(intersection.point, 'green')
+    plotter.plotPoint(intersection.point, 'black')
   })
 
   // Note intersection count.
@@ -240,7 +240,7 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
   plotter.plotBezier(bezier2, 'red')
 
   intersections.forEach((intersection) => {
-    plotter.plotPoint(intersection.point, 'green')
+    plotter.plotPoint(intersection.point, 'black')
   })
 
   // Note intersection count.

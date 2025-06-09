@@ -4,6 +4,7 @@ import {
   evaluateBezier,
   fatLineReject,
   FLAT_TOL,
+  ROOT_DUPE_EPSILON,
   getBezierBounds,
   getBezierBoundsSimple,
   makeFatLine,
@@ -216,9 +217,13 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
 
   recurse(bezier1, [0, 1], bezier2, [0, 1], 0)
 
+  // Remove duplicates. This uses a higher epsilon because we're looking
+  // for duplicate points, not intersections. Use l2 norm to compare points.
   let intersections = out.filter(
     (p, i, arr) =>
-      arr.findIndex((q) => Math.hypot(p.point.x - q.point.x, p.point.y - q.point.y) < EPSILON) === i
+      arr.findIndex(
+        (q) => Math.hypot(p.point.x - q.point.x, p.point.y - q.point.y) < ROOT_DUPE_EPSILON
+      ) === i
   )
 
   // Plotter.

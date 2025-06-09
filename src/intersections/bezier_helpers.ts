@@ -2,9 +2,9 @@ import { Point } from '../types/base'
 import { splitCubicBezier } from '../utils/bezier'
 import { Bezier, EPSILON } from './intersections'
 
-export const MAX_DEPTH = 20
-export const FLAT_TOL = 1e-4
-export const ROOT_EPS = 1e-5
+export const MAX_DEPTH = 50
+export const FLAT_TOL = 1e-6 // Subdivision stop.
+export const ROOT_DUPE_EPSILON = 1e-3 // Root duplication epsilon.
 
 export interface Bounds {
   xMin: number

@@ -1,6 +1,7 @@
-import { createCanvas, Canvas, CanvasRenderingContext2D } from 'canvas'
+import { Canvas, CanvasRenderingContext2D, createCanvas } from 'canvas'
 import fs from 'fs'
-import { Point, Line, Bezier, Arc, Intersection } from './intersections'
+import { Point } from '../types/base'
+import { Arc, Bezier, Intersection, Line } from './intersections'
 
 export class Plotter {
   private canvas: Canvas

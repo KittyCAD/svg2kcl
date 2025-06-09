@@ -1,11 +1,19 @@
+import { Point } from '../types/base'
+import {
+  boxesOverlap,
+  evaluateBezier,
+  fatLineReject,
+  FLAT_TOL,
+  getBezierBounds,
+  getBezierBoundsSimple,
+  makeFatLine,
+  MAX_DEPTH,
+  solveCubic,
+  subdivideBezier
+} from './bezier_helpers'
 import { Plotter } from './plotter'
 
-const EPSILON = 1e-6
-
-export interface Point {
-  x: number
-  y: number
-}
+export const EPSILON = 1e-6
 
 export interface Line {
   start: Point
@@ -32,130 +40,6 @@ export interface Intersection {
   point: Point
   t1: number
   t2: number
-}
-
-// Utilities.
-function solveQuadratic(a: number, b: number, c: number): number[] {
-  // Quadratic formula: x = (-b ± sqrt(b² - 4ac)) / (2a)
-  // Thank you Mr. Collins, I actually even remember this one.
-  if (Math.abs(a) < EPSILON) {
-    return Math.abs(b) < EPSILON ? [] : [-c / b]
-  }
-
-  const discriminant = Math.pow(b, 2) - 4 * a * c
-  if (discriminant < -EPSILON) {
-    return []
-  }
-  if (Math.abs(discriminant) < EPSILON) {
-    return [-b / (2 * a)]
-  }
-
-  const sqrt_d = Math.sqrt(discriminant)
-  return [(-b - sqrt_d) / (2 * a), (-b + sqrt_d) / (2 * a)]
-}
-
-function solveCubic(a: number, b: number, c: number, d: number): number[] {
-  // This is a little more gnarly.
-  // See: https://math.vanderbilt.edu/schectex/courses/cubic/
-  // See: https://people.eecs.berkeley.edu/~wkahan/Math128/Cubic.pdf
-  if (Math.abs(a) < EPSILON) {
-    return solveQuadratic(b, c, d)
-  }
-
-  const p = c / a - (b * b) / (3 * a * a)
-  const q = (2 * b * b * b) / (27 * a * a * a) - (b * c) / (3 * a * a) + d / a
-  const discriminant = (q * q) / 4 + (p * p * p) / 27
-
-  if (discriminant > EPSILON) {
-    const sqrt_d = Math.sqrt(discriminant)
-    const u = Math.cbrt(-q / 2 + sqrt_d)
-    const v = Math.cbrt(-q / 2 - sqrt_d)
-    return [u + v - b / (3 * a)]
-  } else if (Math.abs(discriminant) < EPSILON) {
-    if (Math.abs(q) < EPSILON) {
-      return [-b / (3 * a)]
-    } else {
-      const temp = Math.cbrt(-q / 2)
-      return [2 * temp - b / (3 * a), -temp - b / (3 * a)]
-    }
-  } else {
-    const rho = Math.sqrt(-(p * p * p) / 27)
-    const theta = Math.acos(-q / (2 * rho))
-    const offset = -b / (3 * a)
-    const factor = 2 * Math.cbrt(rho)
-
-    return [
-      factor * Math.cos(theta / 3) + offset,
-      factor * Math.cos((theta + 2 * Math.PI) / 3) + offset,
-      factor * Math.cos((theta + 4 * Math.PI) / 3) + offset
-    ]
-  }
-}
-
-function evaluateBezier(t: number, bezier: Bezier): Point {
-  const mt = 1 - t
-  const mt2 = mt * mt
-  const mt3 = mt2 * mt
-  const t2 = t * t
-  const t3 = t2 * t
-
-  return {
-    x:
-      mt3 * bezier.start.x +
-      3 * mt2 * t * bezier.control1.x +
-      3 * mt * t2 * bezier.control2.x +
-      t3 * bezier.end.x,
-    y:
-      mt3 * bezier.start.y +
-      3 * mt2 * t * bezier.control1.y +
-      3 * mt * t2 * bezier.control2.y +
-      t3 * bezier.end.y
-  }
-}
-
-export function quadraticToCubic(start: Point, control: Point, end: Point): Bezier {
-  return {
-    start,
-    control1: {
-      x: start.x + (2 / 3) * (control.x - start.x),
-      y: start.y + (2 / 3) * (control.y - start.y)
-    },
-    control2: {
-      x: end.x + (2 / 3) * (control.x - end.x),
-      y: end.y + (2 / 3) * (control.y - end.y)
-    },
-    end
-  }
-}
-
-function getBezierBounds(bezier: Bezier) {
-  // Find extrema in x and y for cubic Bezier
-  function cubicDerivativeRoots(p0: number, p1: number, p2: number, p3: number) {
-    // Derivative: 3(-p0 + 3p1 - 3p2 + p3)t^2 + 6(p0 - 2p1 + p2)t + 3(p1 - p0)
-    const a = -3 * p0 + 9 * p1 - 9 * p2 + 3 * p3
-    const b = 6 * p0 - 12 * p1 + 6 * p2
-    const c = 3 * (p1 - p0)
-    const roots = solveQuadratic(a, b, c)
-    return roots.filter((t) => t > 0 && t < 1)
-  }
-
-  const ts = [0, 1]
-  ts.push(
-    ...cubicDerivativeRoots(bezier.start.x, bezier.control1.x, bezier.control2.x, bezier.end.x)
-  )
-  ts.push(
-    ...cubicDerivativeRoots(bezier.start.y, bezier.control1.y, bezier.control2.y, bezier.end.y)
-  )
-
-  const xs = ts.map((t) => evaluateBezier(t, bezier).x)
-  const ys = ts.map((t) => evaluateBezier(t, bezier).y)
-
-  return {
-    xMin: Math.min(...xs),
-    xMax: Math.max(...xs),
-    yMin: Math.min(...ys),
-    yMax: Math.max(...ys)
-  }
 }
 
 // Intersection functions.
@@ -290,7 +174,81 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
 }
 
 export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): Intersection[] {
-  return []
+  // https://vciba.springeropen.com/articles/10.1186/s42492-022-00114-3
+  const out: Intersection[] = []
+
+  const recurse = (
+    b1: Bezier,
+    s1: [number, number],
+    b2: Bezier,
+    s2: [number, number],
+    depth: number
+  ): void => {
+    if (!boxesOverlap(getBezierBoundsSimple(b1), getBezierBoundsSimple(b2))) return
+
+    const bb1 = getBezierBoundsSimple(b1)
+    const bb2 = getBezierBoundsSimple(b2)
+    const w1 = Math.max(bb1.xMax - bb1.xMin, bb1.yMax - bb1.yMin)
+    const w2 = Math.max(bb2.xMax - bb2.xMin, bb2.yMax - bb2.yMin)
+
+    if ((w1 < FLAT_TOL && w2 < FLAT_TOL) || depth >= MAX_DEPTH) {
+      const point: Point = {
+        x: (Math.max(bb1.xMin, bb2.xMin) + Math.min(bb1.xMax, bb2.xMax)) * 0.5,
+        y: (Math.max(bb1.yMin, bb2.yMin) + Math.min(bb1.yMax, bb2.yMax)) * 0.5
+      }
+      out.push({ point, t1: (s1[0] + s1[1]) * 0.5, t2: (s2[0] + s2[1]) * 0.5 })
+      return
+    }
+
+    const fl = w1 < w2 ? makeFatLine(b1) : makeFatLine(b2)
+    if (w1 < w2 ? fatLineReject(b2, fl) : fatLineReject(b1, fl)) return
+
+    if (w1 >= w2) {
+      const [l, lt, r, rt] = subdivideBezier(b1, 0.5, s1[0], s1[1])
+      recurse(l, lt, b2, s2, depth + 1)
+      recurse(r, rt, b2, s2, depth + 1)
+    } else {
+      const [l, lt, r, rt] = subdivideBezier(b2, 0.5, s2[0], s2[1])
+      recurse(b1, s1, l, lt, depth + 1)
+      recurse(b1, s1, r, rt, depth + 1)
+    }
+  }
+
+  recurse(bezier1, [0, 1], bezier2, [0, 1], 0)
+
+  let intersections = out.filter(
+    (p, i, arr) =>
+      arr.findIndex((q) => Math.hypot(p.point.x - q.point.x, p.point.y - q.point.y) < EPSILON) === i
+  )
+
+  // Plotter.
+  // --------------------------------------------------------------------------
+  const bezierBounds1 = getBezierBounds(bezier1)
+  const bezierBounds2 = getBezierBounds(bezier2)
+
+  const xMin = Math.min(bezierBounds1.xMin, bezierBounds2.xMin)
+  const xMax = Math.max(bezierBounds1.xMax, bezierBounds2.xMax)
+  const yMin = Math.min(bezierBounds1.yMin, bezierBounds2.yMin)
+  const yMax = Math.max(bezierBounds1.yMax, bezierBounds2.yMax)
+
+  const plotter = new Plotter()
+  plotter.clear()
+  plotter.setBounds(xMin, yMin, xMax, yMax)
+
+  plotter.plotBezier(bezier1, 'blue')
+  plotter.plotBezier(bezier2, 'red')
+
+  intersections.forEach((intersection) => {
+    plotter.plotPoint(intersection.point, 'green')
+  })
+
+  // Note intersection count.
+  plotter.addTitle(`Intersections: ${intersections.length}`)
+
+  plotter.save('image.png')
+  // --------------------------------------------------------------------------
+
+  return intersections
 }
 
 export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection[] {

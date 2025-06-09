@@ -170,7 +170,9 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
 }
 
 export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): Intersection[] {
-  // https://vciba.springeropen.com/articles/10.1186/s42492-022-00114-3
+  // See: https://vciba.springeropen.com/articles/10.1186/s42492-022-00114-3
+  // Also, maybe: https://stackoverflow.com/questions/4039229/checking-if-two-cubic-b%C3%A9zier-curves-intersect
+  // Also, maybe: https://pomax.github.io/bezierinfo/#intersections
   const out: Intersection[] = []
 
   const recurse = (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals'
 import { getBezierBezierIntersection, Bezier } from '../../src/intersections/intersections'
+import { convertQuadraticToCubic } from '../../src/intersections/bezier_helpers'
 
 describe('Bezier-Bezier intersections', () => {
   it('finds a single transversal intersection', () => {
@@ -88,6 +89,37 @@ describe('Bezier-Bezier intersections', () => {
       expect(t1).toBeLessThanOrEqual(1)
       expect(t2).toBeGreaterThanOrEqual(0)
       expect(t2).toBeLessThanOrEqual(1)
+    })
+  })
+
+  it('finds intersection between quadratic and cubic (degree-elevated) beziers', () => {
+    // Quadratic Bezier: simple arch
+    const quadStart = { x: 0, y: 0 }
+    const quadControl = { x: 2, y: 4 }
+    const quadEnd = { x: 4, y: 0 }
+    // Elevate to cubic
+    const quadCubic = convertQuadraticToCubic(quadStart, quadControl, quadEnd)
+
+    // Cubic Bezier: crossing the arch
+    const cubic: Bezier = {
+      start: { x: 0, y: 2 },
+      control1: { x: 1, y: 3 },
+      control2: { x: 3, y: 1 },
+      end: { x: 4, y: 2 }
+    }
+
+    const hits = getBezierBezierIntersection(quadCubic, cubic)
+    expect(hits.length).toBeGreaterThan(0)
+    hits.forEach(({ t1, t2, point }) => {
+      expect(t1).toBeGreaterThanOrEqual(0)
+      expect(t1).toBeLessThanOrEqual(1)
+      expect(t2).toBeGreaterThanOrEqual(0)
+      expect(t2).toBeLessThanOrEqual(1)
+      // Optionally: check intersection is within bounds
+      expect(point.x).toBeGreaterThanOrEqual(0)
+      expect(point.x).toBeLessThanOrEqual(4)
+      expect(point.y).toBeGreaterThanOrEqual(0)
+      expect(point.y).toBeLessThanOrEqual(4)
     })
   })
 })

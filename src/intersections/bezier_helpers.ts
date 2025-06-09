@@ -18,7 +18,7 @@ export interface FatLine {
   dMax: number
 }
 
-// Utilities.
+// Utilities, not necessarily Bezier related.
 export function solveQuadratic(a: number, b: number, c: number): number[] {
   // Quadratic formula: x = (-b ± sqrt(b² - 4ac)) / (2a)
   // Thank you Mr. Collins, I actually even remember this one.
@@ -76,7 +76,51 @@ export function solveCubic(a: number, b: number, c: number, d: number): number[]
   }
 }
 
-export function quadraticToCubic(start: Point, control: Point, end: Point): Bezier {
+export function doBoxesOverlap(a: Bounds, b: Bounds): boolean {
+  const xOverlap = a.xMin <= b.xMax && a.xMax >= b.xMin
+  const yOverlap = a.yMin <= b.yMax && a.yMax >= b.yMin
+  return xOverlap && yOverlap
+}
+
+export function makeFatLine(bez: Bezier): FatLine {
+  const dx = bez.end.x - bez.start.x
+  const dy = bez.end.y - bez.start.y
+  const len = Math.hypot(dx, dy) || EPS_LINE_INTERSECTION
+  const A = dy / len
+  const B = -dx / len
+  const C = -(A * bez.start.x + B * bez.start.y)
+
+  const distances = [
+    A * bez.start.x + B * bez.start.y + C,
+    A * bez.control1.x + B * bez.control1.y + C,
+    A * bez.control2.x + B * bez.control2.y + C,
+    A * bez.end.x + B * bez.end.y + C
+  ]
+  return {
+    A,
+    B,
+    C,
+    dMin: Math.min(...distances),
+    dMax: Math.max(...distances)
+  }
+}
+
+export function fatLineReject(b: Bezier, fl: FatLine): boolean {
+  const d = [
+    fl.A * b.start.x + fl.B * b.start.y + fl.C,
+    fl.A * b.control1.x + fl.B * b.control1.y + fl.C,
+    fl.A * b.control2.x + fl.B * b.control2.y + fl.C,
+    fl.A * b.end.x + fl.B * b.end.y + fl.C
+  ]
+  const localMin = Math.min(...d)
+  const localMax = Math.max(...d)
+  return localMax < fl.dMin - EPS_LINE_INTERSECTION || localMin > fl.dMax + EPS_LINE_INTERSECTION
+}
+
+// Actual Bezier stuff.
+export function convertQuadraticToCubic(start: Point, control: Point, end: Point): Bezier {
+  // Degree elevationn for quadratic to cubic only.
+  // https://en.wikipedia.org/wiki/Bézier_curve#Degree_elevation
   return {
     start,
     control1: {
@@ -149,10 +193,6 @@ export function getBezierBoundsSimple(b: Bezier): Bounds {
   }
 }
 
-export function boxesOverlap(a: Bounds, b: Bounds): boolean {
-  return !(a.xMax < b.xMin || a.xMin > b.xMax || a.yMax < b.yMin || a.yMin > b.yMax)
-}
-
 export function subdivideBezier(
   bez: Bezier,
   t: number,
@@ -173,39 +213,4 @@ export function subdivideBezier(
 
   const tm = t0 + (t1 - t0) * t
   return [left, [t0, tm], right, [tm, t1]]
-}
-
-export function makeFatLine(bez: Bezier): FatLine {
-  const dx = bez.end.x - bez.start.x
-  const dy = bez.end.y - bez.start.y
-  const len = Math.hypot(dx, dy) || EPS_LINE_INTERSECTION
-  const A = dy / len
-  const B = -dx / len
-  const C = -(A * bez.start.x + B * bez.start.y)
-
-  const distances = [
-    A * bez.start.x + B * bez.start.y + C,
-    A * bez.control1.x + B * bez.control1.y + C,
-    A * bez.control2.x + B * bez.control2.y + C,
-    A * bez.end.x + B * bez.end.y + C
-  ]
-  return {
-    A,
-    B,
-    C,
-    dMin: Math.min(...distances),
-    dMax: Math.max(...distances)
-  }
-}
-
-export function fatLineReject(b: Bezier, fl: FatLine): boolean {
-  const d = [
-    fl.A * b.start.x + fl.B * b.start.y + fl.C,
-    fl.A * b.control1.x + fl.B * b.control1.y + fl.C,
-    fl.A * b.control2.x + fl.B * b.control2.y + fl.C,
-    fl.A * b.end.x + fl.B * b.end.y + fl.C
-  ]
-  const localMin = Math.min(...d)
-  const localMax = Math.max(...d)
-  return localMax < fl.dMin - EPS_LINE_INTERSECTION || localMin > fl.dMax + EPS_LINE_INTERSECTION
 }

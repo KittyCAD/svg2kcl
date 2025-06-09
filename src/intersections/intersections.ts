@@ -1,6 +1,6 @@
 import { Point } from '../types/base'
 import {
-  boxesOverlap,
+  doBoxesOverlap,
   evaluateBezier,
   fatLineReject,
   getBezierBounds,
@@ -182,7 +182,7 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     s2: [number, number], // Segment interval for b2.
     depth: number // Current recursion depth.
   ): void => {
-    if (!boxesOverlap(getBezierBounds(b1), getBezierBounds(b2))) return
+    if (!doBoxesOverlap(getBezierBounds(b1), getBezierBounds(b2))) return
 
     // Get the largest bounding box dimension for each bezier; width or height.
     const bb1 = getBezierBounds(b1)

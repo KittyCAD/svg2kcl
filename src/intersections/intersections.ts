@@ -3,18 +3,14 @@ import {
   boxesOverlap,
   evaluateBezier,
   fatLineReject,
-  FLAT_TOL,
-  ROOT_DUPE_EPSILON,
   getBezierBounds,
   getBezierBoundsSimple,
   makeFatLine,
-  MAX_DEPTH,
   solveCubic,
   subdivideBezier
 } from './bezier_helpers'
+import { EPS_BBOX, EPS_LINE_INTERSECTION, EPS_ROOT_DUPE, MAX_RECURSION_DEPTH } from './constants'
 import { Plotter } from './plotter'
-
-export const EPSILON = 1e-6
 
 export interface Line {
   start: Point
@@ -52,7 +48,7 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 
   const denominator = d1x * d2y - d1y * d2x
 
-  if (Math.abs(denominator) < EPSILON) {
+  if (Math.abs(denominator) < EPS_LINE_INTERSECTION) {
     return []
   }
 
@@ -121,18 +117,18 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
   const intersections: Intersection[] = []
 
   for (const t of roots) {
-    if (t >= -EPSILON && t <= 1 + EPSILON) {
+    if (t >= -EPS_LINE_INTERSECTION && t <= 1 + EPS_LINE_INTERSECTION) {
       const bezierPoint = evaluateBezier(t, bezier)
 
       const lineDir = { x: line.end.x - line.start.x, y: line.end.y - line.start.y }
       const lineLength = Math.sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-      if (lineLength < EPSILON) continue
+      if (lineLength < EPS_LINE_INTERSECTION) continue
 
       const toPoint = { x: bezierPoint.x - line.start.x, y: bezierPoint.y - line.start.y }
       const lineT = (toPoint.x * lineDir.x + toPoint.y * lineDir.y) / (lineLength * lineLength)
 
-      if (lineT >= -EPSILON && lineT <= 1 + EPSILON) {
+      if (lineT >= -EPS_LINE_INTERSECTION && lineT <= 1 + EPS_LINE_INTERSECTION) {
         intersections.push({
           point: bezierPoint,
           t1: Math.max(0, Math.min(1, lineT)),
@@ -192,7 +188,7 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     const w1 = Math.max(bb1.xMax - bb1.xMin, bb1.yMax - bb1.yMin)
     const w2 = Math.max(bb2.xMax - bb2.xMin, bb2.yMax - bb2.yMin)
 
-    if ((w1 < FLAT_TOL && w2 < FLAT_TOL) || depth >= MAX_DEPTH) {
+    if ((w1 < EPS_BBOX && w2 < EPS_BBOX) || depth >= MAX_RECURSION_DEPTH) {
       const point: Point = {
         x: (Math.max(bb1.xMin, bb2.xMin) + Math.min(bb1.xMax, bb2.xMax)) * 0.5,
         y: (Math.max(bb1.yMin, bb2.yMin) + Math.min(bb1.yMax, bb2.yMax)) * 0.5
@@ -217,12 +213,12 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
 
   recurse(bezier1, [0, 1], bezier2, [0, 1], 0)
 
-  // Remove duplicates. This uses a higher epsilon because we're looking
-  // for duplicate points, not intersections. Use l2 norm to compare points.
+  // Remove duplicates. This uses a higher eps than the normal line intersection because
+  // we're looking for duplicate points. Use l2 norm to compare points.
   let intersections = out.filter(
     (p, i, arr) =>
       arr.findIndex(
-        (q) => Math.hypot(p.point.x - q.point.x, p.point.y - q.point.y) < ROOT_DUPE_EPSILON
+        (q) => Math.hypot(p.point.x - q.point.x, p.point.y - q.point.y) < EPS_ROOT_DUPE
       ) === i
   )
 

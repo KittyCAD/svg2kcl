@@ -168,41 +168,26 @@ export class Plotter {
 
   plotArc(arc: Arc, color = 'purple', lineWidth = 2, label?: string): void {
     const center = this.transformPoint(arc.center)
-    const radiusX = arc.radius * this.scaleX
-    const radiusY = arc.radius * this.scaleY
+    const rx = Math.abs(arc.radius * this.scaleX)
+    const ry = Math.abs(arc.radius * this.scaleY)
 
     this.ctx.strokeStyle = color
     this.ctx.lineWidth = lineWidth
     this.ctx.setLineDash([])
 
-    let startAngle = arc.startAngle
-    let endAngle = arc.endAngle
-
-    // Canvas Y is flipped, so we need to adjust angles
-    startAngle = -startAngle
-    endAngle = -endAngle
-
-    if (arc.clockwise) {
-      ;[startAngle, endAngle] = [endAngle, startAngle]
-    }
+    // Flip angles for canvas coordinate system, CW too.
+    const start = -arc.startAngle
+    const end = -arc.endAngle
+    const anticlockwise = !arc.clockwise
 
     this.ctx.beginPath()
-    this.ctx.ellipse(
-      center.x,
-      center.y,
-      radiusX,
-      radiusY,
-      0,
-      startAngle,
-      endAngle,
-      arc.clockwise || false
-    )
+    this.ctx.ellipse(center.x, center.y, rx, ry, 0, start, end, anticlockwise)
     this.ctx.stroke()
 
     if (label) {
       this.ctx.fillStyle = color
       this.ctx.font = '12px Arial'
-      this.ctx.fillText(label, center.x + radiusX + 5, center.y)
+      this.ctx.fillText(label, center.x + rx + 5, center.y)
     }
   }
 

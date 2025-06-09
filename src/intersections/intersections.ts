@@ -1,4 +1,5 @@
 import { Point } from '../types/base'
+import { normalizeAngle, normalizeSweep } from './arc_helper'
 import {
   doBoxesOverlap,
   evaluateBezier,
@@ -6,9 +7,16 @@ import {
   getBezierBounds,
   makeFatLine,
   solveCubic,
+  solveQuadratic,
   subdivideBezier
 } from './bezier_helpers'
-import { EPS_BBOX, EPS_LINE_INTERSECTION, EPS_ROOT_DUPE, MAX_RECURSION_DEPTH } from './constants'
+import {
+  EPS_ANGLE_INTERSECTION,
+  EPS_BBOX,
+  EPS_LINE_INTERSECTION,
+  EPS_ROOT_DUPE,
+  MAX_RECURSION_DEPTH
+} from './constants'
 import { Plotter } from './plotter'
 
 export interface Line {
@@ -166,7 +174,112 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
 }
 
 export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
-  return []
+  const intersections: Intersection[] = []
+
+  // Line in parameter-y form:
+  //   P(t) = (x0, y0) + t * (dx, dy),  t in [0,1]
+  //   Where (x0, y0) is the line start, (dx, dy) is the direction vector.
+  const dirX = line.end.x - line.start.x
+  const dirY = line.end.y - line.start.y
+
+  // Circle (arc) centered at (cx, cy) with radius r.
+  // Shift coordinates so the center is at (0,0) for simplicity.
+  const relStartX = line.start.x - arc.center.x
+  const relStartY = line.start.y - arc.center.y
+
+  // Substitute the line equation into the circle equation:
+  //   (x - cx)^2 + (y - cy)^2 = r^2
+  //   (x0 + t*dx - cx)^2 + (y0 + t*dy - cy)^2 = r^2
+  // Expand to get a quadratic in t: A*t^2 + B*t + C = 0
+  const A = dirX * dirX + dirY * dirY
+  const B = 2 * (dirX * relStartX + dirY * relStartY)
+  const C = relStartX * relStartX + relStartY * relStartY - arc.radius * arc.radius
+
+  if (A < EPS_LINE_INTERSECTION) {
+    // Line is degenerate (start == end), no intersection.
+    return intersections
+  }
+
+  // Solve for ts of intersections.
+  const tHits = solveQuadratic(A, B, C)
+
+  // Compute the arc's sweep and direction for filtering
+  const sweep = normalizeSweep(arc.startAngle, arc.endAngle, arc.clockwise) // ≥0
+
+  rootLoop: for (const t of tHits) {
+    if (t < -EPS_LINE_INTERSECTION || t > 1 + EPS_LINE_INTERSECTION) {
+      continue
+    }
+
+    // Intersection point relative to centre.
+    const x = line.start.x + t * dirX - arc.center.x
+    const y = line.start.y + t * dirY - arc.center.y
+
+    // Angle and distance along the arc.
+    const ang = Math.atan2(y, x)
+    const angNorm = normalizeAngle(ang, arc.startAngle, arc.clockwise) // 0 … sweep
+
+    if (sweep < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
+      // Not a full circle.
+      if (angNorm < -EPS_ANGLE_INTERSECTION || angNorm - sweep > EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    }
+
+    const arcT = angNorm / (sweep || 2 * Math.PI) // avoid /0 if full circle
+
+    // Deduplicate – skip if coincident (tangent root pair)
+    for (const h of intersections) {
+      if (Math.abs(h.t1 - t) < EPS_ROOT_DUPE) {
+        continue rootLoop
+      }
+    }
+
+    intersections.push({
+      point: { x: x + arc.center.x, y: y + arc.center.y },
+      t1: Math.max(0, Math.min(1, t)),
+      t2: Math.max(0, Math.min(1, arcT))
+    })
+  }
+
+  // Plotter.
+  // --------------------------------------------------------------------------
+  const arcBounds = {
+    xMin: arc.center.x - arc.radius,
+    xMax: arc.center.x + arc.radius,
+    yMin: arc.center.y - arc.radius,
+    yMax: arc.center.y + arc.radius
+  }
+  const lineBounds = {
+    xMin: Math.min(line.start.x, line.end.x),
+    xMax: Math.max(line.start.x, line.end.x),
+    yMin: Math.min(line.start.y, line.end.y),
+    yMax: Math.max(line.start.y, line.end.y)
+  }
+
+  const xMin = Math.min(arcBounds.xMin, lineBounds.xMin)
+  const xMax = Math.max(arcBounds.xMax, lineBounds.xMax)
+  const yMin = Math.min(arcBounds.yMin, lineBounds.yMin)
+  const yMax = Math.max(arcBounds.yMax, lineBounds.yMax)
+
+  const plotter = new Plotter()
+  plotter.clear()
+  plotter.setBounds(xMin, yMin, xMax, yMax)
+
+  plotter.plotLine(line, 'blue')
+  plotter.plotArc(arc, 'red')
+
+  intersections.forEach((intersection) => {
+    plotter.plotPoint(intersection.point, 'black')
+  })
+
+  // Note intersection count.
+  plotter.addTitle(`Intersections: ${intersections.length}`)
+
+  plotter.save('image.png')
+  // --------------------------------------------------------------------------
+
+  return intersections
 }
 
 export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): Intersection[] {

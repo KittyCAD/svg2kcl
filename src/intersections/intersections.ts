@@ -19,6 +19,9 @@ import {
 } from './constants'
 import { Plotter } from './plotter'
 
+// Saves us a few sqrt calls in the line intersection check.
+const EPS_LINE_INTERSECTION_SQUARED = Math.pow(EPS_LINE_INTERSECTION, 2)
+
 export interface Line {
   start: Point
   end: Point
@@ -55,7 +58,12 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 
   const denominator = d1x * d2y - d1y * d2x
 
-  if (Math.abs(denominator) < EPS_LINE_INTERSECTION) {
+  // Exit early if lines are parallel or degenerate.
+  if (
+    Math.abs(denominator) < EPS_LINE_INTERSECTION ||
+    Math.hypot(d1x, d1y) < EPS_LINE_INTERSECTION ||
+    Math.hypot(d2x, d2y) < EPS_LINE_INTERSECTION
+  ) {
     return []
   }
 
@@ -97,6 +105,8 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 }
 
 export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersection[] {
+  const intersections: Intersection[] = []
+
   // See: https://www.particleincell.com/2013/cubic-line-intersection/
   // See: https://pomax.github.io/bezierinfo/
   const A = line.start.y - line.end.y
@@ -121,19 +131,26 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
   const c0 = A * bx0 + B * by0 + C // Constant
 
   const roots = solveCubic(c3, c2, c1, c0)
-  const intersections: Intersection[] = []
+
+  const lineDirX = line.end.x - line.start.x
+  const lineDirY = line.end.y - line.start.y
+  const lineLenSquare = lineDirX * lineDirX + lineDirY * lineDirY
+
+  if (lineLenSquare < EPS_LINE_INTERSECTION_SQUARED) {
+    // Degenerate line (start == end), no intersection.
+    return intersections
+  }
 
   for (const t of roots) {
     if (t >= -EPS_LINE_INTERSECTION && t <= 1 + EPS_LINE_INTERSECTION) {
       const bezierPoint = evaluateBezier(t, bezier)
 
-      const lineDir = { x: line.end.x - line.start.x, y: line.end.y - line.start.y }
-      const lineLength = Math.sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
+      // Vector from line start to the intersection candidate.
+      const toPointX = bezierPoint.x - line.start.x
+      const toPointY = bezierPoint.y - line.start.y
 
-      if (lineLength < EPS_LINE_INTERSECTION) continue
-
-      const toPoint = { x: bezierPoint.x - line.start.x, y: bezierPoint.y - line.start.y }
-      const lineT = (toPoint.x * lineDir.x + toPoint.y * lineDir.y) / (lineLength * lineLength)
+      // Param along the segment.
+      const lineT = (toPointX * lineDirX + toPointY * lineDirY) / lineLenSquare
 
       if (lineT >= -EPS_LINE_INTERSECTION && lineT <= 1 + EPS_LINE_INTERSECTION) {
         intersections.push({
@@ -195,18 +212,18 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   const B = 2 * (dirX * relStartX + dirY * relStartY)
   const C = relStartX * relStartX + relStartY * relStartY - arc.radius * arc.radius
 
-  if (A < EPS_LINE_INTERSECTION) {
+  if (A < EPS_LINE_INTERSECTION_SQUARED) {
     // Line is degenerate (start == end), no intersection.
     return intersections
   }
 
   // Solve for ts of intersections.
-  const tHits = solveQuadratic(A, B, C)
+  const tIntersections = solveQuadratic(A, B, C)
 
   // Compute the arc's sweep and direction for filtering
   const sweep = normalizeSweep(arc.startAngle, arc.endAngle, arc.clockwise) // ≥0
 
-  rootLoop: for (const t of tHits) {
+  rootLoop: for (const t of tIntersections) {
     if (t < -EPS_LINE_INTERSECTION || t > 1 + EPS_LINE_INTERSECTION) {
       continue
     }
@@ -228,7 +245,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
 
     const arcT = angNorm / (sweep || 2 * Math.PI) // Avoid divide by zero if full circle.
 
-    // Deduplicate – skip if coincident (tangent root pair)
+    // Deduplicate – skip if coincident (tangent root pair).
     for (const h of intersections) {
       if (Math.abs(h.t1 - t) < EPS_ROOT_DUPE) {
         continue rootLoop

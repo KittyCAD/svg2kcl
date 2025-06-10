@@ -424,7 +424,7 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
   const degType = checkBezierDegeneracy(bezier)
   switch (degType) {
     case BezierDegeneracyType.POINT:
-      throw new Error('Degenerate Bezier: all points are the same.')
+      throw new Error('Degenerate Bézier found: all points are the same.')
     case BezierDegeneracyType.LINE:
       const bezierLine = {
         start: bezier.start,
@@ -434,7 +434,7 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
     case BezierDegeneracyType.NORMAL:
       break
     default:
-      throw new Error(`Unknown Bezier degeneracy type: ${degType}`)
+      throw new Error(`Degenerate Bézier found: unknown degeneracy type: ${degType}.`)
   }
 
   // Bring circle to origin and unit radius.

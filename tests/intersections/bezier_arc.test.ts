@@ -17,8 +17,7 @@ describe('Bezier-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 4,
       startAngle: 0,
-      endAngle: Math.PI,
-      clockwise: false
+      sweepAngle: Math.PI
     }
 
     // Looping cubic going up and back down through the arc
@@ -42,8 +41,7 @@ describe('Bezier-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 3,
       startAngle: 0,
-      endAngle: 4 * Math.PI, // two full circles!
-      clockwise: false
+      sweepAngle: 4 * Math.PI
     }
 
     const bez: Bezier = {
@@ -65,8 +63,7 @@ describe('Bezier-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 6,
       startAngle: 0,
-      endAngle: (3 * Math.PI) / 2, // 270° CW
-      clockwise: true
+      sweepAngle: -(3 * Math.PI) / 2 // 270° CW
     }
 
     const bez: Bezier = {
@@ -90,8 +87,7 @@ describe('Degenerate Bezier-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: Math.PI / 4,
-      endAngle: (3 * Math.PI) / 4,
-      clockwise: false
+      sweepAngle: (3 * Math.PI) / 4 - Math.PI / 4
     }
 
     // Horizontal "line" tangent to top of circle at (0, 5).
@@ -107,8 +103,7 @@ describe('Degenerate Bezier-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: 2 * Math.PI,
-      clockwise: false
+      sweepAngle: 2 * Math.PI
     }
 
     const vertical = bezierLine(0, -10, 0, 10)

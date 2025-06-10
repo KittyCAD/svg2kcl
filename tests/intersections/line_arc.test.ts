@@ -73,13 +73,12 @@ describe('Line-Arc intersections', () => {
   })
 
   it('respects clockwise sweeps (large CW arc)', () => {
-    /*  Clockwise from 0 → π/2 sweeps 270°, so it includes (-5,0).  */
     const arc: Arc = {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI / 2, // 90°
-      clockwise: true // CW ⇒ 270° sweep
+      endAngle: Math.PI / 2,
+      clockwise: true
     }
     const line = vLine(-5) // x = -5 intersects at (-5,0)
 

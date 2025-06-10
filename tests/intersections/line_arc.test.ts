@@ -21,8 +21,7 @@ describe('Line-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0, // 0 rad → (5,0)
-      endAngle: Math.PI, // π rad → (-5,0)
-      clockwise: false // CCW → upper half-circle
+      sweepAngle: Math.PI // π rad → (-5,0)
     }
     const line = hLine(3) // y = 3 crosses twice
 
@@ -42,8 +41,7 @@ describe('Line-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI,
-      clockwise: false // upper half only
+      sweepAngle: Math.PI // upper half only
     }
     const line = hLine(-3) // y = –3 cuts the *lower* half
 
@@ -56,8 +54,7 @@ describe('Line-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI,
-      clockwise: false
+      sweepAngle: Math.PI
     }
     const line = hLine(5) // y = 5 touches at (0,5)
 
@@ -77,8 +74,7 @@ describe('Line-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI / 2,
-      clockwise: true
+      sweepAngle: -Math.PI // CW
     }
     const line = vLine(-5) // x = -5 intersects at (-5,0)
 
@@ -96,8 +92,7 @@ describe('Line-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: 2 * Math.PI,
-      clockwise: false // Full circle
+      sweepAngle: 2 * Math.PI // Full circle
     }
     // Degenerate "line": a single point outside the circle
     const line: Line = {
@@ -116,8 +111,7 @@ describe('Line-Arc extra intersection cases', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0, // (5,0)
-      endAngle: Math.PI / 2, // (0,5)
-      clockwise: false // CCW, upper-right quadrant
+      sweepAngle: Math.PI / 2 // (0,5)
     }
     const line = diagLine() // y = x
 
@@ -140,8 +134,7 @@ describe('Line-Arc extra intersection cases', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: Math.PI / 4, // 45°
-      endAngle: Math.PI / 4 + Math.PI / 12, // 60°
-      clockwise: false
+      sweepAngle: Math.PI / 12 // 15°
     }
     // Same diagonal line y = x passes through start point only
     const line = diagLine()
@@ -157,8 +150,7 @@ describe('Line-Arc extra intersection cases', () => {
       center: { x: 3, y: 2 },
       radius: 4,
       startAngle: 0,
-      endAngle: 2 * Math.PI,
-      clockwise: false // full circle
+      sweepAngle: 2 * Math.PI // full circle
     }
     const line = hLine(2, -10, 20) // through the centre, y = 2
 
@@ -182,8 +174,7 @@ describe('Line-Arc extra intersection cases', () => {
       center: { x: 3, y: 2 },
       radius: 4,
       startAngle: Math.PI / 2, // 90°
-      endAngle: Math.PI, // 180° (upper-left quadrant of circle)
-      clockwise: false
+      sweepAngle: Math.PI / 2 // 180° - 90° = 90°
     }
     const line = vLine(7, -10, 10) // x = 7, right of the circle
 
@@ -196,8 +187,7 @@ describe('Line-Arc extra intersection cases', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0, // (5,0)
-      endAngle: Math.PI / 2, // (0,5)
-      clockwise: false
+      sweepAngle: Math.PI / 2 // (0,5)
     }
     // Horizontal line through y = 0 intersects at (5,0) only
     const line = hLine(0)

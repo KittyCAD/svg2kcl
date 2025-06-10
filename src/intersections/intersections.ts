@@ -1,5 +1,5 @@
 import { Point } from '../types/base'
-import { normalizeAngle, normalizeSweep } from './arc_helper'
+import { normalizeAngle, normalizeSweep, isPointOnArcSweep, getArcParameter } from './arc_helper'
 import {
   doBoxesOverlap,
   evaluateBezier,
@@ -15,7 +15,7 @@ import {
 import {
   EPS_ANGLE_INTERSECTION,
   EPS_BBOX,
-  EPS_LINE_INTERSECTION,
+  EPS_INTERSECTION,
   EPS_ROOT_DUPE,
   MAX_RECURSION_DEPTH
 } from './constants'
@@ -23,7 +23,7 @@ import { Plotter } from './plotter'
 import { allRootsCertified } from 'flo-poly'
 
 // Saves us a few sqrt calls in the line intersection check.
-const EPS_LINE_INTERSECTION_SQUARED = Math.pow(EPS_LINE_INTERSECTION, 2)
+const EPS_INTERSECTION_SQUARED = Math.pow(EPS_INTERSECTION, 2)
 
 export interface Line {
   start: Point
@@ -63,9 +63,9 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 
   // Exit early if lines are parallel or degenerate.
   if (
-    Math.abs(denominator) < EPS_LINE_INTERSECTION ||
-    Math.hypot(d1x, d1y) < EPS_LINE_INTERSECTION ||
-    Math.hypot(d2x, d2y) < EPS_LINE_INTERSECTION
+    Math.abs(denominator) < EPS_INTERSECTION ||
+    Math.hypot(d1x, d1y) < EPS_INTERSECTION ||
+    Math.hypot(d2x, d2y) < EPS_INTERSECTION
   ) {
     return []
   }
@@ -153,13 +153,13 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
   const lineDirY = line.end.y - line.start.y
   const lineLenSquare = lineDirX * lineDirX + lineDirY * lineDirY
 
-  if (lineLenSquare < EPS_LINE_INTERSECTION_SQUARED) {
+  if (lineLenSquare < EPS_INTERSECTION_SQUARED) {
     // Degenerate line (start == end), no intersection.
     return intersections
   }
 
   for (const t of roots) {
-    if (t >= -EPS_LINE_INTERSECTION && t <= 1 + EPS_LINE_INTERSECTION) {
+    if (t >= -EPS_INTERSECTION && t <= 1 + EPS_INTERSECTION) {
       const bezierPoint = evaluateBezier(t, bezier)
 
       // Vector from line start to the intersection candidate.
@@ -169,7 +169,7 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
       // Param along the segment.
       const lineT = (toPointX * lineDirX + toPointY * lineDirY) / lineLenSquare
 
-      if (lineT >= -EPS_LINE_INTERSECTION && lineT <= 1 + EPS_LINE_INTERSECTION) {
+      if (lineT >= -EPS_INTERSECTION && lineT <= 1 + EPS_INTERSECTION) {
         intersections.push({
           point: bezierPoint,
           t1: Math.max(0, Math.min(1, lineT)),
@@ -229,7 +229,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   const B = 2 * (dirX * relStartX + dirY * relStartY)
   const C = relStartX * relStartX + relStartY * relStartY - arc.radius * arc.radius
 
-  if (A < EPS_LINE_INTERSECTION_SQUARED) {
+  if (A < EPS_INTERSECTION_SQUARED) {
     // Line is degenerate (start == end), no intersection.
     return intersections
   }
@@ -241,7 +241,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   const sweep = normalizeSweep(arc.startAngle, arc.endAngle, arc.clockwise) // ≥0
 
   rootLoop: for (const t of tIntersections) {
-    if (t < -EPS_LINE_INTERSECTION || t > 1 + EPS_LINE_INTERSECTION) {
+    if (t < -EPS_INTERSECTION || t > 1 + EPS_INTERSECTION) {
       continue
     }
 
@@ -538,7 +538,7 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
   // Extract the root values (use midpoint of interval).
   const roots = rootIntervals
     .map((interval) => (interval.tS + interval.tE) / 2)
-    .filter((s) => s > -EPS_LINE_INTERSECTION && s < 1 + EPS_LINE_INTERSECTION)
+    .filter((s) => s > -EPS_INTERSECTION && s < 1 + EPS_INTERSECTION)
     .sort((a, b) => a - b)
 
   // Compute the arc sweep once.
@@ -606,5 +606,162 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
 }
 
 export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
-  return []
+  const intersections: Intersection[] = []
+
+  // Handle degenerate cases.
+  if (arc1.radius < EPS_INTERSECTION || arc2.radius < EPS_INTERSECTION) {
+    return intersections
+  }
+
+  // Distance between circle centers.
+  const dx = arc2.center.x - arc1.center.x
+  const dy = arc2.center.y - arc1.center.y
+  const d = Math.sqrt(dx * dx + dy * dy)
+
+  // Check for non-intersecting cases with tolerance.
+  const sumRadii = arc1.radius + arc2.radius
+  const diffRadii = Math.abs(arc1.radius - arc2.radius)
+
+  if (d > sumRadii + EPS_INTERSECTION) {
+    // Circles too far apart.
+    return intersections
+  }
+
+  if (d < diffRadii - EPS_INTERSECTION) {
+    // One circle inside the other.
+    return intersections
+  }
+
+  if (d < EPS_INTERSECTION) {
+    // Concentric circles - either identical (infinite intersections) or no intersections.
+    return intersections
+  }
+
+  // Check for single intersection (tangent circles).
+  if (Math.abs(d - sumRadii) < EPS_INTERSECTION || Math.abs(d - diffRadii) < EPS_INTERSECTION) {
+    // Single tangent point.
+    const ratio = arc1.radius / d
+    const x = arc1.center.x + ratio * dx
+    const y = arc1.center.y + ratio * dy
+
+    // Check if point lies on both arc sweeps
+    const point = { x, y }
+    if (isPointOnArcSweep(point, arc1) && isPointOnArcSweep(point, arc2)) {
+      const arc1T = getArcParameter(point, arc1)
+      const arc2T = getArcParameter(point, arc2)
+
+      intersections.push({
+        point,
+        t1: Math.max(0, Math.min(1, arc1T)),
+        t2: Math.max(0, Math.min(1, arc2T))
+      })
+    }
+
+    return intersections
+  }
+
+  // Two intersection points case.
+  // Using the standard circle-circle intersection formula.
+  const a = (arc1.radius * arc1.radius - arc2.radius * arc2.radius + d * d) / (2 * d)
+  const discriminant = arc1.radius * arc1.radius - a * a
+
+  // Protect against negative discriminant due to floating point error.
+  if (discriminant < -EPS_INTERSECTION_SQUARED) {
+    return intersections
+  }
+
+  const h = Math.sqrt(Math.max(0, discriminant))
+
+  // Point on line between centers.
+  const px = arc1.center.x + (a * dx) / d
+  const py = arc1.center.y + (a * dy) / d
+
+  // Two intersection points perpendicular to the line between centers.
+  const candidates = [
+    { x: px + (h * dy) / d, y: py - (h * dx) / d },
+    { x: px - (h * dy) / d, y: py + (h * dx) / d }
+  ]
+
+  // Compute the arc sweeps once.
+  const sweep1 = normalizeSweep(arc1.startAngle, arc1.endAngle, arc1.clockwise)
+  const sweep2 = normalizeSweep(arc2.startAngle, arc2.endAngle, arc2.clockwise)
+
+  candidateLoop: for (const point of candidates) {
+    // Check if point lies within both arc sweeps.
+    const angle1 = Math.atan2(point.y - arc1.center.y, point.x - arc1.center.x)
+    const angle2 = Math.atan2(point.y - arc2.center.y, point.x - arc2.center.x)
+
+    const angNorm1 = normalizeAngle(angle1, arc1.startAngle, arc1.clockwise)
+    const angNorm2 = normalizeAngle(angle2, arc2.startAngle, arc2.clockwise)
+
+    // Check if point is within arc1 sweep.
+    if (sweep1 < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
+      if (angNorm1 < -EPS_ANGLE_INTERSECTION || angNorm1 - sweep1 > EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    }
+
+    // Check if point is within arc2 sweep.
+    if (sweep2 < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
+      if (angNorm2 < -EPS_ANGLE_INTERSECTION || angNorm2 - sweep2 > EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    }
+
+    const t1 = angNorm1 / (sweep1 || 2 * Math.PI)
+    const t2 = angNorm2 / (sweep2 || 2 * Math.PI)
+
+    // Deduplicate.
+    for (const h of intersections) {
+      const dx = h.point.x - point.x
+      const dy = h.point.y - point.y
+      if (Math.sqrt(dx * dx + dy * dy) < EPS_ROOT_DUPE) {
+        continue candidateLoop
+      }
+    }
+
+    intersections.push({
+      point,
+      t1: Math.max(0, Math.min(1, t1)),
+      t2: Math.max(0, Math.min(1, t2))
+    })
+  }
+
+  // Plotter.
+  // --------------------------------------------------------------------------
+  const arc1Bounds = {
+    xMin: arc1.center.x - arc1.radius,
+    xMax: arc1.center.x + arc1.radius,
+    yMin: arc1.center.y - arc1.radius,
+    yMax: arc1.center.y + arc1.radius
+  }
+
+  const arc2Bounds = {
+    xMin: arc2.center.x - arc2.radius,
+    xMax: arc2.center.x + arc2.radius,
+    yMin: arc2.center.y - arc2.radius,
+    yMax: arc2.center.y + arc2.radius
+  }
+
+  const xMin = Math.min(arc1Bounds.xMin, arc2Bounds.xMin)
+  const xMax = Math.max(arc1Bounds.xMax, arc2Bounds.xMax)
+  const yMin = Math.min(arc1Bounds.yMin, arc2Bounds.yMin)
+  const yMax = Math.max(arc1Bounds.yMax, arc2Bounds.yMax)
+
+  const plotter = new Plotter()
+  plotter.clear()
+  plotter.setBounds(xMin, yMin, xMax, yMax)
+
+  plotter.plotArc(arc1, 'blue')
+  plotter.plotArc(arc2, 'red')
+
+  intersections.forEach((intersection) => {
+    plotter.plotPoint(intersection.point, 'black')
+  })
+
+  plotter.addTitle(`Intersections: ${intersections.length}`)
+  plotter.save('image.png')
+  // --------------------------------------------------------------------------
+
+  return intersections
 }

@@ -1,6 +1,7 @@
 import { Point } from '../types/base'
 import { Arc } from './intersections'
 import { EPS_ANGLE_INTERSECTION } from './constants'
+import { EPSILON_INTERSECT } from '../constants'
 
 export function normalizeSweep(start: number, end: number, cw?: boolean): number {
   let s = end - start
@@ -29,24 +30,4 @@ export function normalizeAngle(a: number, ref: number, cw: boolean = false): num
       return diff + 2 * Math.PI
     }
   }
-}
-
-export function isPointOnArcSweep(point: Point, arc: Arc): boolean {
-  const angle = Math.atan2(point.y - arc.center.y, point.x - arc.center.x)
-  const angNorm = normalizeAngle(angle, arc.startAngle, arc.clockwise)
-  const sweep = normalizeSweep(arc.startAngle, arc.endAngle, arc.clockwise)
-
-  if (sweep >= 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
-    return true // Full circle
-  }
-
-  return angNorm >= -EPS_ANGLE_INTERSECTION && angNorm <= sweep + EPS_ANGLE_INTERSECTION
-}
-
-export function getArcParameter(point: Point, arc: Arc): number {
-  const angle = Math.atan2(point.y - arc.center.y, point.x - arc.center.x)
-  const angNorm = normalizeAngle(angle, arc.startAngle, arc.clockwise)
-  const sweep = normalizeSweep(arc.startAngle, arc.endAngle, arc.clockwise)
-
-  return angNorm / (sweep || 2 * Math.PI)
 }

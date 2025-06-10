@@ -1,6 +1,9 @@
+import { allRootsCertified } from 'flo-poly'
 import { Point } from '../types/base'
-import { normalizeAngle, normalizeSweep, isPointOnArcSweep, getArcParameter } from './arc_helper'
+import { normalizeAngle, normalizeSweep } from './arc_helper'
 import {
+  BezierDegeneracyType,
+  checkBezierDegeneracy,
   doBoxesOverlap,
   evaluateBezier,
   fatLineReject,
@@ -8,9 +11,7 @@ import {
   makeFatLine,
   solveCubic,
   solveQuadratic,
-  subdivideBezier,
-  checkBezierDegeneracy,
-  BezierDegeneracyType
+  subdivideBezier
 } from './bezier_helpers'
 import {
   EPS_ANGLE_INTERSECTION,
@@ -20,7 +21,6 @@ import {
   MAX_RECURSION_DEPTH
 } from './constants'
 import { Plotter } from './plotter'
-import { allRootsCertified } from 'flo-poly'
 
 // Saves us a few sqrt calls in the line intersection check.
 const EPS_INTERSECTION_SQUARED = Math.pow(EPS_INTERSECTION, 2)
@@ -38,6 +38,8 @@ export interface Bezier {
   end: Point
 }
 
+// Arc is maybe a little confusing: angles are specified ACW, even if the arc is clockwise.
+// So to sweep from 6 o'clock to 12 o'clock, you specify startAngle=3pi/2, endAngle=pi/2.
 export interface Arc {
   center: Point
   radius: number
@@ -634,29 +636,6 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
 
   if (d < EPS_INTERSECTION) {
     // Concentric circles - either identical (infinite intersections) or no intersections.
-    return intersections
-  }
-
-  // Check for single intersection (tangent circles).
-  if (Math.abs(d - sumRadii) < EPS_INTERSECTION || Math.abs(d - diffRadii) < EPS_INTERSECTION) {
-    // Single tangent point.
-    const ratio = arc1.radius / d
-    const x = arc1.center.x + ratio * dx
-    const y = arc1.center.y + ratio * dy
-
-    // Check if point lies on both arc sweeps
-    const point = { x, y }
-    if (isPointOnArcSweep(point, arc1) && isPointOnArcSweep(point, arc2)) {
-      const arc1T = getArcParameter(point, arc1)
-      const arc2T = getArcParameter(point, arc2)
-
-      intersections.push({
-        point,
-        t1: Math.max(0, Math.min(1, arc1T)),
-        t2: Math.max(0, Math.min(1, arc2T))
-      })
-    }
-
     return intersections
   }
 

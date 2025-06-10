@@ -235,3 +235,226 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
 
   return { pathSamplePoints: points, pathCommands: commands }
 }
+
+function reflectControlPoint(controlPoint: Point, currentPoint: Point): Point {
+  return {
+    x: 2 * currentPoint.x - controlPoint.x,
+    y: 2 * currentPoint.y - controlPoint.y
+  }
+}
+
+// Helper function to convert relative coordinates to absolute.
+function toAbsolute(relative: number[], currentPoint: Point): number[] {
+  const result: number[] = []
+  for (let i = 0; i < relative.length; i += 2) {
+    result.push(currentPoint.x + relative[i])
+    result.push(currentPoint.y + relative[i + 1])
+  }
+  return result
+}
+
+export function absolutizeSubpath(inputCommands: PathCommand[]): PathCommandEnriched[] {
+  // Walks the full subpath and returns enriched commands with absolute positions
+  // and control points.
+  const commands: PathCommandEnriched[] = []
+  let currentPoint = { x: 0, y: 0 }
+  let previousControlPoint: Point = { x: 0, y: 0 }
+
+  for (let i = 0; i < inputCommands.length; i++) {
+    const command = inputCommands[i]
+    const startPositionAbsolute = { ...currentPoint }
+
+    let absCommand: PathCommand
+    let endPositionAbsolute: Point
+    let newPreviousControlPoint = previousControlPoint
+
+    switch (command.type) {
+      // Move commands.
+      case PathCommandType.MoveAbsolute:
+      case PathCommandType.MoveRelative: {
+        const isRelative = command.type === PathCommandType.MoveRelative
+        const [x, y] = isRelative
+          ? [currentPoint.x + command.parameters[0], currentPoint.y + command.parameters[1]]
+          : command.parameters
+
+        endPositionAbsolute = { x, y }
+        newPreviousControlPoint = endPositionAbsolute
+
+        absCommand = {
+          ...command,
+          type: PathCommandType.MoveAbsolute,
+          startPositionAbsolute,
+          endPositionAbsolute,
+          parameters: [x, y]
+        }
+        break
+      }
+
+      // Line commands (including horizontal/vertical).
+      case PathCommandType.LineAbsolute:
+      case PathCommandType.LineRelative:
+      case PathCommandType.HorizontalLineAbsolute:
+      case PathCommandType.HorizontalLineRelative:
+      case PathCommandType.VerticalLineAbsolute:
+      case PathCommandType.VerticalLineRelative: {
+        let x: number, y: number
+
+        switch (command.type) {
+          case PathCommandType.LineAbsolute:
+            ;[x, y] = command.parameters
+            break
+          case PathCommandType.LineRelative:
+            x = currentPoint.x + command.parameters[0]
+            y = currentPoint.y + command.parameters[1]
+            break
+          case PathCommandType.HorizontalLineAbsolute:
+            x = command.parameters[0]
+            y = currentPoint.y
+            break
+          case PathCommandType.HorizontalLineRelative:
+            x = currentPoint.x + command.parameters[0]
+            y = currentPoint.y
+            break
+          case PathCommandType.VerticalLineAbsolute:
+            x = currentPoint.x
+            y = command.parameters[0]
+            break
+          case PathCommandType.VerticalLineRelative:
+            x = currentPoint.x
+            y = currentPoint.y + command.parameters[0]
+            break
+        }
+
+        endPositionAbsolute = { x, y }
+
+        absCommand = {
+          ...command,
+          type: PathCommandType.LineAbsolute,
+          startPositionAbsolute,
+          endPositionAbsolute,
+          parameters: [x, y]
+        }
+        break
+      }
+
+      // Quadratic Bézier commands
+      case PathCommandType.QuadraticBezierAbsolute:
+      case PathCommandType.QuadraticBezierRelative:
+      case PathCommandType.QuadraticBezierSmoothAbsolute:
+      case PathCommandType.QuadraticBezierSmoothRelative: {
+        let controlPoint: Point
+        let endPoint: Point
+
+        const isSmooth = command.type.includes('Smooth')
+        const isRelative = command.type.includes('Relative')
+
+        if (isSmooth) {
+          // Smooth commands: reflect previous control point
+          controlPoint = reflectControlPoint(previousControlPoint, currentPoint)
+          const [endX, endY] = isRelative
+            ? [currentPoint.x + command.parameters[0], currentPoint.y + command.parameters[1]]
+            : command.parameters
+          endPoint = { x: endX, y: endY }
+        } else {
+          // Regular quadratic: extract control point and end point
+          const params = isRelative
+            ? toAbsolute(command.parameters, currentPoint)
+            : command.parameters
+          const [x1, y1, x, y] = params
+          controlPoint = { x: x1, y: y1 }
+          endPoint = { x, y }
+        }
+
+        endPositionAbsolute = endPoint
+        newPreviousControlPoint = controlPoint
+
+        absCommand = {
+          ...command,
+          type: PathCommandType.QuadraticBezierAbsolute,
+          startPositionAbsolute,
+          endPositionAbsolute,
+          parameters: [controlPoint.x, controlPoint.y, endPoint.x, endPoint.y]
+        }
+        break
+      }
+
+      // Cubic Bézier commands
+      case PathCommandType.CubicBezierAbsolute:
+      case PathCommandType.CubicBezierRelative:
+      case PathCommandType.CubicBezierSmoothAbsolute:
+      case PathCommandType.CubicBezierSmoothRelative: {
+        let control1: Point
+        let control2: Point
+        let endPoint: Point
+
+        const isSmooth = command.type.includes('Smooth')
+        const isRelative = command.type.includes('Relative')
+
+        if (isSmooth) {
+          // Smooth commands: reflect previous control point for first control point.
+          control1 = reflectControlPoint(previousControlPoint, currentPoint)
+          const params = isRelative
+            ? toAbsolute(command.parameters, currentPoint)
+            : command.parameters
+          const [x2, y2, x, y] = params
+          control2 = { x: x2, y: y2 }
+          endPoint = { x, y }
+        } else {
+          // Regular cubic: extract both control points and end point.
+          const params = isRelative
+            ? toAbsolute(command.parameters, currentPoint)
+            : command.parameters
+          const [x1, y1, x2, y2, x, y] = params
+          control1 = { x: x1, y: y1 }
+          control2 = { x: x2, y: y2 }
+          endPoint = { x, y }
+        }
+
+        endPositionAbsolute = endPoint
+        newPreviousControlPoint = control2
+
+        absCommand = {
+          ...command,
+          type: PathCommandType.CubicBezierAbsolute,
+          startPositionAbsolute,
+          endPositionAbsolute,
+          parameters: [control1.x, control1.y, control2.x, control2.y, endPoint.x, endPoint.y]
+        }
+        break
+      }
+
+      // Stop commands
+      case PathCommandType.StopAbsolute:
+      case PathCommandType.StopRelative: {
+        endPositionAbsolute = { ...command.endPositionAbsolute }
+
+        absCommand = {
+          ...command,
+          type: PathCommandType.StopAbsolute,
+          startPositionAbsolute,
+          endPositionAbsolute,
+          parameters: []
+        }
+        break
+      }
+
+      default:
+        throw new Error(`Unsupported command type: ${command.type}`)
+    }
+
+    // Update state.
+    currentPoint = { ...endPositionAbsolute }
+    previousControlPoint = { ...newPreviousControlPoint }
+
+    // Add enriched command.
+    commands.push({
+      ...absCommand,
+      iCommand: i,
+      iFirstPoint: null,
+      iLastPoint: null,
+      previousControlPoint: { ...previousControlPoint }
+    })
+  }
+
+  return commands
+}

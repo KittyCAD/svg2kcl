@@ -5,24 +5,14 @@ const fullCircle = (center: { x: number; y: number }, radius: number): Arc => ({
   center,
   radius,
   startAngle: 0,
-  endAngle: 2 * Math.PI,
-  clockwise: false
-})
-
-const quarterArc = (center: { x: number; y: number }, radius: number, startAngle: number): Arc => ({
-  center,
-  radius,
-  startAngle,
-  endAngle: startAngle + Math.PI / 2,
-  clockwise: false
+  sweepAngle: 2 * Math.PI
 })
 
 const semicircle = (center: { x: number; y: number }, radius: number, upper = true): Arc => ({
   center,
   radius,
   startAngle: upper ? 0 : Math.PI,
-  endAngle: upper ? Math.PI : 2 * Math.PI,
-  clockwise: false
+  sweepAngle: Math.PI
 })
 
 describe('Arc-Arc intersections', () => {
@@ -32,15 +22,13 @@ describe('Arc-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI / 3,
-      clockwise: false
+      sweepAngle: Math.PI / 3
     }
     const arc2: Arc = {
       center: { x: 5, y: 5 },
       radius: 5,
       startAngle: Math.PI,
-      endAngle: (3 * Math.PI) / 2,
-      clockwise: false
+      sweepAngle: Math.PI / 2
     }
 
     const hits = getArcArcIntersection(arc1, arc2)
@@ -78,8 +66,7 @@ describe('Arc-Arc intersections', () => {
       center: { x: 2, y: 0 },
       radius: 3,
       startAngle: 0,
-      endAngle: Math.PI,
-      clockwise: false
+      sweepAngle: Math.PI
     }
 
     const hits = getArcArcIntersection(arc, circle)
@@ -158,15 +145,13 @@ describe('Arc-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0, // (5,0)
-      endAngle: Math.PI / 2, // (0,5)
-      clockwise: false
+      sweepAngle: Math.PI / 2 // (0,5)
     }
     const arc2: Arc = {
       center: { x: 10, y: 0 },
       radius: 5,
       startAngle: Math.PI / 2, // (10,5)
-      endAngle: Math.PI, // (5,0)
-      clockwise: false
+      sweepAngle: Math.PI / 2 // (5,0)
     }
 
     const hits = getArcArcIntersection(arc1, arc2)
@@ -184,16 +169,14 @@ describe('Arc-Arc intersections', () => {
     const arc1: Arc = {
       center: { x: 0, y: 0 },
       radius: 5,
-      startAngle: (3 / 2) * Math.PI,
-      endAngle: 2 * Math.PI,
-      clockwise: true
+      startAngle: 0,
+      sweepAngle: Math.PI / 2
     }
     const arc2: Arc = {
       center: { x: 5, y: 0 },
       radius: 5,
       startAngle: Math.PI / 2,
-      endAngle: Math.PI,
-      clockwise: false
+      sweepAngle: Math.PI / 2
     }
 
     const hits = getArcArcIntersection(arc1, arc2)
@@ -214,15 +197,13 @@ describe('Arc-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: 0.1, // Very small arc
-      clockwise: false
+      sweepAngle: 0.1 // Very small arc
     }
     const arc2: Arc = {
       center: { x: 8, y: 0 },
       radius: 5,
       startAngle: Math.PI - 0.1,
-      endAngle: Math.PI, // Very small arc
-      clockwise: false
+      sweepAngle: 0.1 // Very small arc
     }
 
     const hits = getArcArcIntersection(arc1, arc2)
@@ -235,15 +216,13 @@ describe('Arc-Arc intersections', () => {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI,
-      clockwise: false
+      sweepAngle: Math.PI
     }
     const arc2: Arc = {
       center: { x: 0, y: 0 },
       radius: 5,
       startAngle: 0,
-      endAngle: Math.PI,
-      clockwise: false
+      sweepAngle: Math.PI
     }
 
     const hits = getArcArcIntersection(arc1, arc2)

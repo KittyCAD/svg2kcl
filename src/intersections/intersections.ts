@@ -8,7 +8,9 @@ import {
   makeFatLine,
   solveCubic,
   solveQuadratic,
-  subdivideBezier
+  subdivideBezier,
+  checkBezierDegeneracy,
+  BezierDegeneracyType
 } from './bezier_helpers'
 import {
   EPS_ANGLE_INTERSECTION,
@@ -417,6 +419,23 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
   // - Return intersection points with both curve parameters.
 
   const intersections: Intersection[] = []
+
+  // Check for degenerate Bezier—straight lines or points.
+  const degType = checkBezierDegeneracy(bezier)
+  switch (degType) {
+    case BezierDegeneracyType.POINT:
+      throw new Error('Degenerate Bezier: all points are the same.')
+    case BezierDegeneracyType.LINE:
+      const bezierLine = {
+        start: bezier.start,
+        end: bezier.end
+      } as Line
+      return getLineArcIntersection(bezierLine, arc)
+    case BezierDegeneracyType.NORMAL:
+      break
+    default:
+      throw new Error(`Unknown Bezier degeneracy type: ${degType}`)
+  }
 
   // Bring circle to origin and unit radius.
   const toUnit = (p: Point): Point => ({

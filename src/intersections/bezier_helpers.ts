@@ -2,6 +2,7 @@ import { Point } from '../types/base'
 import { splitCubicBezier } from '../utils/bezier'
 import { Bezier } from './intersections'
 import { EPS_LINE_INTERSECTION } from './constants'
+import { EPS_DEGENERATE } from './constants'
 
 export interface Bounds {
   xMin: number
@@ -16,6 +17,12 @@ export interface FatLine {
   C: number
   dMin: number
   dMax: number
+}
+
+export enum BezierDegeneracyType {
+  NORMAL = 'NORMAL',
+  POINT = 'POINT',
+  LINE = 'LINE'
 }
 
 // Utilities, not necessarily Bezier related.
@@ -117,7 +124,86 @@ export function fatLineReject(b: Bezier, fl: FatLine): boolean {
   return localMax < fl.dMin - EPS_LINE_INTERSECTION || localMin > fl.dMax + EPS_LINE_INTERSECTION
 }
 
+function arePointsCollinear(points: Point[], epsilon: number): boolean {
+  if (points.length < 2) {
+    throw new Error('At least two points are required to check collinearity.')
+  }
+  if (points.length == 2) {
+    return true
+  }
+
+  // Find the two points that are furthest apart to use as the baseline.
+  let maxDistSq = 0
+  let baselineStart = 0
+  let baselineEnd = 1
+
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const dx = points[j].x - points[i].x
+      const dy = points[j].y - points[i].y
+      const distSq = dx * dx + dy * dy
+
+      if (distSq > maxDistSq) {
+        maxDistSq = distSq
+        baselineStart = i
+        baselineEnd = j
+      }
+    }
+  }
+
+  // If all points are essentially the same, they're collinear.
+  if (Math.sqrt(maxDistSq) < epsilon) {
+    return true
+  }
+
+  const p1 = points[baselineStart]
+  const p2 = points[baselineEnd]
+
+  // Check if all other points lie on the line defined by p1 and p2.
+  for (let i = 0; i < points.length; i++) {
+    if (i === baselineStart || i === baselineEnd) continue
+
+    const p = points[i]
+
+    // Use point-to-line distance formula: |ax + by + c| / sqrt(a^2 + b^2)
+    // Line equation: (y2-y1)x - (x2-x1)y + (x2-x1)y1 - (y2-y1)x1 = 0
+    const a = p2.y - p1.y
+    const b = -(p2.x - p1.x)
+    const c = (p2.x - p1.x) * p1.y - (p2.y - p1.y) * p1.x
+
+    const distance = Math.abs(a * p.x + b * p.y + c) / Math.sqrt(a * a + b * b)
+
+    if (distance > epsilon) {
+      return false
+    }
+  }
+
+  return true
+}
+
 // Actual Bezier stuff.
+export function checkBezierDegeneracy(b: Bezier): BezierDegeneracyType {
+  const { start, control1, control2, end } = b
+  const points = [start, control1, control2, end]
+
+  // Check for point degeneracy - all points within epsilon distance of start.
+  const allPointsClose = points.every((p) => {
+    const dx = p.x - start.x
+    const dy = p.y - start.y
+    return Math.sqrt(dx * dx + dy * dy) < EPS_DEGENERATE
+  })
+
+  if (allPointsClose) {
+    return BezierDegeneracyType.POINT
+  }
+  // Check for line degeneracy - all points are collinear.
+  if (arePointsCollinear(points, EPS_DEGENERATE)) {
+    return BezierDegeneracyType.LINE
+  }
+
+  return BezierDegeneracyType.NORMAL
+}
+
 export function convertQuadraticToCubic(start: Point, control: Point, end: Point): Bezier {
   // Degree elevationn for quadratic to cubic only.
   // https://en.wikipedia.org/wiki/Bézier_curve#Degree_elevation

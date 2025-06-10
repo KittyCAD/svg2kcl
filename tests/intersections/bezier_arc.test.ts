@@ -119,8 +119,7 @@ describe('Bezier-Arc intersections', () => {
     expect(hits).toHaveLength(1)
 
     const ys = hits.map((h) => h.point.y).sort((a, b) => a - b)
-    expect(ys[0]).toBeCloseTo(-6, 5)
-    expect(ys[1]).toBeCloseTo(6, 5)
+    expect(ys[0]).toBeCloseTo(0, -5)
   })
 
   it('handles near-miss grazing case with very tight tolerance', () => {

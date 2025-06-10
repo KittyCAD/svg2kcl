@@ -8,3 +8,6 @@ export const EPS_ROOT_DUPE = 1e-3 // Root duplication epsilon.
 
 // Line-Arc intersection.
 export const EPS_ANGLE_INTERSECTION = 1e-9 // Angle difference (radians) small enough to treat as zero.
+
+// Degenerate cases.
+export const EPS_DEGENERATE = 1e-6

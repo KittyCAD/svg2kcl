@@ -1,6 +1,6 @@
 import { allRootsCertified } from 'flo-poly'
 import { Point } from '../types/base'
-import { normalizeAngle, normalizeSweep } from './arc_helper'
+import { normalizeAngle } from './arc_helper'
 import {
   BezierDegeneracyType,
   checkBezierDegeneracy,
@@ -38,47 +38,17 @@ export interface Bezier {
   end: Point
 }
 
-// Arc is maybe a little confusing: angles are specified ACW, even if the arc is clockwise.
-// So to sweep from 6 o'clock to 12 o'clock, you specify startAngle=3pi/2, endAngle=pi/2.
 export interface Arc {
   center: Point
   radius: number
   startAngle: number
-  endAngle: number
-  clockwise?: boolean
+  sweepAngle: number
 }
 
 export interface Intersection {
   point: Point
   t1: number
   t2: number
-}
-
-// Normalized arc type: always CCW, no `clockwise` property
-export interface ArcNormalized {
-  center: Point
-  radius: number
-  startAngle: number
-  endAngle: number
-}
-
-export function normalizeArc(arc: Arc): ArcNormalized {
-  // Convert all arcs to canonical ACW representation.
-  if (arc.clockwise) {
-    return {
-      center: arc.center,
-      radius: arc.radius,
-      startAngle: arc.endAngle,
-      endAngle: arc.startAngle
-    }
-  } else {
-    return {
-      center: arc.center,
-      radius: arc.radius,
-      startAngle: arc.startAngle,
-      endAngle: arc.endAngle
-    }
-  }
 }
 
 // Intersection functions.
@@ -237,7 +207,6 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
 }
 
 export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
-  const arcN = normalizeArc(arc)
   const intersections: Intersection[] = []
 
   // Line in parameter-y form:
@@ -248,8 +217,8 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
 
   // Circle (arc) centered at (cx, cy) with radius r.
   // Shift coordinates so the center is at (0,0) for simplicity.
-  const relStartX = line.start.x - arcN.center.x
-  const relStartY = line.start.y - arcN.center.y
+  const relStartX = line.start.x - arc.center.x
+  const relStartY = line.start.y - arc.center.y
 
   // Substitute the line equation into the circle equation:
   //   (x - cx)^2 + (y - cy)^2 = r^2
@@ -257,7 +226,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   // Expand to get a quadratic in t: A*t^2 + B*t + C = 0
   const A = dirX * dirX + dirY * dirY
   const B = 2 * (dirX * relStartX + dirY * relStartY)
-  const C = relStartX * relStartX + relStartY * relStartY - arcN.radius * arcN.radius
+  const C = relStartX * relStartX + relStartY * relStartY - arc.radius * arc.radius
 
   if (A < EPS_INTERSECTION_SQUARED) {
     // Line is degenerate (start == end), no intersection.
@@ -268,7 +237,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   const tIntersections = solveQuadratic(A, B, C)
 
   // Compute the arc's sweep and direction for filtering
-  const sweep = normalizeSweep(arcN.startAngle, arcN.endAngle)
+  const sweep = arc.sweepAngle
 
   rootLoop: for (const t of tIntersections) {
     if (t < -EPS_INTERSECTION || t > 1 + EPS_INTERSECTION) {
@@ -276,16 +245,25 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
     }
 
     // Intersection point relative to centre.
-    const x = line.start.x + t * dirX - arcN.center.x
-    const y = line.start.y + t * dirY - arcN.center.y
+    const x = line.start.x + t * dirX - arc.center.x
+    const y = line.start.y + t * dirY - arc.center.y
 
     // Angle and distance along the arc.
     const ang = Math.atan2(y, x)
-    const angNorm = normalizeAngle(ang, arcN.startAngle)
+    let angNorm = normalizeAngle(ang, arc.startAngle)
 
-    if (sweep < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
-      // Not a full circle.
+    // For negative sweep (CW), map angle to negative range.
+    if (sweep < 0) {
+      if (angNorm > 0) angNorm -= 2 * Math.PI
+    }
+
+    // Check if angle is within the sweep.
+    if (sweep > 0) {
       if (angNorm < -EPS_ANGLE_INTERSECTION || angNorm - sweep > EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    } else if (sweep < 0) {
+      if (angNorm > EPS_ANGLE_INTERSECTION || angNorm - sweep < -EPS_ANGLE_INTERSECTION) {
         continue
       }
     }
@@ -300,7 +278,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
     }
 
     intersections.push({
-      point: { x: x + arcN.center.x, y: y + arcN.center.y },
+      point: { x: x + arc.center.x, y: y + arc.center.y },
       t1: Math.max(0, Math.min(1, t)),
       t2: Math.max(0, Math.min(1, arcT))
     })
@@ -309,10 +287,10 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   // Plotter.
   // --------------------------------------------------------------------------
   const arcBounds = {
-    xMin: arcN.center.x - arcN.radius,
-    xMax: arcN.center.x + arcN.radius,
-    yMin: arcN.center.y - arcN.radius,
-    yMax: arcN.center.y + arcN.radius
+    xMin: arc.center.x - arc.radius,
+    xMax: arc.center.x + arc.radius,
+    yMin: arc.center.y - arc.radius,
+    yMax: arc.center.y + arc.radius
   }
   const lineBounds = {
     xMin: Math.min(line.start.x, line.end.x),
@@ -331,7 +309,7 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
   plotter.setBounds(xMin, yMin, xMax, yMax)
 
   plotter.plotLine(line, 'blue')
-  plotter.plotArc(arcN, 'red')
+  plotter.plotArc(arc, 'red')
 
   intersections.forEach((intersection) => {
     plotter.plotPoint(intersection.point, 'black')
@@ -480,7 +458,6 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
 }
 
 export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection[] {
-  const arcN = normalizeArc(arc)
   const intersections: Intersection[] = []
 
   // Check for degenerate Bezier—straight lines or points.
@@ -502,8 +479,8 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
 
   // Bring circle to origin and unit radius.
   const toUnit = (p: Point): Point => ({
-    x: (p.x - arcN.center.x) / arcN.radius,
-    y: (p.y - arcN.center.y) / arcN.radius
+    x: (p.x - arc.center.x) / arc.radius,
+    y: (p.y - arc.center.y) / arc.radius
   })
 
   const p0 = toUnit(bezier.start)
@@ -561,24 +538,29 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
     .sort((a, b) => a - b)
 
   // Compute the arc sweep once.
-  const sweep = normalizeSweep(arcN.startAngle, arcN.endAngle)
+  const sweep = arc.sweepAngle
 
   rootLoop: for (const t of roots) {
     // Evaluate Bezier at parameter t.
     const point = evaluateBezier(t, bezier)
 
     // Check angle position against the arc sweep.
-    const relX = point.x - arcN.center.x
-    const relY = point.y - arcN.center.y
+    const relX = point.x - arc.center.x
+    const relY = point.y - arc.center.y
     const angle = Math.atan2(relY, relX)
-    const angleNorm = normalizeAngle(angle, arcN.startAngle)
-
-    if (sweep < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
+    let angleNorm = normalizeAngle(angle, arc.startAngle)
+    if (sweep < 0) {
+      if (angleNorm > 0) angleNorm -= 2 * Math.PI
+    }
+    if (sweep > 0) {
       if (angleNorm < -EPS_ANGLE_INTERSECTION || angleNorm - sweep > EPS_ANGLE_INTERSECTION) {
         continue
       }
+    } else if (sweep < 0) {
+      if (angleNorm > EPS_ANGLE_INTERSECTION || angleNorm - sweep < -EPS_ANGLE_INTERSECTION) {
+        continue
+      }
     }
-
     const arcT = angleNorm / (sweep || 2 * Math.PI)
 
     // Deduplicate near-identical Bezier parameters.
@@ -597,10 +579,10 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
   // --------------------------------------------------------------------------
   const bezierBounds = getBezierBounds(bezier)
   const arcBounds = {
-    xMin: arcN.center.x - arcN.radius,
-    xMax: arcN.center.x + arcN.radius,
-    yMin: arcN.center.y - arcN.radius,
-    yMax: arcN.center.y + arcN.radius
+    xMin: arc.center.x - arc.radius,
+    xMax: arc.center.x + arc.radius,
+    yMin: arc.center.y - arc.radius,
+    yMax: arc.center.y + arc.radius
   }
 
   const xMin = Math.min(bezierBounds.xMin, arcBounds.xMin)
@@ -613,7 +595,7 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
   plotter.setBounds(xMin, yMin, xMax, yMax)
 
   plotter.plotBezier(bezier, 'blue')
-  plotter.plotArc(arcN, 'red')
+  plotter.plotArc(arc, 'red')
 
   intersections.forEach(({ point }) => plotter.plotPoint(point, 'black'))
 
@@ -625,23 +607,21 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
 }
 
 export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
-  const arcN1 = normalizeArc(arc1)
-  const arcN2 = normalizeArc(arc2)
   const intersections: Intersection[] = []
 
   // Handle degenerate cases.
-  if (arcN1.radius < EPS_INTERSECTION || arcN2.radius < EPS_INTERSECTION) {
+  if (arc1.radius < EPS_INTERSECTION || arc2.radius < EPS_INTERSECTION) {
     return intersections
   }
 
   // Distance between circle centers.
-  const dx = arcN2.center.x - arcN1.center.x
-  const dy = arcN2.center.y - arcN1.center.y
+  const dx = arc2.center.x - arc1.center.x
+  const dy = arc2.center.y - arc1.center.y
   const d = Math.sqrt(dx * dx + dy * dy)
 
   // Check for non-intersecting cases with tolerance.
-  const sumRadii = arcN1.radius + arcN2.radius
-  const diffRadii = Math.abs(arcN1.radius - arcN2.radius)
+  const sumRadii = arc1.radius + arc2.radius
+  const diffRadii = Math.abs(arc1.radius - arc2.radius)
 
   if (d > sumRadii + EPS_INTERSECTION) {
     // Circles too far apart.
@@ -660,8 +640,8 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
 
   // Two intersection points case.
   // Using the standard circle-circle intersection formula.
-  const a = (arcN1.radius * arcN1.radius - arcN2.radius * arcN2.radius + d * d) / (2 * d)
-  const discriminant = arcN1.radius * arcN1.radius - a * a
+  const a = (arc1.radius * arc1.radius - arc2.radius * arc2.radius + d * d) / (2 * d)
+  const discriminant = arc1.radius * arc1.radius - a * a
 
   // Protect against negative discriminant due to floating point error.
   if (discriminant < -EPS_INTERSECTION_SQUARED) {
@@ -671,8 +651,8 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
   const h = Math.sqrt(Math.max(0, discriminant))
 
   // Point on line between centers.
-  const px = arcN1.center.x + (a * dx) / d
-  const py = arcN1.center.y + (a * dy) / d
+  const px = arc1.center.x + (a * dx) / d
+  const py = arc1.center.y + (a * dy) / d
 
   // Two intersection points perpendicular to the line between centers.
   const candidates = [
@@ -681,31 +661,42 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
   ]
 
   // Compute the arc sweeps once.
-  const sweep1 = normalizeSweep(arcN1.startAngle, arcN1.endAngle)
-  const sweep2 = normalizeSweep(arcN2.startAngle, arcN2.endAngle)
+  const sweep1 = arc1.sweepAngle
+  const sweep2 = arc2.sweepAngle
 
   candidateLoop: for (const point of candidates) {
     // Check if point lies within both arc sweeps.
-    const angle1 = Math.atan2(point.y - arcN1.center.y, point.x - arcN1.center.x)
-    const angle2 = Math.atan2(point.y - arcN2.center.y, point.x - arcN2.center.x)
+    const angle1 = Math.atan2(point.y - arc1.center.y, point.x - arc1.center.x)
+    const angle2 = Math.atan2(point.y - arc2.center.y, point.x - arc2.center.x)
 
-    const angNorm1 = normalizeAngle(angle1, arcN1.startAngle)
-    const angNorm2 = normalizeAngle(angle2, arcN2.startAngle)
-
+    let angNorm1 = normalizeAngle(angle1, arc1.startAngle)
+    let angNorm2 = normalizeAngle(angle2, arc2.startAngle)
+    if (sweep1 < 0) {
+      if (angNorm1 > 0) angNorm1 -= 2 * Math.PI
+    }
+    if (sweep2 < 0) {
+      if (angNorm2 > 0) angNorm2 -= 2 * Math.PI
+    }
     // Check if point is within arc1 sweep.
-    if (sweep1 < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
+    if (sweep1 > 0) {
       if (angNorm1 < -EPS_ANGLE_INTERSECTION || angNorm1 - sweep1 > EPS_ANGLE_INTERSECTION) {
         continue
       }
-    }
-
-    // Check if point is within arc2 sweep.
-    if (sweep2 < 2 * Math.PI - EPS_ANGLE_INTERSECTION) {
-      if (angNorm2 < -EPS_ANGLE_INTERSECTION || angNorm2 - sweep2 > EPS_ANGLE_INTERSECTION) {
+    } else if (sweep1 < 0) {
+      if (angNorm1 > EPS_ANGLE_INTERSECTION || angNorm1 - sweep1 < -EPS_ANGLE_INTERSECTION) {
         continue
       }
     }
-
+    // Check if point is within arc2 sweep.
+    if (sweep2 > 0) {
+      if (angNorm2 < -EPS_ANGLE_INTERSECTION || angNorm2 - sweep2 > EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    } else if (sweep2 < 0) {
+      if (angNorm2 > EPS_ANGLE_INTERSECTION || angNorm2 - sweep2 < -EPS_ANGLE_INTERSECTION) {
+        continue
+      }
+    }
     const t1 = angNorm1 / (sweep1 || 2 * Math.PI)
     const t2 = angNorm2 / (sweep2 || 2 * Math.PI)
 
@@ -728,16 +719,16 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
   // Plotter.
   // --------------------------------------------------------------------------
   const arc1Bounds = {
-    xMin: arcN1.center.x - arcN1.radius,
-    xMax: arcN1.center.x + arcN1.radius,
-    yMin: arcN1.center.y - arcN1.radius,
-    yMax: arcN1.center.y + arcN1.radius
+    xMin: arc1.center.x - arc1.radius,
+    xMax: arc1.center.x + arc1.radius,
+    yMin: arc1.center.y - arc1.radius,
+    yMax: arc1.center.y + arc1.radius
   }
   const arc2Bounds = {
-    xMin: arcN2.center.x - arcN2.radius,
-    xMax: arcN2.center.x + arcN2.radius,
-    yMin: arcN2.center.y - arcN2.radius,
-    yMax: arcN2.center.y + arcN2.radius
+    xMin: arc2.center.x - arc2.radius,
+    xMax: arc2.center.x + arc2.radius,
+    yMin: arc2.center.y - arc2.radius,
+    yMax: arc2.center.y + arc2.radius
   }
 
   const xMin = Math.min(arc1Bounds.xMin, arc2Bounds.xMin)
@@ -749,8 +740,8 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
   plotter.clear()
   plotter.setBounds(xMin, yMin, xMax, yMax)
 
-  plotter.plotArc(arcN1, 'blue')
-  plotter.plotArc(arcN2, 'red')
+  plotter.plotArc(arc1, 'blue')
+  plotter.plotArc(arc2, 'red')
 
   intersections.forEach((intersection) => {
     plotter.plotPoint(intersection.point, 'black')

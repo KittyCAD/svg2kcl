@@ -175,10 +175,10 @@ export class Plotter {
     this.ctx.lineWidth = lineWidth
     this.ctx.setLineDash([])
 
-    // Flip angles for canvas coordinate system, CW too.
+    // Convert from normal coordinates to canvas coordinates (flip Y-axis).
     const start = -arc.startAngle
-    const end = -arc.endAngle
-    const anticlockwise = !arc.clockwise
+    const end = -arc.startAngle - arc.sweepAngle // Note: subtract because we flipped
+    const anticlockwise = arc.sweepAngle > 0 // Flip the CW logic too.
 
     this.ctx.beginPath()
     this.ctx.ellipse(center.x, center.y, rx, ry, 0, start, end, anticlockwise)

@@ -108,6 +108,20 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 }
 
 export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersection[] {
+  // Degeneracy check.
+  const degType = checkBezierDegeneracy(bezier)
+  switch (degType) {
+    case BezierDegeneracyType.POINT:
+      throw new Error('Degenerate Bézier found: all points are the same.')
+    case BezierDegeneracyType.LINE:
+      const bezierLine: Line = { start: bezier.start, end: bezier.end }
+      return getLineLineIntersection(line, bezierLine)
+    case BezierDegeneracyType.NORMAL:
+      break
+    default:
+      throw new Error(`Degenerate Bézier found: unknown degeneracy type: ${degType}.`)
+  }
+
   const intersections: Intersection[] = []
 
   // See: https://www.particleincell.com/2013/cubic-line-intersection/
@@ -306,6 +320,36 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
   // See: https://vciba.springeropen.com/articles/10.1186/s42492-022-00114-3
   // Also, maybe: https://stackoverflow.com/questions/4039229/checking-if-two-cubic-b%C3%A9zier-curves-intersect
   // Also, maybe: https://pomax.github.io/bezierinfo/#intersections
+
+  // Check degeneracy.
+  const deg1 = checkBezierDegeneracy(bezier1)
+  const deg2 = checkBezierDegeneracy(bezier2)
+
+  if (deg1 === BezierDegeneracyType.POINT || deg2 === BezierDegeneracyType.POINT) {
+    throw new Error('Degenerate Bézier found: all points are the same.')
+  }
+
+  if (deg1 === BezierDegeneracyType.LINE && deg2 === BezierDegeneracyType.LINE) {
+    const line1: Line = { start: bezier1.start, end: bezier1.end }
+    const line2: Line = { start: bezier2.start, end: bezier2.end }
+    return getLineLineIntersection(line1, line2)
+  }
+
+  if (deg1 === BezierDegeneracyType.LINE) {
+    const line1: Line = { start: bezier1.start, end: bezier1.end }
+    return getLineBezierIntersection(line1, bezier2)
+  }
+
+  if (deg2 === BezierDegeneracyType.LINE) {
+    const line2: Line = { start: bezier2.start, end: bezier2.end }
+    // Swap t1/t2 in result to match signature.
+    return getLineBezierIntersection(line2, bezier1).map((i) => ({
+      point: i.point,
+      t1: i.t2,
+      t2: i.t1
+    }))
+  }
+
   const out: Intersection[] = []
 
   const recurse = (
@@ -426,10 +470,10 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
     case BezierDegeneracyType.POINT:
       throw new Error('Degenerate Bézier found: all points are the same.')
     case BezierDegeneracyType.LINE:
-      const bezierLine = {
+      const bezierLine: Line = {
         start: bezier.start,
         end: bezier.end
-      } as Line
+      }
       return getLineArcIntersection(bezierLine, arc)
     case BezierDegeneracyType.NORMAL:
       break

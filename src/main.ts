@@ -58,12 +58,12 @@ async function main() {
 }
 
 // Run the main function if this file is executed directly.
-// const isMainModule = import.meta.url === `file://${process.argv[1]}`
-// if (isMainModule) {
-//   main()
-// }
-
-if (require.main === module) {
-  // This code only runs when the file is executed directly.
+const isMainModule = import.meta.url === `file://${process.argv[1]}`
+if (isMainModule) {
   main()
 }
+
+// if (require.main === module) {
+//   // This code only runs when the file is executed directly.
+//   main()
+// }

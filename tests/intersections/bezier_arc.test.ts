@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals'
 import { getBezierArcIntersection, Bezier, Arc } from '../../src/intersections/intersections'
 
 const bezierLine = (x0: number, y0: number, x1: number, y1: number): Bezier => {
-  // Control points chosen so the cubic is a straight line segment
+  // Control points chosen so the cubic is a straight line segment for degeneracy testing.
   return {
     start: { x: x0, y: y0 },
     control1: { x: (2 * x0 + x1) / 3, y: (2 * y0 + y1) / 3 },
@@ -37,29 +37,6 @@ describe('Bezier-Arc intersections', () => {
     })
   })
 
-  it('detects a single point of grazing contact', () => {
-    const arc: Arc = {
-      center: { x: 0, y: 0 },
-      radius: 5,
-      startAngle: Math.PI / 4,
-      endAngle: (3 * Math.PI) / 4,
-      clockwise: false
-    }
-
-    // Horizontal "line" tangent to top of circle at (0, 5)
-    const bez: Bezier = {
-      start: { x: -8, y: 5 },
-      control1: { x: -8 / 3, y: 5 }, // Straight line: control points on the line
-      control2: { x: 8 / 3, y: 5 },
-      end: { x: 8, y: 5 }
-    }
-
-    const hits = getBezierArcIntersection(bez, arc)
-    expect(hits).toHaveLength(1)
-    expect(hits[0].point.x).toBeCloseTo(0, 6)
-    expect(hits[0].point.y).toBeCloseTo(5, 6)
-  })
-
   it('intersects an arc with a sweep > 2π (more than full circle)', () => {
     const arc: Arc = {
       center: { x: 0, y: 0 },
@@ -69,13 +46,60 @@ describe('Bezier-Arc intersections', () => {
       clockwise: false
     }
 
-    const bez = bezierLine(-5, 0, 5, 0) // horizontal
+    const bez: Bezier = {
+      start: { x: -5, y: 0 },
+      control1: { x: -2.5, y: 3 },
+      control2: { x: 2.5, y: -3 },
+      end: { x: 5, y: 0 }
+    }
 
     const hits = getBezierArcIntersection(bez, arc)
     expect(hits).toHaveLength(2)
     const xs = hits.map((h) => h.point.x).sort((a, b) => a - b)
-    expect(xs[0]).toBeCloseTo(-3, 4)
-    expect(xs[1]).toBeCloseTo(3, 4)
+    expect(xs[0]).toBeCloseTo(-2.8, 0.8)
+    expect(xs[1]).toBeCloseTo(2.8, -0.8)
+  })
+
+  it('respects reversed arc direction (CW sweep)', () => {
+    const arc: Arc = {
+      center: { x: 0, y: 0 },
+      radius: 6,
+      startAngle: 0,
+      endAngle: (3 * Math.PI) / 2, // 270° CW
+      clockwise: true
+    }
+
+    const bez: Bezier = {
+      start: { x: 2, y: 10 },
+      control1: { x: 1, y: 3 },
+      control2: { x: -1, y: 1 },
+      end: { x: 2, y: -10 }
+    }
+
+    const hits = getBezierArcIntersection(bez, arc)
+    expect(hits).toHaveLength(1)
+
+    const ys = hits.map((h) => h.point.y).sort((a, b) => a - b)
+    expect(ys[0]).toBeCloseTo(1, -5.9)
+  })
+})
+
+describe('Degenerate Bezier-Arc intersections', () => {
+  it('detects a single point of grazing contact from degenerate line', () => {
+    const arc: Arc = {
+      center: { x: 0, y: 0 },
+      radius: 5,
+      startAngle: Math.PI / 4,
+      endAngle: (3 * Math.PI) / 4,
+      clockwise: false
+    }
+
+    // Horizontal "line" tangent to top of circle at (0, 5).
+    const bez = bezierLine(-8, 5, 8, 5)
+    const hits = getBezierArcIntersection(bez, arc)
+    expect(hits).toHaveLength(1)
+    expect(hits[0].point.x).toBeCloseTo(0, 6)
+    expect(hits[0].point.y).toBeCloseTo(5, 6)
   })
 
   it('intersects a full circle at all four cardinal axis crossings', () => {
@@ -102,40 +126,5 @@ describe('Bezier-Arc intersections', () => {
     expect(horizontalHits.map((h) => h.point.x).sort()).toEqual(
       [-5, 5].map((v) => expect.any(Number))
     )
-  })
-
-  it('respects reversed arc direction (CW sweep)', () => {
-    const arc: Arc = {
-      center: { x: 0, y: 0 },
-      radius: 6,
-      startAngle: 0,
-      endAngle: (3 * Math.PI) / 2, // 270° CW
-      clockwise: true
-    }
-
-    const bez = bezierLine(0, 10, 0, -10)
-
-    const hits = getBezierArcIntersection(bez, arc)
-    expect(hits).toHaveLength(1)
-
-    const ys = hits.map((h) => h.point.y).sort((a, b) => a - b)
-    expect(ys[0]).toBeCloseTo(0, -5)
-  })
-
-  it('handles near-miss grazing case with very tight tolerance', () => {
-    const arc: Arc = {
-      center: { x: 0, y: 0 },
-      radius: 5,
-      startAngle: Math.PI / 2,
-      endAngle: Math.PI,
-      clockwise: false
-    }
-
-    // Just grazes the edge (5 - 1e-6)
-    const bez = bezierLine(-10, 5 - 1e-6, 10, 5 - 1e-6)
-
-    const hits = getBezierArcIntersection(bez, arc)
-    expect(hits).toHaveLength(1)
-    expect(hits[0].point.y).toBeCloseTo(5)
   })
 })

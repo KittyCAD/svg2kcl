@@ -1,8 +1,3 @@
-import { Point } from '../types/base'
-import { Arc } from './intersections'
-import { EPS_ANGLE_INTERSECTION } from './constants'
-import { EPSILON_INTERSECT } from '../constants'
-
 export function normalizeSweep(start: number, end: number, cw?: boolean): number {
   let s = end - start
   if (cw) {

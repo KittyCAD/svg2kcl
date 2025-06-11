@@ -24,6 +24,13 @@ export interface SplitSegment extends Segment {
   parentId: string // ID of the original segment before splitting.
 }
 
+export interface Subpath {
+  id: string
+  parentId?: string
+  commands: PathCommand[]
+  segments?: Segment[]
+}
+
 // Some of these are near duplicates of content in src/utils/bezier.ts; cleanup later.
 const MOVE_COMMANDS = [PathCommandType.MoveAbsolute, PathCommandType.MoveRelative]
 
@@ -51,20 +58,75 @@ const ARC_COMMANDS = [PathCommandType.EllipticalArcAbsolute, PathCommandType.Ell
 
 export function processPath(path: PathElement) {
   // Approach here will be, I think:
-  // 1. Absolutize path: no relative coordinates.
-  // 2. Normalize path: all beziers should be in cubic, absolute form.
-  // 3. Convert SVG commands to a 'segment' array.
-  // 4. Run intersection tests on segments.
-  // 5. Split segments at intersection points.
-  // 6. Build planar graph/DCEL-like structure.
-  // 7. Do region analysis.
-  // 8. Continue as before.
-  let x = 1
+  // 1. Separate paths into subpaths.
+  // 2. For each subpath:
+  //    - Absolutize path: no relative coordinates.
+  //    - Normalize path: all beziers should be in cubic, absolute form.
+  //    - Convert SVG commands to a 'segment' array.
+  //
+  // 3. Run intersection tests.
+  //    - This will involve checking each segment against all others.
+  //    - If a segment intersects another, track the intersection point.
+  // 4. Split segments at intersection points.
+  // 5. Build planar graph/DCEL-like structure.
+  // 6. Do region analysis.
+  // 7. Continue as before.
 
-  // Build segments from the path commands. This will
-  // involve converting relative commands to absolute, normalizing
-  // Bezier curves, then assembling a segment array.
-  const segments = buildSegmentsFromSubpath(path.commands)
+  // Split the path into subpaths based on move and stop commands.
+  const subpaths = splitSubpaths(path.commands)
+
+  // Build  our normalized segments from the path commands.
+  for (const subpath of subpaths) {
+    const segments = buildSegmentsFromSubpath(subpath.commands)
+    subpath.segments = segments
+  }
+
+  // Intersection tests nooow.
+
+  let x = 1
+}
+
+function splitSubpaths(commands: PathCommand[]): Subpath[] {
+  const subpaths: Subpath[] = []
+  let currentSubpath: Subpath | null = null
+
+  const moves = [PathCommandType.MoveAbsolute, PathCommandType.MoveRelative]
+  const stops = [PathCommandType.StopAbsolute, PathCommandType.StopRelative]
+
+  for (const cmd of commands) {
+    // Start new subpath on move (unless it's the first command).
+    if (moves.includes(cmd.type) && currentSubpath === null) {
+      currentSubpath = {
+        id: uuidv4(),
+        commands: [],
+        segments: []
+      }
+    }
+
+    // If we have a current subpath, add the command to it.
+    if (currentSubpath) {
+      currentSubpath.commands.push(cmd)
+    }
+
+    // End subpath on a stop.
+    if (stops.includes(cmd.type)) {
+      if (currentSubpath) {
+        subpaths.push(currentSubpath)
+        currentSubpath = null
+      }
+    }
+  }
+
+  // Handle final subpath if not ended with a stop.
+  if (currentSubpath) {
+    subpaths.push(currentSubpath)
+  }
+
+  if (subpaths.length === 0) {
+    throw new Error('Path has no valid subpaths to process')
+  }
+
+  return subpaths
 }
 
 function reflectControlPoint(controlPoint: Point, currentPoint: Point): Point {
@@ -72,16 +134,6 @@ function reflectControlPoint(controlPoint: Point, currentPoint: Point): Point {
     x: 2 * currentPoint.x - controlPoint.x,
     y: 2 * currentPoint.y - controlPoint.y
   }
-}
-
-// Helper function to convert relative coordinates to absolute.
-function toAbsolute(relative: number[], currentPoint: Point): number[] {
-  const result: number[] = []
-  for (let i = 0; i < relative.length; i += 2) {
-    result.push(currentPoint.x + relative[i])
-    result.push(currentPoint.y + relative[i + 1])
-  }
-  return result
 }
 
 function normalizeBezierCommand(
@@ -299,8 +351,9 @@ function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
     const command = commands[i]
     const startPositionAbsolute = { ...currentPoint }
 
-    let endPositionAbsolute: Point
-    let newPreviousControlPoint = previousControlPoint
+    // These will be updated as we process the commands.
+    let endPositionAbsolute = { ...currentPoint }
+    let newPreviousControlPoint = { ...previousControlPoint }
 
     if (MOVE_COMMANDS.includes(command.type)) {
       // Move command — just update state.

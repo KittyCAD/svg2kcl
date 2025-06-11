@@ -94,7 +94,7 @@ export class PathReader {
       : new Transform()
 
     // Parse the path data using our parser.
-    const parsedPath = this.pathParser.parsePath(mergedData.d, transform, mergedData.fillRule)
+    const parsedPath = this.pathParser.parsePath(mergedData.d, mergedData.fillRule)
 
     return {
       type: ElementType.Path,

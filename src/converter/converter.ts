@@ -15,6 +15,7 @@ import { PathFragmentType } from '../types/fragments'
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
+import { processPath } from '../paths/path_processor_v2'
 
 // TODO: Improve handling of relative coordinates, particularly prior to `close` calls.
 // Absolute coordinates allow us to get away from rounding/floating point issues.
@@ -522,6 +523,8 @@ export class Converter {
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
+    processPath(path)
+
     // Process path to regions and fragments.
     const processor = new PathProcessor(path)
     const processedPath = processor.processPath()

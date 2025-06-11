@@ -277,11 +277,7 @@ export class SvgPathParser {
     }
   }
 
-  public parsePath(
-    pathData: string,
-    transform: Transform,
-    inheritedFillRule?: FillRule
-  ): ParsedPath {
+  public parsePath(pathData: string, inheritedFillRule?: FillRule): ParsedPath {
     // Reset.
     this.resetState()
 

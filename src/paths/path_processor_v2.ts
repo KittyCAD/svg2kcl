@@ -1,5 +1,10 @@
-import { PathCommand, PathCommandTypeToSvgPathCommandMap } from '../types/paths'
-import { Line, Arc, Bezier } from '../intersections/intersections'
+import { PathCommand } from '../types/paths'
+import { Line, Arc, Bezier, Intersection } from '../intersections/intersections'
+import {
+  getLineLineIntersection,
+  getLineBezierIntersection,
+  getBezierBezierIntersection
+} from '../intersections/intersections'
 import { PathElement } from '../types/elements'
 import { PathCommandType } from '../types/paths'
 import { Point } from '../types/base'
@@ -23,6 +28,8 @@ export interface SplitSegment extends Segment {
   // A segment that has been split at an intersection point.
   parentId: string // ID of the original segment before splitting.
 }
+
+type SegmentHandler = (a: Segment, b: Segment) => Intersection[]
 
 export interface Subpath {
   id: string
@@ -81,7 +88,65 @@ export function processPath(path: PathElement) {
     subpath.segments = segments
   }
 
-  // Intersection tests nooow.
+  // Intersection tests. We need to test every segment against every other segment.
+  const allSegments = subpaths.flatMap((subpath) => subpath.segments || [])
+
+  // Dispatch table... should probably use generics but YOLO.
+  const intersectionDispatch: Record<SegmentType, Record<SegmentType, SegmentHandler>> = {
+    [SegmentType.Line]: {
+      [SegmentType.Line]: (a, b) => getLineLineIntersection(a.geometry as Line, b.geometry as Line),
+      [SegmentType.CubicBezier]: (a, b) =>
+        getLineBezierIntersection(a.geometry as Line, b.geometry as Bezier),
+      [SegmentType.Arc]: () => [] // Placeholder
+    },
+    [SegmentType.CubicBezier]: {
+      [SegmentType.Line]: (a, b) =>
+        getLineBezierIntersection(b.geometry as Line, a.geometry as Bezier),
+      [SegmentType.CubicBezier]: (a, b) =>
+        getBezierBezierIntersection(a.geometry as Bezier, b.geometry as Bezier),
+      [SegmentType.Arc]: () => [] // Placeholder
+    },
+    [SegmentType.Arc]: {
+      [SegmentType.Line]: () => [],
+      [SegmentType.CubicBezier]: () => [],
+      [SegmentType.Arc]: () => []
+    }
+  }
+
+  // We can do only the upper triangle, including the diagonal.
+  type SegmentIntersection = {
+    segId1: string
+    segId2: string
+    intersection: Intersection
+  }
+
+  let allSegmentIntersections: SegmentIntersection[] = []
+
+  for (let i = 0; i < allSegments.length - 1; i++) {
+    for (let j = i + 1; j < allSegments.length; j++) {
+      const seg1 = allSegments[i]
+      const seg2 = allSegments[j]
+
+      // Get intersections.
+      const handler = intersectionDispatch[seg1.type][seg2.type]
+
+      if (!handler) {
+        console.warn(`No intersection handler for ${seg1.type} - ${seg2.type}`)
+        continue
+      }
+
+      const intersections = handler(seg1, seg2)
+
+      // Flatten and append.
+      for (const intersection of intersections) {
+        allSegmentIntersections.push({
+          segId1: seg1.id,
+          segId2: seg2.id,
+          intersection
+        })
+      }
+    }
+  }
 
   let x = 1
 }

@@ -1,15 +1,20 @@
-import { PathCommand } from '../types/paths'
-import { Line, Arc, Bezier, Intersection } from '../intersections/intersections'
-import {
-  getLineLineIntersection,
-  getLineBezierIntersection,
-  getBezierBezierIntersection
-} from '../intersections/intersections'
-import { PathElement } from '../types/elements'
-import { PathCommandType } from '../types/paths'
-import { Point } from '../types/base'
-import { convertQuadraticToCubic } from '../intersections/bezier_helpers'
 import { v4 as uuidv4 } from 'uuid'
+import { convertQuadraticToCubic } from '../intersections/bezier_helpers'
+import {
+  Arc,
+  Bezier,
+  getBezierBezierIntersection,
+  getLineBezierIntersection,
+  getLineLineIntersection,
+  Intersection,
+  Line
+} from '../intersections/intersections'
+import { Point } from '../types/base'
+import { PathElement } from '../types/elements'
+import { PathCommand, PathCommandType } from '../types/paths'
+import { interpolateLine } from '../utils/geometry'
+import { splitCubicBezier } from '../utils/bezier'
+import { evaluateBezier } from '../intersections/bezier_helpers'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -97,7 +102,10 @@ export function processPath(path: PathElement) {
   // Compute intersections between segments.
   const intersections = computeIntersections(subpaths)
 
-  // Now we need to split segments at intersection points.
+  // Now we need to split segments at intersection points... should maybe
+  // factor out the flattening as we do this twice.
+  const allSegments = subpaths.flatMap((sp) => sp.segments || [])
+  splitSegments(allSegments, intersections)
 
   let x = 1
 }
@@ -478,17 +486,30 @@ function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
   const intersectionDispatch: Record<SegmentType, Record<SegmentType, SegmentHandler>> = {
     [SegmentType.Line]: {
       [SegmentType.Line]: (a, b) => getLineLineIntersection(a.geometry as Line, b.geometry as Line),
+
       [SegmentType.CubicBezier]: (a, b) =>
         getLineBezierIntersection(a.geometry as Line, b.geometry as Bezier),
+
       [SegmentType.Arc]: () => [] // Placeholder
     },
+
     [SegmentType.CubicBezier]: {
-      [SegmentType.Line]: (a, b) =>
-        getLineBezierIntersection(b.geometry as Line, a.geometry as Bezier),
+      [SegmentType.Line]: (a, b) => {
+        // We flipped args going on, so we need to flip the t values.
+        const raw = getLineBezierIntersection(b.geometry as Line, a.geometry as Bezier)
+        return raw.map(({ point, t1, t2 }) => ({
+          point,
+          t1: t2,
+          t2: t1
+        }))
+      },
+
       [SegmentType.CubicBezier]: (a, b) =>
         getBezierBezierIntersection(a.geometry as Bezier, b.geometry as Bezier),
+
       [SegmentType.Arc]: () => [] // Placeholder
     },
+
     [SegmentType.Arc]: {
       [SegmentType.Line]: () => [],
       [SegmentType.CubicBezier]: () => [],
@@ -526,4 +547,107 @@ function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
   }
 
   return allSegmentIntersections
+}
+
+function splitLine(line: Line, tMin: number, tMax: number): SplitSegment[] {
+  // Split a line segment at the given tMin and tMax values.
+  const splitSegments: SplitSegment[] = []
+
+  // Interpolate.
+  const startOut = interpolateLine(line.start, line.end, tMin)
+  const endOut = interpolateLine(line.start, line.end, tMax)
+
+  return splitSegments
+}
+
+export function splitCubicBezierBetween(bezier: Bezier, tMin: number, tMax: number): Bezier {
+  if (tMin >= tMax) {
+    throw new Error(`Invalid t range: tMin (${tMin}) >= tMax (${tMax})`)
+  }
+
+  const { start, control1, control2, end } = bezier
+
+  // Step 1: split at tMin → keep the second half.
+  const firstSplit = splitCubicBezier(start, control1, control2, end, tMin)
+  const [bStart, bCtrl1, bCtrl2, bEnd] = firstSplit.second
+
+  // Step 2: split the result again at a rescaled t.
+  const tRescaled = (tMax - tMin) / (1 - tMin)
+  const secondSplit = splitCubicBezier(bStart, bCtrl1, bCtrl2, bEnd, tRescaled)
+  const [finalStart, finalCtrl1, finalCtrl2, finalEnd] = secondSplit.first
+
+  return {
+    start: finalStart,
+    control1: finalCtrl1,
+    control2: finalCtrl2,
+    end: finalEnd
+  }
+}
+
+function splitArc(arc: Arc, tMin: number, tMax: number): SplitSegment[] {
+  // Split an arc segment at the given tMin and tMax values.
+  // For now, we will not implement this as arcs are not yet supported.
+  throw new Error('Arc splitting is not yet implemented')
+}
+
+function splitSegments(segments: Segment[], intersections: SegmentIntersection[]): SplitSegment[] {
+  // TODO: Ongoing here...
+
+  const tMap = new Map<string, number[]>()
+
+  for (const intersection of intersections) {
+    let {
+      idSeg1,
+      idSeg2,
+      intersection: { t1, t2 }
+    } = intersection
+
+    if (!tMap.has(idSeg1)) tMap.set(idSeg1, [])
+    if (!tMap.has(idSeg2)) tMap.set(idSeg2, [])
+
+    tMap.get(idSeg1)!.push(t1)
+    tMap.get(idSeg2)!.push(t2)
+  }
+
+  const result: SplitSegment[] = []
+
+  for (const segment of segments) {
+    // We need t ranges, e.g., [0, t], [t, 1], rather than just t values.
+    const tValues = [0, 1, ...(tMap.get(segment.id) || [])]
+      .filter((t, i, arr) => t >= 0 && t <= 1 && arr.indexOf(t) === i)
+      .sort((a, b) => a - b)
+
+    for (let i = 0; i < tValues.length - 1; i++) {
+      const t0 = tValues[i]
+      const t1 = tValues[i + 1]
+      if (t1 - t0 < 1e-6) continue
+
+      if (segment.type === SegmentType.Line) {
+        const lineGeometry = segment.geometry as Line
+        const start = interpolateLine(lineGeometry.start, lineGeometry.end, t0)
+        const end = interpolateLine(lineGeometry.start, lineGeometry.end, t1)
+
+        result.push({
+          id: uuidv4(),
+          idParent: segment.id,
+          type: SegmentType.Line,
+          geometry: { start, end }
+        })
+      } else if (segment.type === SegmentType.CubicBezier) {
+        const bezierGeometry = segment.geometry as Bezier
+
+        const pieces = splitCubicBezierBetween(bezierGeometry, t0, t1)
+        result.push({
+          id: uuidv4(),
+          idParent: segment.id,
+          type: SegmentType.CubicBezier,
+          geometry: pieces
+        })
+      } else if (segment.type === SegmentType.Arc) {
+        throw new Error('Arc splitting not yet supported')
+      }
+    }
+  }
+
+  return result
 }

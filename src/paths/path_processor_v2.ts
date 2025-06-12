@@ -639,7 +639,12 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
     seg2TValues.push(intersection.intersection.t2)
   }
 
-  // Loop through segments and split them at intersection points.
+  // Create lookup for segments by ID.
+  const segmentLookup = new Map<string, Segment>()
+  for (const segment of segments) {
+    segmentLookup.set(segment.id, segment)
+  }
+
   const result: SplitSegment[] = []
 
   for (const segment of segments) {
@@ -660,33 +665,39 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
       .filter((t, i, arr) => t >= 0 && t <= 1 && arr.indexOf(t) === i)
 
     // Create split segments for each t-range.
+    const splitPieces: SplitSegment[] = []
+
     for (let i = 0; i < currentSegmentTFull.length - 1; i++) {
       const t1 = currentSegmentTFull[i]
       const t2 = currentSegmentTFull[i + 1]
 
+      // Skip zero-length segments.
+      if (t2 - t1 < EPS_PARAM) continue
+
+      const splitSegmentId = uuidv4()
       let splitSegment: SplitSegment
 
       switch (segment.type) {
         case SegmentType.Line:
           splitSegment = {
-            id: uuidv4(),
+            id: splitSegmentId,
             idSubpath: segment.idSubpath,
             idParentSegment: segment.id,
             type: segment.type,
             geometry: splitLine(segment.geometry as Line, t1, t2),
-            idPrevSegment: null,
-            idNextSegment: null
+            idPrevSegment: null, // Will be set below.
+            idNextSegment: null // Will be set below.
           }
           break
         case SegmentType.CubicBezier:
           splitSegment = {
-            id: uuidv4(),
+            id: splitSegmentId,
             idSubpath: segment.idSubpath,
             idParentSegment: segment.id,
             type: segment.type,
             geometry: splitCubicBezierBetween(segment.geometry as Bezier, t1, t2),
-            idPrevSegment: null,
-            idNextSegment: null
+            idPrevSegment: null, // Will be set below.
+            idNextSegment: null // Will be set below.
           }
           break
         case SegmentType.Arc:
@@ -695,8 +706,36 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
           throw new Error(`Unknown segment type: ${segment.type}`)
       }
 
-      result.push(splitSegment)
+      splitPieces.push(splitSegment)
     }
+
+    // Link the split pieces together.
+    for (let i = 0; i < splitPieces.length; i++) {
+      splitPieces[i].idPrevSegment = i === 0 ? segment.idPrevSegment : splitPieces[i - 1].id
+      splitPieces[i].idNextSegment =
+        i === splitPieces.length - 1 ? segment.idNextSegment : splitPieces[i + 1].id
+    }
+
+    // Update the neighbors of the original segment to point to the new split pieces.
+    if (segment.idPrevSegment) {
+      const prevSegment = segmentLookup.get(segment.idPrevSegment)
+      if (prevSegment) {
+        prevSegment.idNextSegment = splitPieces[0].id
+      }
+    }
+    if (segment.idNextSegment) {
+      const nextSegment = segmentLookup.get(segment.idNextSegment)
+      if (nextSegment) {
+        nextSegment.idPrevSegment = splitPieces[splitPieces.length - 1].id
+      }
+    }
+
+    // Add split pieces to lookup for any future references.
+    for (const piece of splitPieces) {
+      segmentLookup.set(piece.id, piece)
+    }
+
+    result.push(...splitPieces)
   }
 
   return result

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { convertQuadraticToCubic } from '../intersections/bezier_helpers'
-import { EPS_PARAM } from '../intersections/constants'
+import { EPS_PARAM, EPS_INTERSECTION } from '../intersections/constants'
 import {
   Arc,
   Bezier,
@@ -15,6 +15,8 @@ import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { splitCubicBezier } from '../utils/bezier'
 import { interpolateLine } from '../utils/geometry'
+import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
+import { computePointToPointDistance } from '../utils/geometry'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -90,6 +92,12 @@ export interface Subpath {
   segments?: Segment[]
 }
 
+export interface PlanarGraph {
+  nodes: Array<[number, number]>
+  edges: Array<[number, number]>
+  segmentEdgeMap: Map<string, string>
+}
+
 // Some of these are near duplicates of content in src/utils/bezier.ts; cleanup later.
 const MOVE_COMMANDS = [PathCommandType.MoveAbsolute, PathCommandType.MoveRelative]
 
@@ -132,7 +140,8 @@ export function processPath(path: PathElement) {
   // 7. Continue as before.
 
   // Split the path into subpaths based on move and stop commands.
-  const subpaths = splitSubpaths(path.commands)
+  const rawSubpaths = splitSubpaths(path.commands)
+  const subpaths = rawSubpaths.map((subpath) => ensureClosure(subpath))
 
   // Build  our normalized segments from the path commands.
   for (const subpath of subpaths) {
@@ -144,9 +153,16 @@ export function processPath(path: PathElement) {
   const intersections = computeIntersections(subpaths)
 
   // Now we need to split segments at intersection points... should maybe
-  // factor out the flattening as we do this twice.
+  // factor out the flattening as we do this twice. Note that we track
+  // everything for linking via subpath ID, so the flatmap is safe.
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
-  splitSegments(allSegments, intersections)
+  const linkedSplitSegments = splitSegments(allSegments, intersections)
+
+  // Planar graph structure.
+  const planarGraph = buildPlanarGraphFromSegments(linkedSplitSegments)
+  const faceForest = getFaces(planarGraph)
+
+  let x = 1
 }
 
 function splitSubpaths(commands: PathCommand[]): Subpath[] {
@@ -739,4 +755,111 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
   }
 
   return result
+}
+
+function makeNodeAccessor(nodes: Array<[number, number]>) {
+  return (p: Point): number => {
+    for (let i = 0; i < nodes.length; i++) {
+      const [x, y] = nodes[i]
+      if (Math.hypot(p.x - x, p.y - y) < EPS_INTERSECTION) return i
+    }
+    nodes.push([p.x, p.y])
+    return nodes.length - 1
+  }
+}
+
+export function buildPlanarGraphFromSegments(segments: SplitSegment[]): PlanarGraph {
+  const nodes: Array<[number, number]> = []
+  const getNodeId = makeNodeAccessor(nodes)
+
+  const edgeSet = new Set<string>() // avoid duplicates
+  const segmentEdgeMap = new Map<string, string>()
+
+  for (const seg of segments) {
+    let start: Point, end: Point
+    switch (seg.type) {
+      case SegmentType.Line:
+        ;({ start, end } = seg.geometry as Line)
+        break
+      case SegmentType.CubicBezier:
+        ;({ start, end } = seg.geometry as Bezier)
+        break
+      case SegmentType.Arc:
+        throw new Error('Arc segments are not yet supported in planar graph construction')
+      default:
+        throw new Error(`Unknown segment type ${seg.type}`)
+    }
+
+    const aId = getNodeId(start)
+    const bId = getNodeId(end)
+    if (aId === bId) continue // zero-length, ignore
+
+    const key = aId < bId ? `${aId},${bId}` : `${bId},${aId}`
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key)
+      segmentEdgeMap.set(key, seg.id)
+    }
+  }
+
+  const edges: Array<[number, number]> = [...edgeSet].map((k) => {
+    const [a, b] = k.split(',').map(Number)
+    return [a, b]
+  })
+
+  return { nodes, edges, segmentEdgeMap }
+}
+
+export function getFaces(graph: PlanarGraph): DiscoveryResult {
+  // Create the solver instance.
+  const solver = new PlanarFaceTree()
+
+  // Run face discovery.
+  const faceForest = solver.discover(graph.nodes, graph.edges)
+
+  if (faceForest.type === 'RESULT') {
+    return faceForest
+  } else {
+    throw new Error('Face discovery failed')
+  }
+}
+
+function ensureClosure(subpath: Subpath): Subpath {
+  // Get our last non-stop command.
+  const stops = [PathCommandType.StopAbsolute, PathCommandType.StopRelative]
+  let iLastGeomCommand = -1
+
+  const commands = subpath.commands
+
+  for (let i = commands.length - 1; i >= 0; i--) {
+    if (!stops.includes(commands[i].type)) {
+      iLastGeomCommand = i
+      break
+    }
+  }
+
+  // Check if it meets our first command.
+  const firstCommand = commands[0]
+  const lastCommand = commands[iLastGeomCommand]
+
+  if (
+    computePointToPointDistance(
+      lastCommand.endPositionAbsolute,
+      firstCommand.endPositionAbsolute // All subpaths start with a move.
+    ) <= EPS_INTERSECTION
+  ) {
+    // Do nothing.
+  } else {
+    // Insert a new line command.
+    const newCommand = {
+      type: PathCommandType.LineAbsolute,
+      parameters: [firstCommand.endPositionAbsolute.x, firstCommand.endPositionAbsolute.y],
+      startPositionAbsolute: lastCommand.endPositionAbsolute,
+      endPositionAbsolute: firstCommand.endPositionAbsolute
+    }
+    commands.splice(iLastGeomCommand + 1, 0, newCommand)
+  }
+
+  subpath.commands = commands
+
+  return subpath
 }

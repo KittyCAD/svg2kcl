@@ -34,7 +34,41 @@ export interface SplitSegment extends Segment {
   idParent: string // ID of the original segment before splitting.
 }
 
+// Dispatch table for segment intersection handlers.
 type SegmentHandler = (a: Segment, b: Segment) => Intersection[]
+const handleLineLineIntersection: SegmentHandler = (a, b) =>
+  getLineLineIntersection(a.geometry as Line, b.geometry as Line)
+
+const handleLineBezierIntersection: SegmentHandler = (a, b) =>
+  getLineBezierIntersection(a.geometry as Line, b.geometry as Bezier)
+
+const handleBezierLineIntersection: SegmentHandler = (a, b) => {
+  const raw = getLineBezierIntersection(b.geometry as Line, a.geometry as Bezier)
+  return raw.map(({ point, t1, t2 }) => ({ point, t1: t2, t2: t1 }))
+}
+
+const handleBezierBezierIntersection: SegmentHandler = (a, b) =>
+  getBezierBezierIntersection(a.geometry as Bezier, b.geometry as Bezier)
+
+const handleNotImplemented = () => []
+
+const intersectionDispatch: Record<SegmentType, Record<SegmentType, SegmentHandler>> = {
+  [SegmentType.Line]: {
+    [SegmentType.Line]: handleLineLineIntersection,
+    [SegmentType.CubicBezier]: handleLineBezierIntersection,
+    [SegmentType.Arc]: handleNotImplemented
+  },
+  [SegmentType.CubicBezier]: {
+    [SegmentType.Line]: handleBezierLineIntersection,
+    [SegmentType.CubicBezier]: handleBezierBezierIntersection,
+    [SegmentType.Arc]: handleNotImplemented
+  },
+  [SegmentType.Arc]: {
+    [SegmentType.Line]: handleNotImplemented,
+    [SegmentType.CubicBezier]: handleNotImplemented,
+    [SegmentType.Arc]: handleNotImplemented
+  }
+}
 
 interface SegmentIntersection {
   idSeg1: string
@@ -481,41 +515,6 @@ function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
 function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
   // Intersection tests. We need to test every segment against every other segment.
   const allSegments = subpaths.flatMap((subpath) => subpath.segments || [])
-
-  // Dispatch table... should probably use generics but YOLO.
-  const intersectionDispatch: Record<SegmentType, Record<SegmentType, SegmentHandler>> = {
-    [SegmentType.Line]: {
-      [SegmentType.Line]: (a, b) => getLineLineIntersection(a.geometry as Line, b.geometry as Line),
-
-      [SegmentType.CubicBezier]: (a, b) =>
-        getLineBezierIntersection(a.geometry as Line, b.geometry as Bezier),
-
-      [SegmentType.Arc]: () => [] // Placeholder
-    },
-
-    [SegmentType.CubicBezier]: {
-      [SegmentType.Line]: (a, b) => {
-        // We flipped args going on, so we need to flip the t values.
-        const raw = getLineBezierIntersection(b.geometry as Line, a.geometry as Bezier)
-        return raw.map(({ point, t1, t2 }) => ({
-          point,
-          t1: t2,
-          t2: t1
-        }))
-      },
-
-      [SegmentType.CubicBezier]: (a, b) =>
-        getBezierBezierIntersection(a.geometry as Bezier, b.geometry as Bezier),
-
-      [SegmentType.Arc]: () => [] // Placeholder
-    },
-
-    [SegmentType.Arc]: {
-      [SegmentType.Line]: () => [],
-      [SegmentType.CubicBezier]: () => [],
-      [SegmentType.Arc]: () => []
-    }
-  }
 
   // We can do only the upper triangle, including the diagonal.
   let allSegmentIntersections: SegmentIntersection[] = []

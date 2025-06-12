@@ -35,24 +35,28 @@ export interface SplitSegment extends Segment {
 }
 
 // Dispatch table for segment intersection handlers.
-type SegmentHandler = (a: Segment, b: Segment) => Intersection[]
-const handleLineLineIntersection: SegmentHandler = (a, b) =>
+type SegmentIntersectionComputer = (a: Segment, b: Segment) => Intersection[]
+
+const handleLineLineIntersection: SegmentIntersectionComputer = (a, b) =>
   getLineLineIntersection(a.geometry as Line, b.geometry as Line)
 
-const handleLineBezierIntersection: SegmentHandler = (a, b) =>
+const handleLineBezierIntersection: SegmentIntersectionComputer = (a, b) =>
   getLineBezierIntersection(a.geometry as Line, b.geometry as Bezier)
 
-const handleBezierLineIntersection: SegmentHandler = (a, b) => {
+const handleBezierLineIntersection: SegmentIntersectionComputer = (a, b) => {
   const raw = getLineBezierIntersection(b.geometry as Line, a.geometry as Bezier)
   return raw.map(({ point, t1, t2 }) => ({ point, t1: t2, t2: t1 }))
 }
 
-const handleBezierBezierIntersection: SegmentHandler = (a, b) =>
+const handleBezierBezierIntersection: SegmentIntersectionComputer = (a, b) =>
   getBezierBezierIntersection(a.geometry as Bezier, b.geometry as Bezier)
 
 const handleNotImplemented = () => []
 
-const intersectionDispatch: Record<SegmentType, Record<SegmentType, SegmentHandler>> = {
+const intersectionDispatch: Record<
+  SegmentType,
+  Record<SegmentType, SegmentIntersectionComputer>
+> = {
   [SegmentType.Line]: {
     [SegmentType.Line]: handleLineLineIntersection,
     [SegmentType.CubicBezier]: handleLineBezierIntersection,

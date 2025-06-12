@@ -41,7 +41,7 @@ export interface Bezier {
 export interface Arc {
   center: Point
   radius: number
-  startAngle: number // Angle, in radians, CCW from the positive X-axis.
+  startAngle: number // Angle, in radians, ACW from the positive X-axis.
   sweepAngle: number // +ve ACW, -ve CW.
 }
 

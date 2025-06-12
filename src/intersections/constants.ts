@@ -8,3 +8,6 @@ export const EPS_ANGLE_INTERSECTION = 1e-6 // Angle difference (radians) small e
 export const MAX_RECURSION_DEPTH = 50
 export const EPS_BBOX = 1e-6 // Bounding box is small enough; stop dividing.
 export const EPS_ROOT_DUPE = 1e-5 // Root duplication epsilon.
+
+// Parameter space equivalence.
+export const EPS_PARAM = 1e-6 // Two t-values are close enough to be considered equal.

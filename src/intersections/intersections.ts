@@ -16,6 +16,7 @@ import {
 import {
   EPS_ANGLE_INTERSECTION,
   EPS_BBOX,
+  EPS_PARAM,
   EPS_INTERSECTION,
   EPS_ROOT_DUPE,
   MAX_RECURSION_DEPTH
@@ -372,11 +373,18 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     // Get the largest bounding box dimension for each bezier; width or height.
     const bb1 = getBezierBounds(b1)
     const bb2 = getBezierBounds(b2)
+    const bb1MidX = (bb1.xMin + bb1.xMax) * 0.5
+    const bb1MidY = (bb1.yMin + bb1.yMax) * 0.5
+    const bb2MidX = (bb2.xMin + bb2.xMax) * 0.5
+    const bb2MidY = (bb2.yMin + bb2.yMax) * 0.5
     const lMax1 = Math.max(bb1.xMax - bb1.xMin, bb1.yMax - bb1.yMin)
     const lMax2 = Math.max(bb2.xMax - bb2.xMin, bb2.yMax - bb2.yMin)
 
+    // Flag to check if the segments are 'flat' enough.
+    const paramFlat = s1[1] - s1[0] < EPS_PARAM && s2[1] - s2[0] < EPS_PARAM
+
     // When the box is 'flat' enough, return midpoint of overlapping bounding boxes.
-    if ((lMax1 < EPS_BBOX && lMax2 < EPS_BBOX) || depth >= MAX_RECURSION_DEPTH) {
+    if ((lMax1 < EPS_BBOX && lMax2 < EPS_BBOX) || paramFlat || depth >= MAX_RECURSION_DEPTH) {
       // Get midpoint of the overlapping bounding boxes.
       const xStart = Math.max(bb1.xMin, bb2.xMin)
       const xEnd = Math.min(bb1.xMax, bb2.xMax)
@@ -403,6 +411,18 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     // AABB.
     const fl = lMax1 < lMax2 ? makeFatLine(b1) : makeFatLine(b2)
     if (lMax1 < lMax2 ? fatLineReject(b2, fl) : fatLineReject(b1, fl)) return
+
+    // If the midpoints of the two AABBs coincide, further subdivision
+    // will not shrink anything; treat it as a hit and return. This occurs
+    // when testing a bezier against itself.
+    if (Math.abs(bb1MidX - bb2MidX) < EPS_BBOX && Math.abs(bb1MidY - bb2MidY) < EPS_BBOX) {
+      out.push({
+        point: { x: bb1MidX, y: bb1MidY },
+        t1: (s1[0] + s1[1]) * 0.5,
+        t2: (s2[0] + s2[1]) * 0.5
+      })
+      return
+    }
 
     if (lMax1 >= lMax2) {
       const [l, lt, r, rt] = subdivideBezier(b1, 0.5, s1[0], s1[1])

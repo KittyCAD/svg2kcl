@@ -552,13 +552,39 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
   return segments
 }
 
+function getSelfIntersectionsForSegment(seg: Segment): SegmentIntersection[] {
+  // Lines and arcs cannot self-intersect.
+  if (seg.type !== SegmentType.CubicBezier) return []
+
+  const hits = getBezierBezierIntersection(seg.geometry as Bezier, seg.geometry as Bezier)
+
+  // Drop the start-point and end-point duplicates.
+  return hits
+    .filter(
+      ({ t1, t2 }) =>
+        !(t1 <= EPS_PARAM && t2 <= EPS_PARAM) && !(1 - t1 <= EPS_PARAM && 1 - t2 <= EPS_PARAM)
+    )
+    .map((intersection) => ({
+      idSeg1: seg.id,
+      idSeg2: seg.id,
+      intersection
+    }))
+}
+
 function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
   // Intersection tests. We need to test every segment against every other segment.
   const allSegments = subpaths.flatMap((subpath) => subpath.segments || [])
 
-  // We can do only the upper triangle, including the diagonal.
+  // This will hold all intersections found.
   let allSegmentIntersections: SegmentIntersection[] = []
 
+  // First, we need to handle self-intersections for cubic Bézier segments.
+  for (const seg of allSegments) {
+    const selfHits = getSelfIntersectionsForSegment(seg)
+    allSegmentIntersections.push(...selfHits)
+  }
+
+  // Now we can do only the upper triangle, excluding the diagonal.
   for (let i = 0; i < allSegments.length - 1; i++) {
     for (let j = i + 1; j < allSegments.length; j++) {
       const seg1 = allSegments[i]

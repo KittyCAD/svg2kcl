@@ -27,11 +27,14 @@ export interface Segment {
   type: SegmentType
   id: string
   geometry: Line | Arc | Bezier
+  idSubpath: string // ID of the subpath this segment belongs to.
+  idNextSegment: string | null // ID of the next segment in the subpath.
+  idPrevSegment: string | null // ID of the previous segment in the subpath.
 }
 
 export interface SplitSegment extends Segment {
   // A segment that has been split at an intersection point.
-  idParent: string // ID of the original segment before splitting.
+  idParentSegment: string // ID of the original segment before splitting.
 }
 
 // Dispatch table for segment intersection handlers.
@@ -133,7 +136,7 @@ export function processPath(path: PathElement) {
 
   // Build  our normalized segments from the path commands.
   for (const subpath of subpaths) {
-    const segments = buildSegmentsFromSubpath(subpath.commands)
+    const segments = buildSegmentsFromSubpath(subpath)
     subpath.segments = segments
   }
 
@@ -400,15 +403,19 @@ function normalizeBezierCommand(
   return result
 }
 
-function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
+function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
   // Absolutize + normalize + emit geometry segments.
   let segments: Segment[] = []
 
   let currentPoint = { x: 0, y: 0 }
   let previousControlPoint: Point = { x: 0, y: 0 }
 
-  for (let i = 0; i < commands.length; i++) {
-    const command = commands[i]
+  // Linked list ID tracking.
+  let idPrevSegment: string | null = null
+  let idCurrentSegment: string | null = null
+
+  for (let i = 0; i < subpath.commands.length; i++) {
+    const command = subpath.commands[i]
     const startPositionAbsolute = { ...currentPoint }
 
     // These will be updated as we process the commands.
@@ -461,14 +468,18 @@ function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
       newPreviousControlPoint = { ...endPositionAbsolute }
 
       // Build segment.
+      idCurrentSegment = uuidv4()
       let lineGeometry: Line = {
         start: startPositionAbsolute,
         end: endPositionAbsolute
       }
       segments.push({
         type: SegmentType.Line,
-        id: uuidv4(),
-        geometry: lineGeometry
+        id: idCurrentSegment,
+        geometry: lineGeometry,
+        idSubpath: subpath.id,
+        idPrevSegment: idPrevSegment,
+        idNextSegment: null
       })
     } else if (BEZIER_COMMANDS.includes(command.type)) {
       // For quadratics:
@@ -487,6 +498,7 @@ function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
       newPreviousControlPoint = bezier.control2
 
       // Build segment.
+      idCurrentSegment = uuidv4()
       let bezierGeometry: Bezier = {
         start: bezier.start,
         control1: bezier.control1,
@@ -495,8 +507,11 @@ function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
       }
       segments.push({
         type: SegmentType.CubicBezier,
-        id: uuidv4(),
-        geometry: bezierGeometry
+        id: idCurrentSegment,
+        geometry: bezierGeometry,
+        idSubpath: subpath.id,
+        idPrevSegment: idPrevSegment,
+        idNextSegment: null
       })
     } else if (ARC_COMMANDS.includes(command.type)) {
       // Handle arc commands.
@@ -505,6 +520,13 @@ function buildSegmentsFromSubpath(commands: PathCommand[]): Segment[] {
 
       throw new Error(`Arc commands are not yet supported: ${command.type}`)
     }
+
+    // Handle linked list.
+    if (idPrevSegment) {
+      const prevSegment = segments[segments.length - 2]
+      prevSegment.idNextSegment = idCurrentSegment
+    }
+    idPrevSegment = idCurrentSegment
 
     // Update state.
     currentPoint = { ...endPositionAbsolute }
@@ -535,16 +557,6 @@ function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
       }
 
       let intersections = handler(seg1, seg2)
-
-      // Remove endpoints.
-      // if (!includeEndpoints) {
-      //   // If an intersection point is at the start or end of _both_ segments, we can ignore it.
-      //   intersections = intersections.filter((intersection) => {
-      //     const isEndpointSeg1 = intersection.t1 <= EPS_PARAM || intersection.t1 >= 1 - EPS_PARAM
-      //     const isEndpointSeg2 = intersection.t2 <= EPS_PARAM || intersection.t2 >= 1 - EPS_PARAM
-      //     return !(isEndpointSeg1 && isEndpointSeg2)
-      //   })
-      // }
 
       // Flatten and append.
       for (const intersection of intersections) {
@@ -609,38 +621,48 @@ function splitArc(arc: Arc, tMin: number, tMax: number): SplitSegment[] {
 
 function splitSegments(segments: Segment[], intersections: SegmentIntersection[]): SplitSegment[] {
   // Build map of segment IDs to their intersection t-values
-  const segmentTValues = new Map<string, number[]>()
+  const segmentTMap = new Map<string, number[]>()
 
-  // Initialize arrays for all segments first
+  // Initialize arrays for all segments first.
   for (const segment of segments) {
-    segmentTValues.set(segment.id, [])
+    segmentTMap.set(segment.id, [])
   }
 
-  // Now populate the t-values
+  // Now populate the t-values.
   for (const intersection of intersections) {
-    const arr1 = segmentTValues.get(intersection.idSeg1)
-    const arr2 = segmentTValues.get(intersection.idSeg2)
+    const seg1TValues = segmentTMap.get(intersection.idSeg1)
+    const seg2TValues = segmentTMap.get(intersection.idSeg2)
 
-    if (!arr1) throw new Error(`Intersection references unknown segment ID: ${intersection.idSeg1}`)
-    if (!arr2) throw new Error(`Intersection references unknown segment ID: ${intersection.idSeg2}`)
+    if (!seg1TValues || !seg2TValues) throw new Error('Intersection references unknown segment.')
 
-    arr1.push(intersection.intersection.t1)
-    arr2.push(intersection.intersection.t2)
+    seg1TValues.push(intersection.intersection.t1)
+    seg2TValues.push(intersection.intersection.t2)
   }
 
+  // Loop through segments and split them at intersection points.
   const result: SplitSegment[] = []
 
   for (const segment of segments) {
-    // Create t-ranges by combining boundaries (0, 1) with intersection points.
-    const intersectionTs = segmentTValues.get(segment.id) || []
-    const allTs = [0, 1, ...intersectionTs]
-      .filter((t, i, arr) => t >= 0 && t <= 1 && arr.indexOf(t) === i) // Remove duplicates and invalid values.
+    // Get the t-values for this segment, filtering out endpoints.
+    // We use EPS_PARAM to filter out very small t-values close to 0 or 1.
+    let currentSegmentT = segmentTMap.get(segment.id) || []
+    currentSegmentT = currentSegmentT.filter((t) => t > EPS_PARAM && t < 1 - EPS_PARAM)
+
+    // If we don't split this segment, just add it as is.
+    if (currentSegmentT.length === 0) {
+      result.push(segment as SplitSegment)
+      continue
+    }
+
+    // Pad, sort, and filter the t-values.
+    const currentSegmentTFull = [0, ...currentSegmentT, 1]
       .sort((a, b) => a - b)
+      .filter((t, i, arr) => t >= 0 && t <= 1 && arr.indexOf(t) === i)
 
     // Create split segments for each t-range.
-    for (let i = 0; i < allTs.length - 1; i++) {
-      const t1 = allTs[i]
-      const t2 = allTs[i + 1]
+    for (let i = 0; i < currentSegmentTFull.length - 1; i++) {
+      const t1 = currentSegmentTFull[i]
+      const t2 = currentSegmentTFull[i + 1]
 
       let splitSegment: SplitSegment
 
@@ -648,17 +670,23 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
         case SegmentType.Line:
           splitSegment = {
             id: uuidv4(),
-            idParent: segment.id,
+            idSubpath: segment.idSubpath,
+            idParentSegment: segment.id,
             type: segment.type,
-            geometry: splitLine(segment.geometry as Line, t1, t2)
+            geometry: splitLine(segment.geometry as Line, t1, t2),
+            idPrevSegment: null,
+            idNextSegment: null
           }
           break
         case SegmentType.CubicBezier:
           splitSegment = {
             id: uuidv4(),
-            idParent: segment.id,
+            idSubpath: segment.idSubpath,
+            idParentSegment: segment.id,
             type: segment.type,
-            geometry: splitCubicBezierBetween(segment.geometry as Bezier, t1, t2)
+            geometry: splitCubicBezierBetween(segment.geometry as Bezier, t1, t2),
+            idPrevSegment: null,
+            idNextSegment: null
           }
           break
         case SegmentType.Arc:

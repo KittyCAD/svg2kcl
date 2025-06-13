@@ -19,6 +19,7 @@ import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { computePointToPointDistance } from '../utils/geometry'
 import { flattenSegments, FlattenedSegment } from './segment_flattener'
 import { EPSILON_INTERSECT } from '../constants'
+import { calculatePolygonArea } from '../utils/geometry'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -39,6 +40,15 @@ export interface Segment {
 export interface SplitSegment extends Segment {
   // A segment that has been split at an intersection point.
   idParentSegment: string | null // ID of the original segment before splitting.
+}
+
+export interface Region {
+  id: string
+  faceIndex: number
+  vertices: number[]
+  segmentIds: string[]
+  signedArea: number
+  isACW: boolean
 }
 
 // Dispatch table for segment intersection handlers.
@@ -169,6 +179,9 @@ export function processPath(path: PathElement) {
   // Planar graph structure.
   const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments)
   const faceForest = getFaces(planarGraph)
+
+  // Build regions.
+  const regions: Region[] = buildRegionsFromFaces(planarGraph, faceForest)
 
   let x = 1
 }
@@ -882,4 +895,46 @@ export function getFaces(graph: PlanarGraph): DiscoveryResult {
   const faceForest = solver.discover(graph.nodes, graph.edges)
   if (faceForest.type === 'RESULT') return faceForest
   throw new Error('Face discovery failed')
+}
+
+export function buildRegionsFromFaces(graph: PlanarGraph, faceResult: DiscoveryResult): Region[] {
+  if (faceResult.type !== 'RESULT') throw new Error('Invalid face result')
+
+  type CycleNode = { cycle: number[]; children?: CycleNode[] }
+
+  const { nodes, segmentEdgeMap } = graph
+  const regions: Region[] = []
+  let faceSeq = 0
+
+  const walk = (node: CycleNode) => {
+    const verts = node.cycle
+    if (verts && verts.length >= 3) {
+      const points: Point[] = verts.map((i) => ({ x: nodes[i][0], y: nodes[i][1] }))
+      const signedArea = calculatePolygonArea(points)
+
+      // Get segment IDs for this face.
+      const segIds = new Set<string>()
+      for (let i = 0; i < verts.length; i++) {
+        const a = verts[i]
+        const b = verts[(i + 1) % verts.length]
+        const key = a < b ? `${a},${b}` : `${b},${a}`
+        const parentId = segmentEdgeMap.get(key)
+        if (parentId) segIds.add(parentId)
+      }
+
+      regions.push({
+        id: uuidv4(),
+        faceIndex: faceSeq++,
+        vertices: verts,
+        segmentIds: [...segIds],
+        signedArea,
+        isACW: signedArea > 0
+      })
+    }
+
+    node.children?.forEach(walk)
+  }
+
+  ;(faceResult.forest as CycleNode[]).forEach(walk)
+  return regions
 }

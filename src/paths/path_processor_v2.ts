@@ -165,14 +165,14 @@ export function processPath(path: PathElement) {
   const intersections = computeIntersections(subpaths)
 
   // Now we need to split segments at intersection points... should maybe
-  // factor out the flattening as we do this twice. Note that we track
+  // factor out the flattening (as in flatMap) as we do this twice. Note that we track
   // everything for linking via subpath ID, so the flatmap is safe.
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSplitSegments = splitSegments(allSegments, intersections)
 
   // The above is _almost_ a DCEL, but I think we can get a quicker win
-  // by flattening here, then building a planar graph, and doing our fill-rule
-  // logic with that.
+  // by flattening (as in sampling) here, then building a planar graph, and doing our
+  // fill-rule logic with that.
   const epsilon = 0.001
   const flattenedSegments = flattenSegments(linkedSplitSegments, epsilon)
 

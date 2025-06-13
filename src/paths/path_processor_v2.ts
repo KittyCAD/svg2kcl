@@ -17,6 +17,8 @@ import { splitCubicBezier } from '../utils/bezier'
 import { interpolateLine } from '../utils/geometry'
 import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { computePointToPointDistance } from '../utils/geometry'
+import { flattenSegments, FlattenedSegment } from './segment_flattener'
+import { EPSILON_INTERSECT } from '../constants'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -36,7 +38,7 @@ export interface Segment {
 
 export interface SplitSegment extends Segment {
   // A segment that has been split at an intersection point.
-  idParentSegment: string // ID of the original segment before splitting.
+  idParentSegment: string | null // ID of the original segment before splitting.
 }
 
 // Dispatch table for segment intersection handlers.
@@ -158,8 +160,14 @@ export function processPath(path: PathElement) {
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSplitSegments = splitSegments(allSegments, intersections)
 
+  // The above is _almost_ a DCEL, but I think we can get a quicker win
+  // by flattening here, then building a planar graph, and doing our fill-rule
+  // logic with that.
+  const epsilon = 0.001
+  const flattenedSegments = flattenSegments(linkedSplitSegments, epsilon)
+
   // Planar graph structure.
-  const planarGraph = buildPlanarGraphFromSegments(linkedSplitSegments)
+  const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments)
   const faceForest = getFaces(planarGraph)
 
   let x = 1
@@ -697,7 +705,12 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
 
     // If we don't split this segment, just add it as is.
     if (currentSegmentT.length === 0) {
-      result.push(segment as SplitSegment)
+      // Push this segment as is; no parent.
+      result.push({
+        ...segment,
+        idParentSegment: null // No parent segment since this is not split.
+      } as SplitSegment)
+
       continue
     }
 
@@ -783,72 +796,6 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
   return result
 }
 
-function makeNodeAccessor(nodes: Array<[number, number]>) {
-  return (p: Point): number => {
-    for (let i = 0; i < nodes.length; i++) {
-      const [x, y] = nodes[i]
-      if (Math.hypot(p.x - x, p.y - y) < EPS_INTERSECTION) return i
-    }
-    nodes.push([p.x, p.y])
-    return nodes.length - 1
-  }
-}
-
-export function buildPlanarGraphFromSegments(segments: SplitSegment[]): PlanarGraph {
-  const nodes: Array<[number, number]> = []
-  const getNodeId = makeNodeAccessor(nodes)
-
-  const edgeSet = new Set<string>() // avoid duplicates
-  const segmentEdgeMap = new Map<string, string>()
-
-  for (const seg of segments) {
-    let start: Point, end: Point
-    switch (seg.type) {
-      case SegmentType.Line:
-        ;({ start, end } = seg.geometry as Line)
-        break
-      case SegmentType.CubicBezier:
-        ;({ start, end } = seg.geometry as Bezier)
-        break
-      case SegmentType.Arc:
-        throw new Error('Arc segments are not yet supported in planar graph construction')
-      default:
-        throw new Error(`Unknown segment type ${seg.type}`)
-    }
-
-    const aId = getNodeId(start)
-    const bId = getNodeId(end)
-    if (aId === bId) continue // zero-length, ignore
-
-    const key = aId < bId ? `${aId},${bId}` : `${bId},${aId}`
-    if (!edgeSet.has(key)) {
-      edgeSet.add(key)
-      segmentEdgeMap.set(key, seg.id)
-    }
-  }
-
-  const edges: Array<[number, number]> = [...edgeSet].map((k) => {
-    const [a, b] = k.split(',').map(Number)
-    return [a, b]
-  })
-
-  return { nodes, edges, segmentEdgeMap }
-}
-
-export function getFaces(graph: PlanarGraph): DiscoveryResult {
-  // Create the solver instance.
-  const solver = new PlanarFaceTree()
-
-  // Run face discovery.
-  const faceForest = solver.discover(graph.nodes, graph.edges)
-
-  if (faceForest.type === 'RESULT') {
-    return faceForest
-  } else {
-    throw new Error('Face discovery failed')
-  }
-}
-
 function ensureClosure(subpath: Subpath): Subpath {
   // Get our last non-stop command.
   const stops = [PathCommandType.StopAbsolute, PathCommandType.StopRelative]
@@ -888,4 +835,51 @@ function ensureClosure(subpath: Subpath): Subpath {
   subpath.commands = commands
 
   return subpath
+}
+
+function makeNodeAccessor(nodes: Array<[number, number]>) {
+  return function getNodeId(p: Point): number {
+    for (let i = 0; i < nodes.length; i++) {
+      const [nx, ny] = nodes[i]
+      if (computePointToPointDistance(p, { x: nx, y: ny }) < EPSILON_INTERSECT) return i
+    }
+    const id = nodes.length
+    nodes.push([p.x, p.y])
+    return id
+  }
+}
+
+export function buildPlanarGraphFromFlattenedSegments(segments: FlattenedSegment[]): PlanarGraph {
+  const nodes: Array<[number, number]> = []
+  const getNodeId = makeNodeAccessor(nodes)
+
+  const edgeSet = new Set<string>()
+  const segmentEdgeMap = new Map<string, string>()
+
+  for (const seg of segments) {
+    const { start, end } = seg.geometry
+    const aId = getNodeId(start)
+    const bId = getNodeId(end)
+    if (aId === bId) continue // ignore zero‑length
+
+    const key = aId < bId ? `${aId},${bId}` : `${bId},${aId}`
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key)
+      segmentEdgeMap.set(key, seg.parentSegmentId)
+    }
+  }
+
+  const edges: Array<[number, number]> = Array.from(edgeSet, (k) => {
+    const [a, b] = k.split(',').map(Number)
+    return [a, b]
+  })
+
+  return { nodes, edges, segmentEdgeMap }
+}
+
+export function getFaces(graph: PlanarGraph): DiscoveryResult {
+  const solver = new PlanarFaceTree()
+  const faceForest = solver.discover(graph.nodes, graph.edges)
+  if (faceForest.type === 'RESULT') return faceForest
+  throw new Error('Face discovery failed')
 }

@@ -526,8 +526,11 @@ export class Converter {
 
   private convertPathToKclOpsV2(path: PathElement): KclOperation[] {
     const processed: ProcessedPathV2 = processPath(path)
+
+    // Get a map to lookup segments by ID.
     const originalMap = new Map<string, Segment>()
     processed.segments.forEach((s) => originalMap.set(s.id, s))
+
     const out: KclOperation[] = []
 
     for (const region of processed.regions) {

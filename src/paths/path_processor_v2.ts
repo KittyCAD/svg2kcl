@@ -5,6 +5,7 @@ import {
   Arc,
   Bezier,
   getBezierBezierIntersection,
+  getBezierSelfIntersection,
   getLineBezierIntersection,
   getLineLineIntersection,
   Intersection,
@@ -651,9 +652,9 @@ function getSelfIntersectionsForSegment(seg: Segment): SegmentIntersection[] {
   // Lines and arcs cannot self-intersect.
   if (seg.type !== SegmentType.CubicBezier) return []
 
-  const hits = getBezierBezierIntersection(seg.geometry as Bezier, seg.geometry as Bezier)
+  const hits = getBezierSelfIntersection(seg.geometry as Bezier)
 
-  // Drop the start-point and end-point duplicates.
+  // Drop any start-point and end-point duplicates.
   return hits
     .filter(
       ({ t1, t2 }) =>

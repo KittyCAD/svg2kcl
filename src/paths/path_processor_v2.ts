@@ -10,11 +10,11 @@ import {
   Intersection,
   Line
 } from '../intersections/intersections'
-import { Point } from '../types/base'
+import { Point, FillRule } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { splitCubicBezier } from '../utils/bezier'
-import { interpolateLine } from '../utils/geometry'
+import { doesRayIntersectLineSegment, interpolateLine } from '../utils/geometry'
 import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { computePointToPointDistance } from '../utils/geometry'
 import { flattenSegments, FlattenedSegment } from './segment_flattener'
@@ -22,6 +22,7 @@ import { EPSILON_INTERSECT } from '../constants'
 import { calculatePolygonArea } from '../utils/geometry'
 import { isLeft } from '../utils/geometry'
 import { calculateCentroid } from '../utils/geometry'
+import { calculateWindingDirection } from '../utils/polygon'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -51,6 +52,12 @@ export interface Region {
   segmentIds: string[]
   signedArea: number
   isACW: boolean
+}
+
+export interface RegionAnnotated extends Region {
+  crossingNumber: number
+  windingNumber: number
+  isHole: boolean
 }
 
 // Dispatch table for segment intersection handlers.
@@ -190,6 +197,12 @@ export function processPath(path: PathElement) {
   const regionTestPoints: Point[] = regions.map((region) => computeTestPoint(region, planarGraph))
 
   // Then, we can do winding number tests for each region.
+  const regionsAnnotated = determineInsideness(
+    regions,
+    regionTestPoints,
+    flattenedSegments,
+    path.fillRule
+  )
 
   let x = 1
 }
@@ -1014,4 +1027,53 @@ export function computeTestPoint(
 
   // Fallback to centroid calc.
   return calculateCentroid(vertices)
+}
+
+export function determineInsideness(
+  regions: Region[],
+  regionTestPoints: Point[],
+  segments: FlattenedSegment[],
+  fillRule: FillRule
+): RegionAnnotated[] {
+  if (regions.length !== regionTestPoints.length) {
+    throw new Error('Region and test-point count mismatch')
+  }
+
+  // Work on a deep clone so we don't mutate the caller's data.
+  const out = structuredClone(regions) as RegionAnnotated[]
+
+  // Infinite ray.
+  const makeRay = (y: number): Point => ({ x: Number.MAX_SAFE_INTEGER, y })
+
+  for (let i = 0; i < out.length; i++) {
+    const probe = regionTestPoints[i]
+    const rayEnd = makeRay(probe.y)
+
+    let crossingCount = 0 // For even-odd.
+    let windingNumber = 0 // For non-zero.
+
+    // Intersect the ray with every flattened segment.
+    for (const seg of segments) {
+      const { start: p1, end: p2 } = seg.geometry
+
+      if (doesRayIntersectLineSegment(probe, rayEnd, p1, p2)) {
+        crossingCount++
+        windingNumber += calculateWindingDirection(probe, p1, p2)
+      }
+    }
+
+    // Store result.
+    out[i].crossingNumber = crossingCount
+    out[i].windingNumber = windingNumber
+
+    // Get hole status.
+    const insideEvenOdd = (crossingCount & 1) === 1 // Odd: inside, even: outside.
+    const insideNonZero = windingNumber !== 0
+
+    const isHole = fillRule === FillRule.EvenOdd ? !insideEvenOdd : !insideNonZero
+
+    out[i].isHole = isHole
+  }
+
+  return out
 }

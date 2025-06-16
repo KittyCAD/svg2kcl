@@ -20,6 +20,8 @@ import { computePointToPointDistance } from '../utils/geometry'
 import { flattenSegments, FlattenedSegment } from './segment_flattener'
 import { EPSILON_INTERSECT } from '../constants'
 import { calculatePolygonArea } from '../utils/geometry'
+import { isLeft } from '../utils/geometry'
+import { calculateCentroid } from '../utils/geometry'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -182,6 +184,12 @@ export function processPath(path: PathElement) {
 
   // Build regions.
   const regions: Region[] = buildRegionsFromFaces(planarGraph, faceForest)
+
+  // Now we need to get the fill rules for each region.
+  // First, get a test point for each.
+  const regionTestPoints: Point[] = regions.map((region) => computeTestPoint(region, planarGraph))
+
+  // Then, we can do winding number tests for each region.
 
   let x = 1
 }
@@ -937,4 +945,73 @@ export function buildRegionsFromFaces(graph: PlanarGraph, faceResult: DiscoveryR
 
   ;(faceResult.forest as CycleNode[]).forEach(walk)
   return regions
+}
+
+// Rework of src/utils/geometry.ts; should be moved there later.
+export function isPointInsidePolygon(point: Point, polygon: Point[], eps = 1e-9): boolean {
+  let windingNumber = 0
+  let j = polygon.length - 1
+
+  for (let i = 0; i < polygon.length; i++) {
+    const pi = polygon[i]
+    const pj = polygon[j]
+
+    // Upward crossing.
+    if (pj.y <= point.y + eps) {
+      if (pi.y > point.y + eps && isLeft(pj, pi, point) > eps) windingNumber++
+    }
+    // Downward crossing.
+    else {
+      if (pi.y <= point.y - eps && isLeft(pj, pi, point) < -eps) windingNumber--
+    }
+
+    j = i
+  }
+  return windingNumber !== 0
+}
+
+export function computeTestPoint(
+  region: Region,
+  graph: PlanarGraph,
+  epsilonFraction = 1e-3 // Fraction of mean segment length to use as epsilon.
+): Point {
+  // Pull coords.
+  const vertices: Point[] = region.vertices.map((idx) => {
+    const [x, y] = graph.nodes[idx]
+    return { x, y }
+  })
+
+  // Get our actual epsilon from our mean segment length.
+  let lengthTotal = 0
+  for (let i = 0; i < vertices.length; i++) {
+    const p = vertices[i]
+    const q = vertices[(i + 1) % vertices.length]
+    lengthTotal += Math.hypot(q.x - p.x, q.y - p.y)
+  }
+  const lengthMean = lengthTotal / vertices.length
+  const EPSILON_MIN = 1e-3
+  const epsilon = Math.max(lengthMean * epsilonFraction, EPSILON_MIN)
+
+  // Iterate over our line segments. We'll nudge inward, then test.
+  for (let i = 0; i < vertices.length; i++) {
+    const a = vertices[i]
+    const b = vertices[(i + 1) % vertices.length]
+
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy) || 1
+
+    // Inward normal: go left for ACW, right for CW.
+    const inward = region.isACW ? { x: -dy / len, y: dx / len } : { x: dy / len, y: -dx / len }
+
+    const mid = { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 }
+    const probe = { x: mid.x + inward.x * epsilon, y: mid.y + inward.y * epsilon }
+
+    if (isPointInsidePolygon(probe, vertices)) {
+      return probe
+    }
+  }
+
+  // Fallback to centroid calc.
+  return calculateCentroid(vertices)
 }

@@ -145,7 +145,34 @@ const BEZIER_COMMANDS = [
 
 const ARC_COMMANDS = [PathCommandType.EllipticalArcAbsolute, PathCommandType.EllipticalArcRelative]
 
-export function processPath(path: PathElement) {
+export class ProcessedPathV2 {
+  public readonly segments: Segment[]
+  public readonly segmentsFlattened: FlattenedSegment[]
+
+  private readonly flattenedMap = new Map<string, FlattenedSegment>()
+  private readonly originalMap = new Map<string, Segment>()
+
+  constructor(
+    originals: Segment[],
+    flats: FlattenedSegment[],
+    public readonly regions: RegionAnnotated[]
+  ) {
+    this.segments = originals
+    this.segmentsFlattened = flats
+
+    originals.forEach((s) => this.originalMap.set(s.id, s))
+    flats.forEach((f) => this.flattenedMap.set(f.id, f))
+  }
+
+  public getSegment(id: string): Segment | undefined {
+    return this.originalMap.get(id)
+  }
+  public getSegmentFlattened(id: string): FlattenedSegment | undefined {
+    return this.flattenedMap.get(id)
+  }
+}
+
+export function processPath(path: PathElement): ProcessedPathV2 {
   // Approach here will be, I think:
   // 1. Separate paths into subpaths.
   // 2. For each subpath:
@@ -211,9 +238,15 @@ export function processPath(path: PathElement) {
     regionTestPoints,
     planarGraph
   )
-  const finalRegions = cleanup(flattenedSegments, regionsAnnotated)
+  const finalRegions = cleanup(flattenedSegments, stackedRegions)
 
-  let x = 1
+  // Build output.
+  const segmentMap = new Map<string, FlattenedSegment>()
+  for (const segment of finalRegions.segments) {
+    segmentMap.set(segment.id, segment)
+  }
+
+  return new ProcessedPathV2(linkedSplitSegments, flattenedSegments, finalRegions.regions)
 }
 
 function splitSubpaths(commands: PathCommand[]): Subpath[] {
@@ -1092,7 +1125,7 @@ export function resolveContainmentHierarchy(
   testPoints: Point[],
   graph: PlanarGraph
 ): RegionAnnotated[] {
-  // -- Build quick-reject bounding boxes for every region.
+  // Build quick-reject bounding boxes for every region.
   const boundingBoxes = regions.map((region) => {
     let xMin = Infinity,
       yMin = Infinity
@@ -1110,7 +1143,7 @@ export function resolveContainmentHierarchy(
     return { xMin, xMax, yMin, yMax }
   })
 
-  // -- Walk each region and look for the *smallest* region that encloses it.
+  // Walk each region and look for the *smallest* region that encloses it.
   for (let i = 0; i < regions.length; i++) {
     const childRegion = regions[i]
     const childBox = boundingBoxes[i]
@@ -1166,7 +1199,7 @@ export function cleanup(
   segments: FlattenedSegment[],
   regions: RegionAnnotated[],
   epsArea = 1e-4
-): { regions: RegionAnnotated[]; fragments: FlattenedSegment[] } {
+): { regions: RegionAnnotated[]; segments: FlattenedSegment[] } {
   const keptRegions: RegionAnnotated[] = []
   const usedSegmentIds = new Set<string>()
 
@@ -1185,5 +1218,5 @@ export function cleanup(
   // Filter segments that are used by any of the kept regions.
   const keptSegments = segments.filter((f) => usedSegmentIds.has(f.parentSegmentId))
 
-  return { regions: keptRegions, fragments: keptSegments }
+  return { regions: keptRegions, segments: keptSegments }
 }

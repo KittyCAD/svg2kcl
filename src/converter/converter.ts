@@ -15,7 +15,10 @@ import { PathFragmentType } from '../types/fragments'
 import { KclOperation, KclOperationType, KclOptions } from '../types/kcl'
 import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
-import { processPath } from '../paths/path_processor_v2'
+import { processPath, ProcessedPathV2 } from '../paths/path_processor_v2'
+import { SegmentType, Segment } from '../paths/path_processor_v2'
+import { FlattenedSegment } from '../paths/segment_flattener'
+import { Bezier } from '../intersections/intersections'
 
 // TODO: Improve handling of relative coordinates, particularly prior to `close` calls.
 // Absolute coordinates allow us to get away from rounding/floating point issues.
@@ -522,9 +525,106 @@ export class Converter {
     return operations
   }
 
-  private convertPathToKclOps(path: PathElement): KclOperation[] {
-    processPath(path)
+  private convertPathToKclOpsV2(path: PathElement): KclOperation[] {
+    const processed: ProcessedPathV2 = processPath(path)
 
+    // Fast look-ups ──────────────────────────────────────────────────────────
+    const flatMap = new Map<string, FlattenedSegment>()
+    processed.segmentsFlattened.forEach((s) => flatMap.set(s.id, s))
+
+    // parent-ID → original split segment (contains exact Bézier geometry)
+    const originalMap = new Map<string, Segment>()
+    processed.segments.forEach((s) => originalMap.set(s.id, s))
+
+    const out: KclOperation[] = []
+
+    // ────────────────── 2 ▸ walk each region
+    for (const region of processed.regions) {
+      const cmds: PathCommand[] = []
+
+      for (let i = 0; i < region.segmentIds.length; i++) {
+        const flat = flatMap.get(region.segmentIds[i])
+        if (!flat) {
+          console.warn(`Missing flattened segment ${region.segmentIds[i]}`)
+          continue
+        }
+
+        const rev = region.segmentReversed?.[i] ?? false
+        const exact = originalMap.get(flat.parentSegmentId) // may be undefined for a true line
+        const isCubic = exact?.type === SegmentType.CubicBezier
+
+        // ── LINE (straight or flattened Bézier arc)
+        if (!isCubic) {
+          const p0 = rev ? flat.geometry.end : flat.geometry.start
+          const p1 = rev ? flat.geometry.start : flat.geometry.end
+
+          if (i === 0) {
+            cmds.push({
+              type: PathCommandType.MoveAbsolute,
+              parameters: [p0.x, p0.y],
+              startPositionAbsolute: { ...p0 },
+              endPositionAbsolute: { ...p0 }
+            })
+          }
+
+          cmds.push({
+            type: PathCommandType.LineAbsolute,
+            parameters: [p1.x, p1.y],
+            startPositionAbsolute: { ...p0 },
+            endPositionAbsolute: { ...p1 }
+          })
+          continue
+        }
+
+        // ── CUBIC BEZIER  (we have the exact geometry)
+        const bez = exact!.geometry as Bezier
+        const p0 = rev ? bez.end : bez.start
+        const c1 = rev ? bez.control2 : bez.control1
+        const c2 = rev ? bez.control1 : bez.control2
+        const p3 = rev ? bez.start : bez.end
+
+        if (i === 0) {
+          cmds.push({
+            type: PathCommandType.MoveAbsolute,
+            parameters: [p0.x, p0.y],
+            startPositionAbsolute: { ...p0 },
+            endPositionAbsolute: { ...p0 }
+          })
+        }
+
+        cmds.push({
+          type: PathCommandType.CubicBezierAbsolute,
+          parameters: [c1.x, c1.y, c2.x, c2.y, p3.x, p3.y],
+          startPositionAbsolute: { ...p0 },
+          endPositionAbsolute: { ...p3 }
+        })
+      }
+
+      // close the contour
+      cmds.push({
+        type: PathCommandType.StopAbsolute,
+        parameters: [],
+        startPositionAbsolute: { ...cmds[cmds.length - 1].endPositionAbsolute },
+        endPositionAbsolute: { ...cmds[0].startPositionAbsolute }
+      })
+
+      const kclOps = this.convertPathCommandsToKclOps(cmds, path.transform!)
+
+      if (region.isHole) {
+        if (out.length) {
+          out.push({ type: KclOperationType.Hole, params: { operations: kclOps } })
+        } else {
+          console.warn(`Orphan hole region ${region.id}`)
+        }
+      } else {
+        out.push(...kclOps)
+      }
+    }
+
+    return out
+  }
+
+  private convertPathToKclOps(path: PathElement): KclOperation[] {
     // Process path to regions and fragments.
     const processor = new PathProcessor(path)
     const processedPath = processor.processPath()

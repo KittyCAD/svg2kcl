@@ -17,8 +17,7 @@ import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
 import { processPath, ProcessedPathV2 } from '../paths/path_processor_v2'
 import { SegmentType, Segment } from '../paths/path_processor_v2'
-import { FlattenedSegment } from '../paths/segment_flattener'
-import { Bezier } from '../intersections/intersections'
+import { Bezier, Line } from '../intersections/intersections'
 
 // TODO: Improve handling of relative coordinates, particularly prior to `close` calls.
 // Absolute coordinates allow us to get away from rounding/floating point issues.
@@ -527,36 +526,29 @@ export class Converter {
 
   private convertPathToKclOpsV2(path: PathElement): KclOperation[] {
     const processed: ProcessedPathV2 = processPath(path)
-
-    // Fast look-ups ──────────────────────────────────────────────────────────
-    const flatMap = new Map<string, FlattenedSegment>()
-    processed.segmentsFlattened.forEach((s) => flatMap.set(s.id, s))
-
-    // parent-ID → original split segment (contains exact Bézier geometry)
     const originalMap = new Map<string, Segment>()
     processed.segments.forEach((s) => originalMap.set(s.id, s))
-
     const out: KclOperation[] = []
 
-    // ────────────────── 2 ▸ walk each region
     for (const region of processed.regions) {
       const cmds: PathCommand[] = []
 
       for (let i = 0; i < region.segmentIds.length; i++) {
-        const flat = flatMap.get(region.segmentIds[i])
-        if (!flat) {
-          console.warn(`Missing flattened segment ${region.segmentIds[i]}`)
+        const segmentId = region.segmentIds[i]
+        const exact = originalMap.get(segmentId)
+
+        if (!exact) {
+          console.warn(`Missing original segment ${segmentId}`)
           continue
         }
 
         const rev = region.segmentReversed?.[i] ?? false
-        const exact = originalMap.get(flat.parentSegmentId) // may be undefined for a true line
-        const isCubic = exact?.type === SegmentType.CubicBezier
+        const isCubic = exact.type === SegmentType.CubicBezier
 
-        // ── LINE (straight or flattened Bézier arc)
         if (!isCubic) {
-          const p0 = rev ? flat.geometry.end : flat.geometry.start
-          const p1 = rev ? flat.geometry.start : flat.geometry.end
+          const line = exact.geometry as Line
+          const p0 = rev ? line.end : line.start
+          const p1 = rev ? line.start : line.end
 
           if (i === 0) {
             cmds.push({
@@ -576,8 +568,7 @@ export class Converter {
           continue
         }
 
-        // ── CUBIC BEZIER  (we have the exact geometry)
-        const bez = exact!.geometry as Bezier
+        const bez = exact.geometry as Bezier
         const p0 = rev ? bez.end : bez.start
         const c1 = rev ? bez.control2 : bez.control1
         const c2 = rev ? bez.control1 : bez.control2
@@ -600,7 +591,7 @@ export class Converter {
         })
       }
 
-      // close the contour
+      // Close.
       cmds.push({
         type: PathCommandType.StopAbsolute,
         parameters: [],
@@ -620,7 +611,6 @@ export class Converter {
         out.push(...kclOps)
       }
     }
-
     return out
   }
 
@@ -862,7 +852,7 @@ export class Converter {
   public convertElement(element: Element): KclOperation[] {
     switch (element.type) {
       case ElementType.Path:
-        return this.convertPathToKclOps(element as PathElement)
+        return this.convertPathToKclOpsV2(element as PathElement)
       case ElementType.Rectangle:
         return this.convertRectangleToKclOps(element as RectangleElement)
       case ElementType.Circle:

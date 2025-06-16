@@ -48,10 +48,16 @@ export interface SplitSegment extends Segment {
 export interface Region {
   id: string
   faceIndex: number
-  vertices: number[]
   segmentIds: string[]
+  segmentReversed: boolean[]
+  verticesFlattened: number[]
   signedArea: number
   isACW: boolean
+}
+
+interface EdgeSegmentInfo {
+  segmentId: string
+  isReversed: boolean
 }
 
 export interface RegionAnnotated extends Region {
@@ -118,6 +124,11 @@ export interface PlanarGraph {
   nodes: Array<[number, number]>
   edges: Array<[number, number]>
   segmentEdgeMap: Map<string, string>
+}
+
+export interface EnhancedPlanarGraph extends PlanarGraph {
+  // Maps edge key to segment info with direction.
+  edgeSegmentMap: Map<string, EdgeSegmentInfo>
 }
 
 // Some of these are near duplicates of content in src/utils/bezier.ts; cleanup later.
@@ -925,23 +936,32 @@ function makeNodeAccessor(nodes: Array<[number, number]>) {
   }
 }
 
-export function buildPlanarGraphFromFlattenedSegments(segments: FlattenedSegment[]): PlanarGraph {
+export function buildPlanarGraphFromFlattenedSegments(
+  segments: FlattenedSegment[]
+): EnhancedPlanarGraph {
   const nodes: Array<[number, number]> = []
   const getNodeId = makeNodeAccessor(nodes)
 
   const edgeSet = new Set<string>()
   const segmentEdgeMap = new Map<string, string>()
+  const edgeSegmentMap = new Map<string, EdgeSegmentInfo>() // For direction.
 
   for (const seg of segments) {
     const { start, end } = seg.geometry
     const aId = getNodeId(start)
     const bId = getNodeId(end)
-    if (aId === bId) continue // ignore zero‑length
+    if (aId === bId) continue // Ignore zero‑length.
 
     const key = aId < bId ? `${aId},${bId}` : `${bId},${aId}`
+    const isReversed = aId > bId // Direction.
+
     if (!edgeSet.has(key)) {
       edgeSet.add(key)
       segmentEdgeMap.set(key, seg.parentSegmentId)
+      edgeSegmentMap.set(key, {
+        segmentId: seg.parentSegmentId,
+        isReversed
+      })
     }
   }
 
@@ -950,7 +970,7 @@ export function buildPlanarGraphFromFlattenedSegments(segments: FlattenedSegment
     return [a, b]
   })
 
-  return { nodes, edges, segmentEdgeMap }
+  return { nodes, edges, segmentEdgeMap, edgeSegmentMap }
 }
 
 export function getFaces(graph: PlanarGraph): DiscoveryResult {
@@ -960,36 +980,54 @@ export function getFaces(graph: PlanarGraph): DiscoveryResult {
   throw new Error('Face discovery failed')
 }
 
-export function buildRegionsFromFaces(graph: PlanarGraph, faceResult: DiscoveryResult): Region[] {
+export function buildRegionsFromFaces(
+  graph: EnhancedPlanarGraph,
+  faceResult: DiscoveryResult
+): Region[] {
   if (faceResult.type !== 'RESULT') throw new Error('Invalid face result')
-
   type CycleNode = { cycle: number[]; children?: CycleNode[] }
+  const { nodes, segmentEdgeMap, edgeSegmentMap } = graph
 
-  const { nodes, segmentEdgeMap } = graph
   const regions: Region[] = []
   let faceSeq = 0
-
   const walk = (node: CycleNode) => {
     const verts = node.cycle
     if (verts && verts.length >= 3) {
       const points: Point[] = verts.map((i) => ({ x: nodes[i][0], y: nodes[i][1] }))
       const signedArea = calculatePolygonArea(points)
 
-      // Get segment IDs for this face.
-      const segIds = new Set<string>()
+      // Track original segments and their reversal status.
+      const originalSegmentReversals = new Map<string, boolean>()
+
       for (let i = 0; i < verts.length; i++) {
         const a = verts[i]
         const b = verts[(i + 1) % verts.length]
         const key = a < b ? `${a},${b}` : `${b},${a}`
-        const parentId = segmentEdgeMap.get(key)
-        if (parentId) segIds.add(parentId)
+        const segmentInfo = edgeSegmentMap.get(key)
+
+        if (segmentInfo) {
+          // segmentInfo.segmentId is already the original segment ID
+          const originalSegmentId = segmentInfo.segmentId
+
+          // Determine if this segment is used in reverse for this face.
+          const faceUsesReverse = a > b
+          const actualReverse = segmentInfo.isReversed !== faceUsesReverse
+
+          // Store the reversal status for the original segment.
+          originalSegmentReversals.set(originalSegmentId, actualReverse)
+        }
       }
+
+      // Convert to arrays
+      const segIds = Array.from(originalSegmentReversals.keys())
+      const segReversed = segIds.map((id) => originalSegmentReversals.get(id)!)
 
       regions.push({
         id: uuidv4(),
         faceIndex: faceSeq++,
-        vertices: verts,
-        segmentIds: [...segIds],
+        verticesFlattened: verts,
+        segmentIds: segIds,
+        segmentReversed: segReversed,
         signedArea,
         isACW: signedArea > 0
       })
@@ -1031,7 +1069,7 @@ export function computeTestPoint(
   epsilonFraction = 1e-3 // Fraction of mean segment length to use as epsilon.
 ): Point {
   // Pull coords.
-  const vertices: Point[] = region.vertices.map((idx) => {
+  const vertices: Point[] = region.verticesFlattened.map((idx) => {
     const [x, y] = graph.nodes[idx]
     return { x, y }
   })
@@ -1132,7 +1170,7 @@ export function resolveContainmentHierarchy(
     let xMax = -Infinity,
       yMax = -Infinity
 
-    for (const v of region.vertices) {
+    for (const v of region.verticesFlattened) {
       const [x, y] = graph.nodes[v]
       if (x < xMin) xMin = x
       if (x > xMax) xMax = x
@@ -1168,7 +1206,7 @@ export function resolveContainmentHierarchy(
       if (!boxContains) continue
 
       // Precise point-in-polygon test using the child's test point..
-      const candidatePolygon: Point[] = candidateRegion.vertices.map((idx) => {
+      const candidatePolygon: Point[] = candidateRegion.verticesFlattened.map((idx) => {
         const [x, y] = graph.nodes[idx]
         return { x, y }
       })

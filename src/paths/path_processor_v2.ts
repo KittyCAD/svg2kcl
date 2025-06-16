@@ -58,6 +58,7 @@ export interface RegionAnnotated extends Region {
   crossingNumber: number
   windingNumber: number
   isHole: boolean
+  parentRegionId: string | null
 }
 
 // Dispatch table for segment intersection handlers.
@@ -203,6 +204,14 @@ export function processPath(path: PathElement) {
     flattenedSegments,
     path.fillRule
   )
+
+  // Trim redundant regions.
+  const stackedRegions = resolveContainmentHierarchy(
+    regionsAnnotated,
+    regionTestPoints,
+    planarGraph
+  )
+  const finalRegions = cleanup(flattenedSegments, regionsAnnotated)
 
   let x = 1
 }
@@ -1046,8 +1055,8 @@ export function determineInsideness(
   const makeRay = (y: number): Point => ({ x: Number.MAX_SAFE_INTEGER, y })
 
   for (let i = 0; i < out.length; i++) {
-    const probe = regionTestPoints[i]
-    const rayEnd = makeRay(probe.y)
+    const testPoint = regionTestPoints[i]
+    const rayEnd = makeRay(testPoint.y)
 
     let crossingCount = 0 // For even-odd.
     let windingNumber = 0 // For non-zero.
@@ -1056,9 +1065,9 @@ export function determineInsideness(
     for (const seg of segments) {
       const { start: p1, end: p2 } = seg.geometry
 
-      if (doesRayIntersectLineSegment(probe, rayEnd, p1, p2)) {
+      if (doesRayIntersectLineSegment(testPoint, rayEnd, p1, p2)) {
         crossingCount++
-        windingNumber += calculateWindingDirection(probe, p1, p2)
+        windingNumber += calculateWindingDirection(testPoint, p1, p2)
       }
     }
 
@@ -1076,4 +1085,105 @@ export function determineInsideness(
   }
 
   return out
+}
+
+export function resolveContainmentHierarchy(
+  regions: RegionAnnotated[],
+  testPoints: Point[],
+  graph: PlanarGraph
+): RegionAnnotated[] {
+  // -- Build quick-reject bounding boxes for every region.
+  const boundingBoxes = regions.map((region) => {
+    let xMin = Infinity,
+      yMin = Infinity
+    let xMax = -Infinity,
+      yMax = -Infinity
+
+    for (const v of region.vertices) {
+      const [x, y] = graph.nodes[v]
+      if (x < xMin) xMin = x
+      if (x > xMax) xMax = x
+      if (y < yMin) yMin = y
+      if (y > yMax) yMax = y
+    }
+
+    return { xMin, xMax, yMin, yMax }
+  })
+
+  // -- Walk each region and look for the *smallest* region that encloses it.
+  for (let i = 0; i < regions.length; i++) {
+    const childRegion = regions[i]
+    const childBox = boundingBoxes[i]
+    const childTestPoint = testPoints[i]
+
+    let chosenParent: RegionAnnotated | null = null
+    let smallestArea = Infinity
+
+    for (let j = 0; j < regions.length; j++) {
+      if (i === j) continue
+
+      const candidateRegion = regions[j]
+      const candidateBox = boundingBoxes[j]
+
+      // Fast bounding-box containment test.
+      const boxContains =
+        candidateBox.xMin <= childBox.xMin &&
+        candidateBox.xMax >= childBox.xMax &&
+        candidateBox.yMin <= childBox.yMin &&
+        candidateBox.yMax >= childBox.yMax
+
+      if (!boxContains) continue
+
+      // Precise point-in-polygon test using the child's test point..
+      const candidatePolygon: Point[] = candidateRegion.vertices.map((idx) => {
+        const [x, y] = graph.nodes[idx]
+        return { x, y }
+      })
+
+      if (isPointInsidePolygon(childTestPoint, candidatePolygon)) {
+        const candidateAreaAbs = Math.abs(candidateRegion.signedArea)
+        if (candidateAreaAbs < smallestArea) {
+          smallestArea = candidateAreaAbs
+          chosenParent = candidateRegion
+        }
+      }
+    }
+
+    // Record relationship & hole status.
+    if (chosenParent) {
+      childRegion.parentRegionId = chosenParent.id
+      childRegion.isHole = !chosenParent.isHole
+    } else {
+      // No container means outermost filled region.
+      childRegion.isHole = false
+    }
+  }
+
+  return regions
+}
+
+export function cleanup(
+  segments: FlattenedSegment[],
+  regions: RegionAnnotated[],
+  epsArea = 1e-4
+): { regions: RegionAnnotated[]; fragments: FlattenedSegment[] } {
+  const keptRegions: RegionAnnotated[] = []
+  const usedSegmentIds = new Set<string>()
+
+  for (const r of regions) {
+    if (Math.abs(r.signedArea) < epsArea) {
+      // Too small, skip.
+      continue
+    }
+
+    keptRegions.push(r)
+    for (const segId of r.segmentIds) {
+      usedSegmentIds.add(segId)
+    }
+  }
+
+  // Filter segments that are used by any of the kept regions.
+  const keptSegments = segments.filter((f) => usedSegmentIds.has(f.parentSegmentId))
+
+  return { regions: keptRegions, fragments: keptSegments }
 }

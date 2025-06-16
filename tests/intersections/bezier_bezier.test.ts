@@ -1,5 +1,9 @@
 import { describe, expect, it } from '@jest/globals'
-import { getBezierBezierIntersection, Bezier } from '../../src/intersections/intersections'
+import {
+  getBezierBezierIntersection,
+  getBezierSelfIntersection,
+  Bezier
+} from '../../src/intersections/intersections'
 import { convertQuadraticToCubic } from '../../src/intersections/bezier_helpers'
 
 describe('Bezier-Bezier intersections', () => {
@@ -121,5 +125,34 @@ describe('Bezier-Bezier intersections', () => {
       expect(point.y).toBeGreaterThanOrEqual(0)
       expect(point.y).toBeLessThanOrEqual(4)
     })
+  })
+
+  it('detects the self-intersection of a looping cubic', () => {
+    const loop: Bezier = {
+      start: { x: 0, y: 0 },
+      control1: { x: 14, y: 5 },
+      control2: { x: 0, y: 5 },
+      end: { x: 10, y: 0 }
+    }
+
+    const hits = getBezierSelfIntersection(loop)
+
+    // Exactly one transverse double point is expected
+    expect(hits).toHaveLength(1)
+
+    const { t1, t2, point } = hits[0]
+
+    // The two parameters must be distinct and inside [0,1]
+    expect(Math.abs(t1 - t2)).toBeGreaterThan(1e-3)
+    expect(t1).toBeGreaterThan(0)
+    expect(t1).toBeLessThan(1)
+    expect(t2).toBeGreaterThan(0)
+    expect(t2).toBeLessThan(1)
+
+    // The intersection point should be roughly in the mid-upper area
+    expect(point.x).toBeGreaterThan(6)
+    expect(point.x).toBeLessThan(7)
+    expect(point.y).toBeGreaterThan(2.5)
+    expect(point.y).toBeLessThan(3)
   })
 })

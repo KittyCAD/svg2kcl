@@ -22,6 +22,7 @@ import {
   MAX_RECURSION_DEPTH
 } from './constants'
 import { Plotter } from './plotter'
+import { warn } from 'console'
 
 // Saves us a few sqrt calls in the line intersection check.
 const EPS_INTERSECTION_SQUARED = Math.pow(EPS_INTERSECTION, 2)
@@ -330,6 +331,12 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
   // Also, maybe: https://stackoverflow.com/questions/4039229/checking-if-two-cubic-b%C3%A9zier-curves-intersect
   // Also, maybe: https://pomax.github.io/bezierinfo/#intersections
 
+  // Self intersection is different.
+  if (bezier1 === bezier2) {
+    warn('Self intersection detected, using self intersection function.')
+    return getBezierSelfIntersection(bezier1)
+  }
+
   // Check degeneracy.
   const deg1 = checkBezierDegeneracy(bezier1)
   const deg2 = checkBezierDegeneracy(bezier2)
@@ -475,6 +482,92 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
   // --------------------------------------------------------------------------
 
   return intersections
+}
+
+export function getBezierSelfIntersection(bezier: Bezier): Intersection[] {
+  // See: https://www.mdpi.com/2227-7390/12/16/2463
+  // See: https://math.stackexchange.com/questions/3776840/2d-cubic-bezier-curve-point-of-self-intersection
+  // Generally trying to use the nomenclature from the paper.
+
+  // Handle degeneracies first.
+  const deg = checkBezierDegeneracy(bezier)
+  switch (deg) {
+    case BezierDegeneracyType.POINT:
+      throw new Error('Degenerate Bézier found: all points are the same.')
+    case BezierDegeneracyType.LINE:
+      return [] // straight segment → no loop
+    case BezierDegeneracyType.NORMAL:
+      break
+    default:
+      throw new Error(`Unknown degeneracy type: ${deg}.`)
+  }
+
+  // Eqn 2, derivatives, apparently called a hodograph. Δbk for k = [0,1,2].
+  // See also: cubicDerivativeRoots in bezier_helpers.ts
+  const deltab0 = {
+    x: bezier.control1.x - bezier.start.x,
+    y: bezier.control1.y - bezier.start.y
+  }
+  const deltab1 = {
+    x: bezier.control2.x - bezier.control1.x,
+    y: bezier.control2.y - bezier.control1.y
+  }
+  const deltab2 = {
+    x: bezier.end.x - bezier.control2.x,
+    y: bezier.end.y - bezier.control2.y
+  }
+
+  const cross = (p: Point, q: Point) => p.x * q.y - p.y * q.x
+
+  // Eqn 3: pull the '2x2' minors of the 3x3 matrix formed by the deltab vectors.
+  // Basically, delete one row and one column at a time and get the determinant
+  // of the resulting 2x2 matrix with the cross product.
+  // https://en.wikipedia.org/wiki/Minor_(linear_algebra)
+  const D0 = cross(deltab1, deltab2)
+  const D1 = cross(deltab0, deltab2)
+  const D2 = cross(deltab0, deltab1)
+
+  // Eqn 12: Bernstein form discriminant.
+  // See also: https://en.wikipedia.org/wiki/Discriminant#Cubic_polynomials
+  const delta = 4 * D0 * D2 - Math.pow(D1, 2)
+
+  // More eqn 12: need to get to u,v.
+  const denom = 2 * (D0 - D1 + D2)
+  const sqrtTerm = Math.sqrt(3 * delta)
+  const numeratorHalf = 2 * D2 - D1
+
+  // We can't handle infinite values (small denominator) or negative delta (we sqrt it).
+  if (Math.abs(denom) < EPS_INTERSECTION || delta <= EPS_INTERSECTION) return []
+
+  // Actual intersection points.
+  let u = (numeratorHalf - sqrtTerm) / denom
+  let v = (numeratorHalf + sqrtTerm) / denom
+  if (u > v) [u, v] = [v, u] // Sort to keep consistency.
+
+  // Keep only roots in [0,1].
+  if (u < -EPS_PARAM || v > 1 + EPS_PARAM) return []
+
+  u = Math.max(0, Math.min(1, u))
+  v = Math.max(0, Math.min(1, v))
+
+  // Get the intersection point. Should be the same for both u and v.
+  const s1 = evaluateBezier(u, bezier)
+  const s2 = evaluateBezier(v, bezier)
+
+  // Plotter.
+  // --------------------------------------------------------------------------
+  const bb = getBezierBounds(bezier)
+  const plotter = new Plotter()
+  plotter.clear()
+  plotter.setBounds(bb.xMin, bb.yMin, bb.xMax, bb.yMax)
+  plotter.plotBezier(bezier, 'blue')
+  plotter.plotPoint(s1, 'black')
+  plotter.plotPoint(s2, 'red')
+  plotter.addTitle('Self-intersection')
+  plotter.save('image.png')
+  // ------------------------------------------------------------------
+
+  return [{ point: s1, t1: u, t2: v }]
 }
 
 export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection[] {

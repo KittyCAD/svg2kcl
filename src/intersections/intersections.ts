@@ -419,18 +419,6 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
     const fl = lMax1 < lMax2 ? makeFatLine(b1) : makeFatLine(b2)
     if (lMax1 < lMax2 ? fatLineReject(b2, fl) : fatLineReject(b1, fl)) return
 
-    // If the midpoints of the two AABBs coincide, further subdivision
-    // will not shrink anything; treat it as a hit and return. This occurs
-    // when testing a bezier against itself.
-    if (Math.abs(bb1MidX - bb2MidX) < EPS_BBOX && Math.abs(bb1MidY - bb2MidY) < EPS_BBOX) {
-      out.push({
-        point: { x: bb1MidX, y: bb1MidY },
-        t1: (s1[0] + s1[1]) * 0.5,
-        t2: (s2[0] + s2[1]) * 0.5
-      })
-      return
-    }
-
     if (lMax1 >= lMax2) {
       const [l, lt, r, rt] = subdivideBezier(b1, 0.5, s1[0], s1[1])
       recurse(l, lt, b2, s2, depth + 1)

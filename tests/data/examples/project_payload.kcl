@@ -53,7 +53,12 @@ sketch001 = startSketchOn(XY)
   |> close()
   |> subtract2d(tool =
         startSketchOn(XY)
-  |> startProfile(at = [475.122, -144.924])
+  |> startProfile(at = [398.347, -240.52])
+    |> bezierCurve(
+         control1 = [-16.288, 47.302],
+         control2 = [26.994, 100.866],
+         end = [76.775, 95.596]
+     )
     |> bezierCurve(
          control1 = [5.633, -0.181],
          control2 = [11.251, -0.904],
@@ -69,15 +74,15 @@ sketch001 = startSketchOn(XY)
          control2 = [-118.704, -34.43],
          end = [-135.898, 22.021]
      )
-    |> bezierCurve(
-         control1 = [-16.288, 47.302],
-         control2 = [26.994, 100.866],
-         end = [76.775, 95.596]
-     )
     |> close())
 
 sketch002 = startSketchOn(XY)
-  |> startProfile(at = [464.862, -163.512])
+  |> startProfile(at = [432.447, -258.55])
+  |> bezierCurve(
+         control1 = [-36.408, 28.479],
+         control2 = [-12.83, 93.626],
+         end = [32.415, 95.038]
+     )
   |> bezierCurve(
          control1 = [33.802, 5.369],
          control2 = [69.516, -24.881],
@@ -88,15 +93,15 @@ sketch002 = startSketchOn(XY)
          control2 = [-66.251, -65.692],
          end = [-97.795, -35.12]
      )
-  |> bezierCurve(
-         control1 = [-36.408, 28.479],
-         control2 = [-12.83, 93.626],
-         end = [32.415, 95.038]
-     )
   |> close()
 
 sketch003 = startSketchOn(XY)
-  |> startProfile(at = [11.678, -423.562])
+  |> startProfile(at = [17.009, -452.865])
+  |> bezierCurve(
+         control1 = [-21.163, -33.722],
+         control2 = [-11.635, 15.213],
+         end = [-5.331, 29.303]
+     )
   |> bezierCurve(
          control1 = [39.404, 72.468],
          control2 = [105.672, 135.135],
@@ -116,11 +121,6 @@ sketch003 = startSketchOn(XY)
          control1 = [-64.505, -5.468],
          control2 = [-119.896, -45.96],
          end = [-162.053, -92.653]
-     )
-  |> bezierCurve(
-         control1 = [-21.163, -33.722],
-         control2 = [-11.635, 15.213],
-         end = [-5.331, 29.303]
      )
   |> close()
 
@@ -149,6 +149,45 @@ sketch004 = startSketchOn(XY)
   |> close()
 
 sketch005 = startSketchOn(XY)
+  |> startProfile(at = [32.17, -630.382])
+  |> bezierCurve(
+         control1 = [12.313, 87.123],
+         control2 = [49.632, 179.219],
+         end = [128.492, 225.97]
+     )
+  |> bezierCurve(
+         control1 = [7.259, 9.302],
+         control2 = [14.652, -2.456],
+         end = [19.7, -7.3]
+     )
+  |> bezierCurve(
+         control1 = [-61.948, -39.988],
+         control2 = [-93.196, -112.444],
+         end = [-106, -182.6]
+     )
+  |> bezierCurve(
+         control1 = [44.611, 7.645],
+         control2 = [88.998, 20.26],
+         end = [128.381, 43.06]
+     )
+  |> bezierCurve(
+         control1 = [25.179, 11.231],
+         control2 = [40.203, 55.642],
+         end = [75.218, 44.853]
+     )
+  |> bezierCurve(
+         control1 = [-30.357, -53.714],
+         control2 = [-86.734, -86.374],
+         end = [-143.582, -105.715]
+     )
+  |> bezierCurve(
+         control1 = [-33.331, -7.683],
+         control2 = [-67.509, -25.329],
+         end = [-102.21, -18.268]
+     )
+  |> close()
+
+sketch006 = startSketchOn(XY)
   |> startProfile(at = [202.862, -664.712])
   |> bezierCurve(
          control1 = [50.313, 37.204],
@@ -177,7 +216,7 @@ sketch005 = startSketchOn(XY)
      )
   |> close()
 
-sketch006 = startSketchOn(XY)
+sketch007 = startSketchOn(XY)
   |> startProfile(at = [530.388, -49.962])
   |> bezierCurve(
          control1 = [45.587, 28.575],

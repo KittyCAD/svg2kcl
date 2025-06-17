@@ -237,18 +237,14 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const regionTestPoints: Point[] = regions.map((region) => computeTestPoint(region, planarGraph))
 
   // Then, we can do winding number tests for each region.
-  const regionsAnnotated = determineInsideness(
-    regions,
-    regionTestPoints,
-    flattenedSegments,
-    path.fillRule
-  )
+  const regionsAnnotated = determineInsideness(regions, regionTestPoints, flattenedSegments)
 
   // Trim redundant regions.
   const stackedRegions = resolveContainmentHierarchy(
     regionsAnnotated,
     regionTestPoints,
-    planarGraph
+    planarGraph,
+    path.fillRule
   )
   const finalRegions = cleanup(flattenedSegments, stackedRegions)
 
@@ -1065,8 +1061,7 @@ export function computeTestPoint(
 export function determineInsideness(
   regions: Region[],
   regionTestPoints: Point[],
-  segments: FlattenedSegment[],
-  fillRule: FillRule
+  segments: FlattenedSegment[]
 ): RegionAnnotated[] {
   if (regions.length !== regionTestPoints.length) {
     throw new Error('Region and test-point count mismatch')
@@ -1099,13 +1094,8 @@ export function determineInsideness(
     out[i].crossingNumber = crossingCount
     out[i].windingNumber = windingNumber
 
-    // Get hole status.
-    const insideEvenOdd = (crossingCount & 1) === 1 // Odd: inside, even: outside.
-    const insideNonZero = windingNumber !== 0
-
-    const isHole = fillRule === FillRule.EvenOdd ? !insideEvenOdd : !insideNonZero
-
-    out[i].isHole = isHole
+    // We can't actually set hole flag yet, as we need to resolve containment hierarchy
+    // first.
   }
 
   return out
@@ -1114,7 +1104,8 @@ export function determineInsideness(
 export function resolveContainmentHierarchy(
   regions: RegionAnnotated[],
   testPoints: Point[],
-  graph: PlanarGraph
+  graph: PlanarGraph,
+  fillRule: FillRule
 ): RegionAnnotated[] {
   // Build quick-reject bounding boxes for every region.
   const boundingBoxes = regions.map((region) => {
@@ -1176,9 +1167,19 @@ export function resolveContainmentHierarchy(
     // Record relationship & hole status.
     if (chosenParent) {
       childRegion.parentRegionId = chosenParent.id
-      childRegion.isHole = !chosenParent.isHole
+
+      if (fillRule === FillRule.EvenOdd) {
+        // Even-odd: flip hole flag on each nesting.
+        childRegion.isHole = !chosenParent.isHole
+      } else {
+        // Nonzero: compare winding directions.
+        const parentW = chosenParent.windingNumber ?? 0
+        const childW = childRegion.windingNumber ?? 0
+
+        childRegion.isHole = Math.sign(parentW) !== Math.sign(childW)
+      }
     } else {
-      // No container means outermost filled region.
+      // No parent = outermost.
       childRegion.isHole = false
     }
   }
@@ -1191,12 +1192,21 @@ export function cleanup(
   regions: RegionAnnotated[],
   epsArea = 1e-4
 ): { regions: RegionAnnotated[]; segments: FlattenedSegment[] } {
+  // We want to remove regions that are fully contained in another but which do
+  // not alter the fill result.
   const keptRegions: RegionAnnotated[] = []
   const usedSegmentIds = new Set<string>()
 
   for (const r of regions) {
     if (Math.abs(r.signedArea) < epsArea) {
-      // Too small, skip.
+      // Too small, likely noise.
+      continue
+    }
+
+    const parent = regions.find((reg) => reg.id === r.parentRegionId)
+
+    // If region has same hole status as parent, it’s redundant.
+    if (parent && r.isHole === parent.isHole) {
       continue
     }
 
@@ -1206,7 +1216,7 @@ export function cleanup(
     }
   }
 
-  // Filter segments that are used by any of the kept regions.
+  // Keep only segments used by kept regions.
   const keptSegments = segments.filter((f) => usedSegmentIds.has(f.parentSegmentId))
 
   return { regions: keptRegions, segments: keptSegments }

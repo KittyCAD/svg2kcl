@@ -269,8 +269,14 @@ function splitSubpaths(commands: PathCommand[]): Subpath[] {
   const stops = [PathCommandType.StopAbsolute, PathCommandType.StopRelative]
 
   for (const cmd of commands) {
-    // Start new subpath on move (unless it's the first command).
-    if (moves.includes(cmd.type) && currentSubpath === null) {
+    // Start new subpath on move
+    if (moves.includes(cmd.type)) {
+      if (currentSubpath) {
+        // If we already have a current subpath, push it to the list.
+        subpaths.push(currentSubpath)
+      }
+
+      // Create a new subpath.
       currentSubpath = {
         id: uuidv4(),
         commands: [],

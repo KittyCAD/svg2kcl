@@ -536,10 +536,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
 
     if (MOVE_COMMANDS.includes(command.type)) {
       // Move command — just update state.
-      const isRelative = command.type === PathCommandType.MoveRelative
-      const [x, y] = isRelative
-        ? [currentPoint.x + command.parameters[0], currentPoint.y + command.parameters[1]]
-        : command.parameters
+      const [x, y] = [command.endPositionAbsolute.x, command.endPositionAbsolute.y]
 
       endPositionAbsolute = { x, y }
       newPreviousControlPoint = { ...endPositionAbsolute }

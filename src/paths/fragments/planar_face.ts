@@ -115,6 +115,7 @@ export function buildPlanarGraphFromFragments(fragments: PathFragment[]): Planar
     fragmentEdgeMap
   }
 }
+
 export function getFaces(graph: PlanarGraph): DiscoveryResult {
   // Create the solver instance.
   const solver = new PlanarFaceTree()

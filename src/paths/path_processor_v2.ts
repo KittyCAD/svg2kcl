@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
 import { convertQuadraticToCubic } from '../intersections/bezier_helpers'
 import { EPS_PARAM, EPS_INTERSECTION } from '../intersections/constants'
 import {
@@ -19,11 +18,11 @@ import { doesRayIntersectLineSegment, interpolateLine } from '../utils/geometry'
 import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { computePointToPointDistance } from '../utils/geometry'
 import { flattenSegments, FlattenedSegment } from './segment_flattener'
-import { EPSILON_INTERSECT } from '../constants'
 import { calculatePolygonArea } from '../utils/geometry'
 import { isLeft } from '../utils/geometry'
 import { calculateCentroid } from '../utils/geometry'
 import { calculateWindingDirection } from '../utils/polygon'
+import { newId } from '../utils/ids'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -51,7 +50,6 @@ export interface Region {
   faceIndex: number
   segmentIds: string[]
   segmentReversed: boolean[]
-  verticesFlattened: number[]
   signedArea: number
   isACW: boolean
 }
@@ -230,11 +228,14 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const faceForest = getFaces(planarGraph)
 
   // Build regions.
-  const regions: Region[] = buildRegionsFromFaces(planarGraph, faceForest)
+  const { regions, regionVertexIds } = buildRegionsFromFaces(planarGraph, faceForest)
 
   // Now we need to get the fill rules for each region.
   // First, get a test point for each.
-  const regionTestPoints: Point[] = regions.map((region) => computeTestPoint(region, planarGraph))
+  const regionTestPoints: Point[] = []
+  for (let i = 0; i < regions.length; i++) {
+    regionTestPoints.push(computeTestPoint(regions[i], planarGraph, regionVertexIds[i]))
+  }
 
   // Then, we can do winding number tests for each region.
   const regionsAnnotated = determineInsideness(regions, regionTestPoints, flattenedSegments)
@@ -243,16 +244,11 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const stackedRegions = resolveContainmentHierarchy(
     regionsAnnotated,
     regionTestPoints,
+    regionVertexIds,
     planarGraph,
     path.fillRule
   )
   const finalRegions = cleanup(flattenedSegments, stackedRegions)
-
-  // Build output.
-  const segmentMap = new Map<string, FlattenedSegment>()
-  for (const segment of finalRegions.segments) {
-    segmentMap.set(segment.id, segment)
-  }
 
   return new ProcessedPathV2(linkedSplitSegments, flattenedSegments, finalRegions.regions)
 }
@@ -274,7 +270,7 @@ function splitSubpaths(commands: PathCommand[]): Subpath[] {
 
       // Create a new subpath.
       currentSubpath = {
-        id: uuidv4(),
+        id: newId(),
         commands: [],
         segments: []
       }
@@ -536,7 +532,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       // Move: just update control point; no segment insertion.
       newPreviousControlPoint = { ...command.endPositionAbsolute }
     } else if (LINE_COMMANDS.includes(command.type)) {
-      idCurrentSegment = uuidv4()
+      idCurrentSegment = newId()
       const line: Line = {
         start: { ...command.startPositionAbsolute },
         end: { ...command.endPositionAbsolute }
@@ -560,7 +556,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       // For cubics:
       // - Smooth commands need to have their control point reflected and inserted.
       // - All must be converted to absolute.
-      idCurrentSegment = uuidv4()
+      idCurrentSegment = newId()
       const bezier = normalizeBezierCommand(
         command,
         command.startPositionAbsolute,
@@ -615,6 +611,10 @@ function getSelfIntersectionsForSegment(seg: Segment): SegmentIntersection[] {
     }))
 }
 
+function isWithinTolerance(value: number, target: number, tolerance: number): boolean {
+  return Math.abs(value - target) < tolerance
+}
+
 function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
   // Intersection tests. We need to test every segment against every other segment.
   const allSegments = subpaths.flatMap((subpath) => subpath.segments || [])
@@ -643,6 +643,30 @@ function computeIntersections(subpaths: Subpath[]): SegmentIntersection[] {
       }
 
       let intersections = handler(seg1, seg2)
+
+      // We need to look at topology; it's only an intersection point if it's not
+      // the joining extrema of two connected segments.
+      const segmentsSequential = seg1.idNextSegment === seg2.id && seg2.idPrevSegment === seg1.id
+      const segmentsSequentialReversed =
+        seg2.idNextSegment === seg1.id && seg1.idPrevSegment === seg2.id
+
+      if (segmentsSequential || segmentsSequentialReversed) {
+        intersections = intersections.filter((intersection) => {
+          if (segmentsSequential) {
+            // Remove t = 1 from seg1 and t = 0 from seg2.
+            return (
+              !isWithinTolerance(intersection.t1, 1, EPS_PARAM) &&
+              !isWithinTolerance(intersection.t2, 0, EPS_PARAM)
+            )
+          } else {
+            // Remove t = 0 from seg1 and t = 1 from seg2.
+            return (
+              !isWithinTolerance(intersection.t1, 0, EPS_PARAM) &&
+              !isWithinTolerance(intersection.t2, 1, EPS_PARAM)
+            )
+          }
+        })
+      }
 
       // Flatten and append.
       for (const intersection of intersections) {
@@ -705,6 +729,21 @@ function splitArc(arc: Arc, tMin: number, tMax: number): SplitSegment[] {
   throw new Error('Arc splitting is not yet implemented')
 }
 
+function deduplicateWithThreshold(arr: number[], threshold: number): number[] {
+  if (arr.length === 0) return []
+
+  const sorted = [...arr].sort((a, b) => a - b)
+  const result = [sorted[0]]
+
+  for (let i = 1; i < sorted.length; i++) {
+    if (Math.abs(sorted[i] - result[result.length - 1]) > threshold) {
+      result.push(sorted[i])
+    }
+  }
+
+  return result
+}
+
 function splitSegments(segments: Segment[], intersections: SegmentIntersection[]): SplitSegment[] {
   // Build map of segment IDs to their intersection t-values
   const segmentTMap = new Map<string, number[]>()
@@ -734,12 +773,13 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
   const result: SplitSegment[] = []
 
   for (const segment of segments) {
-    // Get the t-values for this segment, filtering out endpoints.
-    // We use EPS_PARAM to filter out very small t-values close to 0 or 1.
+    // Get the t-values for this segment, filtering out endpoints because splitting there
+    // doesn't do anything. We use EPS_PARAM to filter out very small t-values close to
+    // 0 or 1.
     let currentSegmentT = segmentTMap.get(segment.id) || []
     currentSegmentT = currentSegmentT.filter((t) => t > EPS_PARAM && t < 1 - EPS_PARAM)
 
-    // If we don't split this segment, just add it as is.
+    // Segment has no intersections, so we can just push it as is.
     if (currentSegmentT.length === 0) {
       // Push this segment as is; no parent.
       result.push({
@@ -749,6 +789,9 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
 
       continue
     }
+
+    // Deduplicate the t-values so we don't get any weirdness here.
+    currentSegmentT = deduplicateWithThreshold(currentSegmentT, EPS_PARAM)
 
     // Pad, sort, and filter the t-values.
     const currentSegmentTFull = [0, ...currentSegmentT, 1]
@@ -765,7 +808,7 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
       // Skip zero-length segments.
       if (t2 - t1 < EPS_PARAM) continue
 
-      const splitSegmentId = uuidv4()
+      const splitSegmentId = newId()
       let splitSegment: SplitSegment
 
       switch (segment.type) {
@@ -877,7 +920,7 @@ function makeNodeAccessor(nodes: Array<[number, number]>) {
   return function getNodeId(p: Point): number {
     for (let i = 0; i < nodes.length; i++) {
       const [nx, ny] = nodes[i]
-      if (computePointToPointDistance(p, { x: nx, y: ny }) < EPSILON_INTERSECT) return i
+      if (computePointToPointDistance(p, { x: nx, y: ny }) < EPS_INTERSECTION) return i
     }
     const id = nodes.length
     nodes.push([p.x, p.y])
@@ -932,12 +975,14 @@ export function getFaces(graph: PlanarGraph): DiscoveryResult {
 export function buildRegionsFromFaces(
   graph: EnhancedPlanarGraph,
   faceResult: DiscoveryResult
-): Region[] {
+): { regions: Region[]; regionVertexIds: number[][] } {
   if (faceResult.type !== 'RESULT') throw new Error('Invalid face result')
   type CycleNode = { cycle: number[]; children?: CycleNode[] }
   const { nodes, segmentEdgeMap, edgeSegmentMap } = graph
 
   const regions: Region[] = []
+  const regionVertexIds: number[][] = []
+
   let faceSeq = 0
   const walk = (node: CycleNode) => {
     const verts = node.cycle
@@ -972,21 +1017,22 @@ export function buildRegionsFromFaces(
       const segReversed = segIds.map((id) => originalSegmentReversals.get(id)!)
 
       regions.push({
-        id: uuidv4(),
+        id: newId(),
         faceIndex: faceSeq++,
-        verticesFlattened: verts,
         segmentIds: segIds,
         segmentReversed: segReversed,
         signedArea,
         isACW: signedArea > 0
       })
+
+      regionVertexIds.push([...verts])
     }
 
     node.children?.forEach(walk)
   }
 
   ;(faceResult.forest as CycleNode[]).forEach(walk)
-  return regions
+  return { regions: regions, regionVertexIds: regionVertexIds || [] }
 }
 
 // Rework of src/utils/geometry.ts; should be moved there later.
@@ -1015,10 +1061,11 @@ export function isPointInsidePolygon(point: Point, polygon: Point[], eps = 1e-9)
 export function computeTestPoint(
   region: Region,
   graph: PlanarGraph,
+  vertexIds: number[], // Flattened vertex IDs.
   epsilonFraction = 1e-3 // Fraction of mean segment length to use as epsilon.
 ): Point {
   // Pull coords.
-  const vertices: Point[] = region.verticesFlattened.map((idx) => {
+  const vertices: Point[] = vertexIds.map((idx: number) => {
     const [x, y] = graph.nodes[idx]
     return { x, y }
   })
@@ -1104,17 +1151,18 @@ export function determineInsideness(
 export function resolveContainmentHierarchy(
   regions: RegionAnnotated[],
   testPoints: Point[],
+  regionVertexIds: number[][],
   graph: PlanarGraph,
   fillRule: FillRule
 ): RegionAnnotated[] {
   // Build quick-reject bounding boxes for every region.
-  const boundingBoxes = regions.map((region) => {
+  const boundingBoxes = regions.map((region, i) => {
     let xMin = Infinity,
       yMin = Infinity
     let xMax = -Infinity,
       yMax = -Infinity
 
-    for (const v of region.verticesFlattened) {
+    for (const v of regionVertexIds[i]) {
       const [x, y] = graph.nodes[v]
       if (x < xMin) xMin = x
       if (x > xMax) xMax = x
@@ -1138,6 +1186,7 @@ export function resolveContainmentHierarchy(
       if (i === j) continue
 
       const candidateRegion = regions[j]
+      const candidateRegionVertexIds = regionVertexIds[j]
       const candidateBox = boundingBoxes[j]
 
       // Fast bounding-box containment test.
@@ -1150,7 +1199,7 @@ export function resolveContainmentHierarchy(
       if (!boxContains) continue
 
       // Precise point-in-polygon test using the child's test point..
-      const candidatePolygon: Point[] = candidateRegion.verticesFlattened.map((idx) => {
+      const candidatePolygon: Point[] = candidateRegionVertexIds.map((idx) => {
         const [x, y] = graph.nodes[idx]
         return { x, y }
       })

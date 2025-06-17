@@ -855,6 +855,7 @@ export class Converter {
   public convertElement(element: Element): KclOperation[] {
     switch (element.type) {
       case ElementType.Path:
+        // return this.convertPathToKclOps(element as PathElement)
         return this.convertPathToKclOpsV2(element as PathElement)
       case ElementType.Rectangle:
         return this.convertRectangleToKclOps(element as RectangleElement)

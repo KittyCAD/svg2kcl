@@ -516,80 +516,40 @@ function normalizeBezierCommand(
 }
 
 function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
-  // Absolutize + normalize + emit geometry segments.
+  // Get absolute, normalized segments from a subpath.
   let segments: Segment[] = []
 
-  let currentPoint = { x: 0, y: 0 }
   let previousControlPoint: Point = { x: 0, y: 0 }
-
-  // Linked list ID tracking.
   let idPrevSegment: string | null = null
   let idCurrentSegment: string | null = null
 
   for (let i = 0; i < subpath.commands.length; i++) {
+    // We have to walk the command path to build segments.
+    // The SVG reader has already annotated each command with absolute start and end
+    // positions, so we're really most interested in tracking control points.
     const command = subpath.commands[i]
-    const startPositionAbsolute = { ...currentPoint }
-
-    // These will be updated as we process the commands.
-    let endPositionAbsolute = { ...currentPoint }
     let newPreviousControlPoint = { ...previousControlPoint }
 
     if (MOVE_COMMANDS.includes(command.type)) {
-      // Move command — just update state.
-      const [x, y] = [command.endPositionAbsolute.x, command.endPositionAbsolute.y]
-
-      endPositionAbsolute = { x, y }
-      newPreviousControlPoint = { ...endPositionAbsolute }
+      // Move: just update control point; no segment insertion.
+      newPreviousControlPoint = { ...command.endPositionAbsolute }
     } else if (LINE_COMMANDS.includes(command.type)) {
-      // Handle line commands.
-      let x: number, y: number
-
-      switch (command.type) {
-        case PathCommandType.LineAbsolute:
-          ;[x, y] = command.parameters
-          break
-        case PathCommandType.LineRelative:
-          x = currentPoint.x + command.parameters[0]
-          y = currentPoint.y + command.parameters[1]
-          break
-        case PathCommandType.HorizontalLineAbsolute:
-          x = command.parameters[0]
-          y = currentPoint.y
-          break
-        case PathCommandType.HorizontalLineRelative:
-          x = currentPoint.x + command.parameters[0]
-          y = currentPoint.y
-          break
-        case PathCommandType.VerticalLineAbsolute:
-          x = currentPoint.x
-          y = command.parameters[0]
-          break
-        case PathCommandType.VerticalLineRelative:
-          x = currentPoint.x
-          y = currentPoint.y + command.parameters[0]
-          break
-        default:
-          throw new Error(`Unknown line command type: ${command.type}`)
-      }
-
-      // Set end position.
-      endPositionAbsolute = { x, y }
-      newPreviousControlPoint = { ...endPositionAbsolute }
-
-      // Build segment.
       idCurrentSegment = uuidv4()
-      let lineGeometry: Line = {
-        start: startPositionAbsolute,
-        end: endPositionAbsolute
+      const line: Line = {
+        start: { ...command.startPositionAbsolute },
+        end: { ...command.endPositionAbsolute }
       }
-      segments.push({
+      const lineSegment: Segment = {
         type: SegmentType.Line,
         id: idCurrentSegment,
-        geometry: lineGeometry,
+        geometry: line,
         idSubpath: subpath.id,
         idPrevSegment: idPrevSegment,
         idNextSegment: null
-      })
+      }
+
+      segments.push(lineSegment)
+      newPreviousControlPoint = { ...command.endPositionAbsolute }
     } else if (BEZIER_COMMANDS.includes(command.type)) {
       // For quadratics:
       // - Smooth commands need to have their control point reflected and inserted.
@@ -598,47 +558,36 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       // For cubics:
       // - Smooth commands need to have their control point reflected and inserted.
       // - All must be converted to absolute.
-
-      // Normalize to our converted format.
-      const bezier = normalizeBezierCommand(command, currentPoint, previousControlPoint)
-
-      // Set end position.
-      endPositionAbsolute = bezier.end
-      newPreviousControlPoint = bezier.control2
-
-      // Build segment.
       idCurrentSegment = uuidv4()
-      let bezierGeometry: Bezier = {
-        start: bezier.start,
-        control1: bezier.control1,
-        control2: bezier.control2,
-        end: bezier.end
-      }
-      segments.push({
+      const bezier = normalizeBezierCommand(
+        command,
+        command.startPositionAbsolute,
+        previousControlPoint
+      )
+      const bezierSegment: Segment = {
         type: SegmentType.CubicBezier,
         id: idCurrentSegment,
-        geometry: bezierGeometry,
+        geometry: bezier,
         idSubpath: subpath.id,
         idPrevSegment: idPrevSegment,
         idNextSegment: null
-      })
+      }
+
+      segments.push(bezierSegment)
+      newPreviousControlPoint = bezier.control2
     } else if (ARC_COMMANDS.includes(command.type)) {
       // Handle arc commands.
       // For now, we can only handle circular arcs—so we need to police the
       // elliptical SVG parameters a bit.
-
       throw new Error(`Arc commands are not yet supported: ${command.type}`)
     }
 
-    // Handle linked list.
-    if (idPrevSegment) {
+    // Linked list update. Almost but not quite a DCEL.
+    if (idPrevSegment && segments.length >= 2) {
       const prevSegment = segments[segments.length - 2]
       prevSegment.idNextSegment = idCurrentSegment
     }
     idPrevSegment = idCurrentSegment
-
-    // Update state.
-    currentPoint = { ...endPositionAbsolute }
     previousControlPoint = { ...newPreviousControlPoint }
   }
 

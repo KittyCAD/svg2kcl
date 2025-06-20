@@ -35,7 +35,11 @@ function flattenBezier(
 
   // If both control points lie within tol of the chord, approximate with a single line.
   if (Math.max(d1, d2) <= tol) {
-    out.push({ id: newId(), parentSegmentId: parentId, geometry: { start: p0, end: p3 } })
+    out.push({
+      id: newId('flattenedSegment'),
+      parentSegmentId: parentId,
+      geometry: { start: p0, end: p3 }
+    })
     return
   }
 
@@ -61,7 +65,11 @@ function flattenArc(arc: Arc, tol: number, parentId: string, out: FlattenedSegme
     const a1 = startAngle + (sweepAngle * (i + 1)) / steps
     const p0 = { x: center.x + radius * Math.cos(a0), y: center.y + radius * Math.sin(a0) }
     const p1 = { x: center.x + radius * Math.cos(a1), y: center.y + radius * Math.sin(a1) }
-    out.push({ id: newId(), parentSegmentId: parentId, geometry: { start: p0, end: p1 } })
+    out.push({
+      id: newId('flattenedSegment'),
+      parentSegmentId: parentId,
+      geometry: { start: p0, end: p1 }
+    })
   }
 }
 
@@ -72,13 +80,17 @@ export function flattenSegments(segments: SplitSegment[], tolerance: number): Fl
     const parentId = seg.id
     switch (seg.type) {
       case SegmentType.Line:
-        output.push({ id: newId(), parentSegmentId: parentId, geometry: seg.geometry as Line })
+        output.push({
+          id: newId('flattendSegment'),
+          parentSegmentId: parentId,
+          geometry: seg.geometry as Line
+        })
         break
       case SegmentType.CubicBezier:
         flattenBezier(seg.geometry as Bezier, tolerance, parentId, output)
         break
       case SegmentType.Arc:
-        flattenArc(seg.geometry as Arc, tolerance, parentId, output)
+        // flattenArc(seg.geometry as Arc, tolerance, parentId, output)
         break
       default:
         throw new Error(`Unsupported segment type for flattening: ${seg.type}`)

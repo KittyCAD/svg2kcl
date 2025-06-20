@@ -1,11 +1,12 @@
 import { Point } from '../types/base'
+import * as fs from 'fs'
 
-export function exportPointsToCSV(points: Point[], filename: string = 'output.csv'): void {
-  const csvContent = 'X,Y\n' + points.map((point) => `${point.x},${point.y}`).join('\n')
+// export function exportPointsToCSV(points: Point[], filename: string = 'output.csv'): void {
+//   const csvContent = 'X,Y\n' + points.map((point) => `${point.x},${point.y}`).join('\n')
 
-  const fs = require('fs')
-  fs.writeFileSync(filename, csvContent)
-}
+//   const fs = require('fs')
+//   fs.writeFileSync(filename, csvContent)
+// }
 
 interface PlotData {
   x: number[]
@@ -38,7 +39,7 @@ export class Plotter {
   }
 
   createPlot(filename: string = 'plot.html'): void {
-    const fs = require('fs')
+    // const fs = require('fs')
     const htmlContent = `
     <html>
     <head>

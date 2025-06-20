@@ -18,11 +18,12 @@ import { doesRayIntersectLineSegment, interpolateLine } from '../utils/geometry'
 import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { computePointToPointDistance } from '../utils/geometry'
 import { flattenSegments, FlattenedSegment } from './segment_flattener'
-import { calculatePolygonArea } from '../utils/geometry'
 import { isLeft } from '../utils/geometry'
 import { calculateCentroid } from '../utils/geometry'
 import { calculateWindingDirection } from '../utils/polygon'
 import { newId } from '../utils/ids'
+import { Plotter } from '../utils/debug'
+import { getFaceRegions } from './regions_v2'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -34,7 +35,7 @@ export enum SegmentType {
 export interface Segment {
   type: SegmentType
   id: string
-  geometry: Line | Arc | Bezier
+  geometry: Line | Bezier // | Arc
   idSubpath: string // ID of the subpath this segment belongs to.
   idNextSegment: string | null // ID of the next segment in the subpath.
   idPrevSegment: string | null // ID of the previous segment in the subpath.
@@ -122,11 +123,6 @@ export interface Subpath {
 export interface PlanarGraph {
   nodes: Array<[number, number]>
   edges: Array<[number, number]>
-  segmentEdgeMap: Map<string, string>
-}
-
-export interface EnhancedPlanarGraph extends PlanarGraph {
-  // Maps edge key to segment info with direction.
   edgeSegmentMap: Map<string, EdgeSegmentInfo>
 }
 
@@ -217,18 +213,27 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSplitSegments = splitSegments(allSegments, intersections)
 
+  getFaceRegions(linkedSplitSegments)
+
   // The above is _almost_ a DCEL, but I think we can get a quicker win
   // by flattening (as in sampling) here, then building a planar graph, and doing our
   // fill-rule logic with that.
   const epsilon = 0.001
   const flattenedSegments = flattenSegments(linkedSplitSegments, epsilon)
 
+  // Flattened segments have split segment parents, which have segment parents.
+
   // Planar graph structure.
   const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments)
   const faceForest = getFaces(planarGraph)
 
   // Build regions.
-  const { regions, regionVertexIds } = buildRegionsFromFaces(planarGraph, faceForest)
+  const { regions, regionVertexIds } = buildRegionsFromFaces(
+    planarGraph,
+    faceForest,
+    flattenedSegments,
+    linkedSplitSegments
+  )
 
   // Now we need to get the fill rules for each region.
   // First, get a test point for each.
@@ -236,6 +241,57 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   for (let i = 0; i < regions.length; i++) {
     regionTestPoints.push(computeTestPoint(regions[i], planarGraph, regionVertexIds[i]))
   }
+
+  // ---------------------------------------------------------------------------------
+  // Debug plotting of regions
+  const plotter = new Plotter()
+
+  // Define a cycle of colors.
+  const regionColors = [
+    'red',
+    'green',
+    'blue',
+    'orange',
+    'purple',
+    'cyan',
+    'magenta',
+    'brown',
+    'black',
+    'pink'
+  ]
+
+  // For each region, collect all the flattened points that correspond to its segments.
+  for (let i = 0; i < regions.length; i++) {
+    const region = regions[i]
+    const color = regionColors[i % regionColors.length]
+    const points: Point[] = []
+
+    for (let j = 0; j < region.segmentIds.length; j++) {
+      const segId = region.segmentIds[j]
+      const reversed = region.segmentReversed[j]
+      // Find all flattened segments that correspond to this parent segment.
+      const segFlats = flattenedSegments.filter((f) => f.parentSegmentId === segId)
+      for (const flat of segFlats) {
+        if (!reversed) {
+          points.push(flat.geometry.start)
+        } else {
+          points.push(flat.geometry.end)
+        }
+      }
+    }
+
+    // Optionally, close the region for plotting.
+    if (points.length > 0) {
+      points.push(points[0])
+    }
+
+    plotter.addPoints(points, 'lines+markers', 'scatter', color, `region_${i}`)
+  }
+
+  // Write the plot to an HTML file.
+  plotter.createPlot('regions_debug_plot.html')
+
+  // ---------------------------------------------------------------------------------
 
   // Then, we can do winding number tests for each region.
   const regionsAnnotated = determineInsideness(regions, regionTestPoints, flattenedSegments)
@@ -270,7 +326,7 @@ function splitSubpaths(commands: PathCommand[]): Subpath[] {
 
       // Create a new subpath.
       currentSubpath = {
-        id: newId(),
+        id: newId('subpath'),
         commands: [],
         segments: []
       }
@@ -532,7 +588,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       // Move: just update control point; no segment insertion.
       newPreviousControlPoint = { ...command.endPositionAbsolute }
     } else if (LINE_COMMANDS.includes(command.type)) {
-      idCurrentSegment = newId()
+      idCurrentSegment = newId('segment')
       const line: Line = {
         start: { ...command.startPositionAbsolute },
         end: { ...command.endPositionAbsolute }
@@ -556,7 +612,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       // For cubics:
       // - Smooth commands need to have their control point reflected and inserted.
       // - All must be converted to absolute.
-      idCurrentSegment = newId()
+      idCurrentSegment = newId('segment')
       const bezier = normalizeBezierCommand(
         command,
         command.startPositionAbsolute,
@@ -808,7 +864,7 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
       // Skip zero-length segments.
       if (t2 - t1 < EPS_PARAM) continue
 
-      const splitSegmentId = newId()
+      const splitSegmentId = newId('splitSegment')
       let splitSegment: SplitSegment
 
       switch (segment.type) {
@@ -928,14 +984,13 @@ function makeNodeAccessor(nodes: Array<[number, number]>) {
   }
 }
 
-export function buildPlanarGraphFromFlattenedSegments(
-  segments: FlattenedSegment[]
-): EnhancedPlanarGraph {
+export function buildPlanarGraphFromFlattenedSegments(segments: FlattenedSegment[]): PlanarGraph {
+  // Use our own pattern. We need
+
   const nodes: Array<[number, number]> = []
   const getNodeId = makeNodeAccessor(nodes)
 
   const edgeSet = new Set<string>()
-  const segmentEdgeMap = new Map<string, string>()
   const edgeSegmentMap = new Map<string, EdgeSegmentInfo>() // For direction.
 
   for (const seg of segments) {
@@ -949,7 +1004,6 @@ export function buildPlanarGraphFromFlattenedSegments(
 
     if (!edgeSet.has(key)) {
       edgeSet.add(key)
-      segmentEdgeMap.set(key, seg.parentSegmentId)
       edgeSegmentMap.set(key, {
         segmentId: seg.parentSegmentId,
         isReversed
@@ -962,7 +1016,7 @@ export function buildPlanarGraphFromFlattenedSegments(
     return [a, b]
   })
 
-  return { nodes, edges, segmentEdgeMap, edgeSegmentMap }
+  return { nodes, edges, edgeSegmentMap }
 }
 
 export function getFaces(graph: PlanarGraph): DiscoveryResult {
@@ -972,67 +1026,65 @@ export function getFaces(graph: PlanarGraph): DiscoveryResult {
   throw new Error('Face discovery failed')
 }
 
-export function buildRegionsFromFaces(
-  graph: EnhancedPlanarGraph,
-  faceResult: DiscoveryResult
-): { regions: Region[]; regionVertexIds: number[][] } {
-  if (faceResult.type !== 'RESULT') throw new Error('Invalid face result')
-  type CycleNode = { cycle: number[]; children?: CycleNode[] }
-  const { nodes, segmentEdgeMap, edgeSegmentMap } = graph
+function processFaceTree(regions: Region[], tree: any, parentRegionId?: string) {
+  if (tree.cycle && tree.cycle.length >= 3) {
+    // Minimum 3 nodes for a valid face.
+    const regionId = newId('region')
 
+    // Since we did planar graph discovery with flattened (sampled) segments,
+    // we are expecting all faces to be composed of full split segments.
+
+    // To check: iterate over the cycle (face) and collect segment IDs, the we can
+    // deduplicate them.
+    const segmentIds: string[] = []
+    const segmentReversed: boolean[] = []
+    for (const node of tree.cycle) {
+      let x = 1
+    }
+
+    // Process children with this as the parent.
+    if (tree.children && tree.children.length > 0) {
+      for (const child of tree.children) {
+        processFaceTree(child, regionId)
+      }
+    }
+  }
+  // Process children even if this face doesn't have a valid cycle.
+  else if (tree.children && tree.children.length > 0) {
+    for (const child of tree.children) {
+      processFaceTree(child, parentRegionId)
+    }
+  }
+}
+
+export function buildRegionsFromFaces(
+  graph: PlanarGraph,
+  faceForest: DiscoveryResult,
+  segmentsFlattened: FlattenedSegment[],
+  segments: SplitSegment[]
+): { regions: Region[]; regionVertexIds: number[][] } {
   const regions: Region[] = []
   const regionVertexIds: number[][] = []
 
-  let faceSeq = 0
-  const walk = (node: CycleNode) => {
-    const verts = node.cycle
-    if (verts && verts.length >= 3) {
-      const points: Point[] = verts.map((i) => ({ x: nodes[i][0], y: nodes[i][1] }))
-      const signedArea = calculatePolygonArea(points)
-
-      // Track original segments and their reversal status.
-      const originalSegmentReversals = new Map<string, boolean>()
-
-      for (let i = 0; i < verts.length; i++) {
-        const a = verts[i]
-        const b = verts[(i + 1) % verts.length]
-        const key = a < b ? `${a},${b}` : `${b},${a}`
-        const segmentInfo = edgeSegmentMap.get(key)
-
-        if (segmentInfo) {
-          // segmentInfo.segmentId is already the original segment ID
-          const originalSegmentId = segmentInfo.segmentId
-
-          // Determine if this segment is used in reverse for this face.
-          const faceUsesReverse = a > b
-          const actualReverse = segmentInfo.isReversed !== faceUsesReverse
-
-          // Store the reversal status for the original segment.
-          originalSegmentReversals.set(originalSegmentId, actualReverse)
-        }
-      }
-
-      // Convert to arrays
-      const segIds = Array.from(originalSegmentReversals.keys())
-      const segReversed = segIds.map((id) => originalSegmentReversals.get(id)!)
-
-      regions.push({
-        id: newId(),
-        faceIndex: faceSeq++,
-        segmentIds: segIds,
-        segmentReversed: segReversed,
-        signedArea,
-        isACW: signedArea > 0
-      })
-
-      regionVertexIds.push([...verts])
-    }
-
-    node.children?.forEach(walk)
+  // Build a map of segment ID to linked split segment.
+  const segmentMap = new Map<string, SplitSegment>()
+  for (const seg of segments) {
+    segmentMap.set(seg.id, seg)
   }
 
-  ;(faceResult.forest as CycleNode[]).forEach(walk)
-  return { regions: regions, regionVertexIds: regionVertexIds || [] }
+  // Build a map of vertex IDs to linked and split segments.
+  // edgeSegmentMap on the graph object maps from edge (defined as a pair of vertex IDs)
+  // to segment ID and direction (reversed or not).
+  const x = 1
+
+  // Iterate over face forst and process each face.
+  for (const rootFace of faceForest.forest) {
+    processFaceTree(regions, rootFace, undefined)
+  }
+
+  // -----------------------------------------------------------------------------------
+
+  return { regions, regionVertexIds }
 }
 
 // Rework of src/utils/geometry.ts; should be moved there later.

@@ -24,6 +24,7 @@ import { calculateWindingDirection } from '../utils/polygon'
 import { newId } from '../utils/ids'
 import { Plotter } from '../utils/debug'
 import { getFaceRegions } from './regions_v2'
+import { plotLinkedSplitSegments } from './plot_segments'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and cubic Bézier curves only.
@@ -213,6 +214,8 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSplitSegments = splitSegments(allSegments, intersections)
 
+  plotLinkedSplitSegments(linkedSplitSegments, 'linked_split_segments.png')
+
   getFaceRegions(linkedSplitSegments)
 
   // The above is _almost_ a DCEL, but I think we can get a quicker win
@@ -391,7 +394,9 @@ function normalizeBezierCommand(
         start: { x: currentPoint.x, y: currentPoint.y },
         control1: { x: x1, y: y1 },
         control2: { x: x2, y: y2 },
-        end: { x, y }
+        end: { x, y },
+        wasQuadratic: false,
+        wasSmooth: false
       }
       break
     }
@@ -410,7 +415,9 @@ function normalizeBezierCommand(
         start: { x: currentPoint.x, y: currentPoint.y },
         control1: { x: x1Abs, y: y1Abs },
         control2: { x: x2Abs, y: y2Abs },
-        end: { x: xAbs, y: yAbs }
+        end: { x: xAbs, y: yAbs },
+        wasQuadratic: false,
+        wasSmooth: false
       }
       break
     }
@@ -424,7 +431,9 @@ function normalizeBezierCommand(
         start: { x: currentPoint.x, y: currentPoint.y },
         control1: control1,
         control2: { x: x2, y: y2 },
-        end: { x, y }
+        end: { x, y },
+        wasQuadratic: false,
+        wasSmooth: true
       }
       break
     }
@@ -444,7 +453,9 @@ function normalizeBezierCommand(
         start: { x: currentPoint.x, y: currentPoint.y },
         control1: control1,
         control2: { x: x2Abs, y: y2Abs },
-        end: { x: xAbs, y: yAbs }
+        end: { x: xAbs, y: yAbs },
+        wasQuadratic: false,
+        wasSmooth: true
       }
       break
     }
@@ -468,7 +479,9 @@ function normalizeBezierCommand(
         start: cubicForm.start,
         control1: cubicForm.control1,
         control2: cubicForm.control2,
-        end: cubicForm.end
+        end: cubicForm.end,
+        wasQuadratic: true,
+        wasSmooth: false
       }
       break
     }
@@ -498,7 +511,9 @@ function normalizeBezierCommand(
         start: cubicForm.start,
         control1: cubicForm.control1,
         control2: cubicForm.control2,
-        end: cubicForm.end
+        end: cubicForm.end,
+        wasQuadratic: true,
+        wasSmooth: false
       }
       break
     }
@@ -526,7 +541,9 @@ function normalizeBezierCommand(
         start: cubicForm.start,
         control1: cubicForm.control1,
         control2: cubicForm.control2,
-        end: cubicForm.end
+        end: cubicForm.end,
+        wasQuadratic: true,
+        wasSmooth: true
       }
       break
     }
@@ -558,7 +575,9 @@ function normalizeBezierCommand(
         start: cubicForm.start,
         control1: cubicForm.control1,
         control2: cubicForm.control2,
-        end: cubicForm.end
+        end: cubicForm.end,
+        wasQuadratic: true,
+        wasSmooth: true
       }
       break
     }
@@ -776,7 +795,25 @@ export function splitCubicBezierBetween(bezier: Bezier, tMin: number, tMax: numb
     control1: finalCtrl1,
     control2: finalCtrl2,
     end: finalEnd
+    // wasQuadratic: handled by caller.
+    // wasSmooth: handled by caller.
   }
+}
+
+function repairSmoothContinuation(segJustEnded: Bezier, next?: Bezier): void {
+  if (!next || !next.wasSmooth) return
+
+  const oldControl1 = { ...next.control1 }
+  const newControl1 = reflectControlPoint(segJustEnded.control2, segJustEnded.end)
+
+  console.log('=== REPAIRING SMOOTH CONTINUATION ===')
+  console.log('Previous segment control2:', segJustEnded.control2)
+  console.log('Connection point (prev end = next start):', segJustEnded.end)
+  console.log('Next segment old control1:', oldControl1)
+  console.log('Next segment new control1:', newControl1)
+  console.log('==========================================')
+
+  next.control1 = newControl1
 }
 
 function splitArc(arc: Arc, tMin: number, tMax: number): SplitSegment[] {
@@ -827,6 +864,7 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
   }
 
   const result: SplitSegment[] = []
+  const segmentPieces = new Map<string, SplitSegment[]>() // Track pieces for each original segment
 
   for (const segment of segments) {
     // Get the t-values for this segment, filtering out endpoints because splitting there
@@ -838,10 +876,13 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
     // Segment has no intersections, so we can just push it as is.
     if (currentSegmentT.length === 0) {
       // Push this segment as is; no parent.
-      result.push({
+      const unsplitSegment = {
         ...segment,
         idParentSegment: null // No parent segment since this is not split.
-      } as SplitSegment)
+      } as SplitSegment
+
+      segmentPieces.set(segment.id, [unsplitSegment])
+      result.push(unsplitSegment)
 
       continue
     }
@@ -880,14 +921,20 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
           }
           break
         case SegmentType.CubicBezier:
+          const originalBezier = segment.geometry as Bezier
           splitSegment = {
             id: splitSegmentId,
             idSubpath: segment.idSubpath,
             idParentSegment: segment.id,
             type: segment.type,
-            geometry: splitCubicBezierBetween(segment.geometry as Bezier, t1, t2),
-            idPrevSegment: null, // Will be set below.
-            idNextSegment: null // Will be set below.
+            geometry: {
+              ...splitCubicBezierBetween(originalBezier, t1, t2),
+              // Only the first piece should inherit the wasSmooth property.
+              wasSmooth: i === 0 ? originalBezier.wasSmooth : false,
+              wasQuadratic: originalBezier.wasQuadratic
+            },
+            idPrevSegment: null,
+            idNextSegment: null
           }
           break
         case SegmentType.Arc:
@@ -925,7 +972,32 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
       segmentLookup.set(piece.id, piece)
     }
 
+    segmentPieces.set(segment.id, splitPieces)
     result.push(...splitPieces)
+  }
+
+  // Second pass: repair smooth continuations between segments
+  for (const segment of segments) {
+    if (!segment.idNextSegment) continue // No next segment
+
+    const currentPieces = segmentPieces.get(segment.id)
+    const nextPieces = segmentPieces.get(segment.idNextSegment)
+
+    if (!currentPieces || !nextPieces) continue
+
+    const lastPieceOfCurrent = currentPieces[currentPieces.length - 1]
+    const firstPieceOfNext = nextPieces[0]
+
+    if (
+      lastPieceOfCurrent.type === SegmentType.CubicBezier &&
+      firstPieceOfNext.type === SegmentType.CubicBezier
+    ) {
+      const nextGeometry = firstPieceOfNext.geometry as Bezier
+      if (nextGeometry.wasSmooth) {
+        const currentGeometry = lastPieceOfCurrent.geometry as Bezier
+        repairSmoothContinuation(currentGeometry, nextGeometry)
+      }
+    }
   }
 
   return result

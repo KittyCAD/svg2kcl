@@ -38,6 +38,8 @@ export interface Bezier {
   control1: Point
   control2: Point
   end: Point
+  wasQuadratic?: boolean
+  wasSmooth?: boolean
 }
 
 export interface Arc {

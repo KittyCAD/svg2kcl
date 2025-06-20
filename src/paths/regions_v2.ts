@@ -2,6 +2,7 @@ import { SplitSegment } from './path_processor_v2'
 import { EPS_INTERSECTION } from '../intersections/constants'
 import { PlanarFaceTree } from 'planar-face-discovery'
 import { newId } from '../utils/ids'
+import { plotRegionsAndGraph } from './regions_v2_plotter'
 
 const EPS_SQUARED = EPS_INTERSECTION * EPS_INTERSECTION
 
@@ -13,7 +14,7 @@ type Graph = {
   edges: Edge[]
 }
 
-type Region = {
+export type Region = {
   id: string
   segments: SplitSegment[]
   parentId: string | null // Optional parent ID for hierarchical structure.
@@ -90,6 +91,8 @@ export function getFaceRegions(segments: SplitSegment[]) {
   for (const rootFace of discoveryResult.forest) {
     processFaceTree(regions, null, rootFace, segments, nodeIndexToSegments, graph)
   }
+
+  plotRegionsAndGraph(regions, graph.nodes, graph.edges, 'my_regions.png')
 
   // Look at regions.
   let x = 1

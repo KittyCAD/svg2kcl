@@ -37,7 +37,10 @@ export function plotRegionsAndGraph(
     const [i, j] = e
     const start = { x: graphNodes[i][0], y: graphNodes[i][1] }
     const end = { x: graphNodes[j][0], y: graphNodes[j][1] }
-    plotter.plotLine({ start, end }, '#888', 1 /*lineWidth*/, `e${idx}`)
+    plotter.plotLine({ start, end }, '#000000', 1)
+    plotter.save(filename)
+
+    let x = 1
   })
 
   // 3. Colour palette for regions
@@ -60,36 +63,36 @@ export function plotRegionsAndGraph(
   ]
 
   // 4. Draw every region
-  regions.forEach((region, rIdx) => {
-    const colour = palette[rIdx % palette.length]
+  // regions.forEach((region, rIdx) => {
+  //   const colour = palette[rIdx % palette.length]
 
-    region.segments.forEach((seg: SplitSegment, sIdx: number) => {
-      if (seg.type === 'Line') {
-        plotter.plotLine(seg.geometry as Line, colour, 3)
-      } else if (seg.type === 'CubicBezier' || seg.type === 'QuadraticBezier') {
-        plotter.plotBezier(seg.geometry as Bezier, colour, 3)
-      } else {
-        // If you have other segment kinds, add them here.
-        console.warn(`Segment type ${seg.type} not plotted.`)
-      }
-    })
+  //   region.segments.forEach((seg: SplitSegment, sIdx: number) => {
+  //     if (seg.type === 'Line') {
+  //       plotter.plotLine(seg.geometry as Line, colour, 3)
+  //     } else if (seg.type === 'CubicBezier' || seg.type === 'QuadraticBezier') {
+  //       plotter.plotBezier(seg.geometry as Bezier, colour, 3)
+  //     } else {
+  //       // If you have other segment kinds, add them here.
+  //       console.warn(`Segment type ${seg.type} not plotted.`)
+  //     }
+  //   })
 
-    // Optional: put a region label roughly at its centroid
-    const centroid = region.segments.reduce(
-      (acc, seg) => {
-        const { x, y } = seg.geometry.start
-        return { x: acc.x + x, y: acc.y + y }
-      },
-      { x: 0, y: 0 }
-    )
-    centroid.x /= region.segments.length
-    centroid.y /= region.segments.length
+  //   // Optional: put a region label roughly at its centroid
+  //   const centroid = region.segments.reduce(
+  //     (acc, seg) => {
+  //       const { x, y } = seg.geometry.start
+  //       return { x: acc.x + x, y: acc.y + y }
+  //     },
+  //     { x: 0, y: 0 }
+  //   )
+  //   centroid.x /= region.segments.length
+  //   centroid.y /= region.segments.length
 
-    const p = plotter['transformPoint'](centroid as any) // using a private helper
-    plotter['ctx'].fillStyle = colour
-    plotter['ctx'].font = '14px Arial'
-    plotter['ctx'].fillText(region.id, p.x, p.y)
-  })
+  //   const p = plotter['transformPoint'](centroid as any) // using a private helper
+  //   plotter['ctx'].fillStyle = colour
+  //   plotter['ctx'].font = '14px Arial'
+  //   plotter['ctx'].fillText(region.id, p.x, p.y)
+  // })
 
   plotter.save(filename)
 }

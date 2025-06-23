@@ -91,12 +91,35 @@ export function flattenSegments(segments: SplitSegment[], tolerance: number): Fl
     const parentId = seg.id
     switch (seg.type) {
       case SegmentType.Line:
-        output.push({
-          id: newId('flattendSegment'),
-          parentSegmentId: parentId,
-          geometry: seg.geometry as Line
-        })
+        // Sample the line more densely
+        const numPoints = 100
+        const dx = (seg.geometry.end.x - seg.geometry.start.x) / numPoints
+        const dy = (seg.geometry.end.y - seg.geometry.start.y) / numPoints
+
+        // Create line segments between consecutive points
+        for (let i = 0; i < numPoints; i++) {
+          const x1 = seg.geometry.start.x + i * dx
+          const y1 = seg.geometry.start.y + i * dy
+          const x2 = seg.geometry.start.x + (i + 1) * dx
+          const y2 = seg.geometry.start.y + (i + 1) * dy
+
+          output.push({
+            id: newId('flattenedSegment'),
+            parentSegmentId: parentId,
+            geometry: {
+              start: { x: x1, y: y1 },
+              end: { x: x2, y: y2 }
+            }
+          })
+        }
         break
+      // output.push({
+      //   id: newId('flattendSegment'),
+      //   parentSegmentId: parentId,
+      //   geometry: seg.geometry as Line
+      // })
+      // break
+      case SegmentType.QuadraticBezier:
       case SegmentType.CubicBezier:
         flattenBezier(seg.geometry as Bezier, tolerance, parentId, output)
         break

@@ -20,18 +20,17 @@ import { isLeft } from '../utils/geometry'
 import { calculateCentroid } from '../utils/geometry'
 import { calculateWindingDirection } from '../utils/polygon'
 import { newId } from '../utils/ids'
-import { Plotter } from '../utils/debug'
-import { getFaceRegions } from './regions_v2'
 import { plotLinkedSplitSegments } from './plot_segments'
 import { calculateReflectedControlPoint } from '../bezier/helpers'
 import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/split'
+import { Plotter } from '../intersections/plotter'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
   Line = 'Line',
   Arc = 'Arc',
   CubicBezier = 'CubicBezier',
-  QudraticBezier = 'QuadraticBezier'
+  QuadraticBezier = 'QuadraticBezier'
 }
 
 export interface Segment {
@@ -95,25 +94,25 @@ const intersectionDispatch: Record<
   [SegmentType.Line]: {
     [SegmentType.Line]: handleLineLineIntersection,
     [SegmentType.CubicBezier]: handleLineBezierIntersection,
-    [SegmentType.QudraticBezier]: handleLineBezierIntersection,
+    [SegmentType.QuadraticBezier]: handleLineBezierIntersection,
     [SegmentType.Arc]: handleNotImplemented
   },
   [SegmentType.CubicBezier]: {
     [SegmentType.Line]: handleBezierLineIntersection,
     [SegmentType.CubicBezier]: handleBezierBezierIntersection,
-    [SegmentType.QudraticBezier]: handleBezierBezierIntersection,
+    [SegmentType.QuadraticBezier]: handleBezierBezierIntersection,
     [SegmentType.Arc]: handleNotImplemented
   },
-  [SegmentType.QudraticBezier]: {
+  [SegmentType.QuadraticBezier]: {
     [SegmentType.Line]: handleBezierLineIntersection,
     [SegmentType.CubicBezier]: handleBezierBezierIntersection,
-    [SegmentType.QudraticBezier]: handleBezierBezierIntersection,
+    [SegmentType.QuadraticBezier]: handleBezierBezierIntersection,
     [SegmentType.Arc]: handleNotImplemented
   },
   [SegmentType.Arc]: {
     [SegmentType.Line]: handleNotImplemented,
     [SegmentType.CubicBezier]: handleNotImplemented,
-    [SegmentType.QudraticBezier]: handleNotImplemented,
+    [SegmentType.QuadraticBezier]: handleNotImplemented,
     [SegmentType.Arc]: handleNotImplemented
   }
 }
@@ -231,7 +230,8 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   plotLinkedSplitSegments(linkedSplitSegments, 'linked_split_segments.png')
 
-  getFaceRegions(linkedSplitSegments)
+  // This won't work because of the line-bezier loop |) being flagged as a single line with no area.
+  // getFaceRegions(linkedSplitSegments)
 
   // The above is _almost_ a DCEL, but I think we can get a quicker win
   // by flattening (as in sampling) here, then building a planar graph, and doing our
@@ -239,11 +239,87 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const epsilon = 0.001
   const flattenedSegments = flattenSegments(linkedSplitSegments, epsilon)
 
-  // Flattened segments have split segment parents, which have segment parents.
+  // Plot flattened segments.
+  // -------------------
+  const plotter = new Plotter()
+  plotter.setBounds(0, 0, 100, 100)
+  flattenedSegments.forEach((seg) => {
+    const line = seg.geometry as Line
+    plotter.plotLine(line, 'black', 1)
+  })
+  plotter.save('flattened_segments.png')
+  // -------------------
 
   // Planar graph structure.
   const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments)
   const faceForest = getFaces(planarGraph)
+
+  // Just plot the graph.
+  // -------------------
+  const graphPlotter = new Plotter()
+  graphPlotter.setBounds(0, 0, 100, 100)
+  planarGraph.nodes.forEach((node, id) => {
+    graphPlotter.plotPoint({ x: node[0], y: node[1] }, 'red', 2)
+  })
+  planarGraph.edges.forEach((edge) => {
+    const start = planarGraph.nodes[edge[0]]
+    const end = planarGraph.nodes[edge[1]]
+    graphPlotter.plotLine(
+      { start: { x: start[0], y: start[1] }, end: { x: end[0], y: end[1] } },
+      'blue',
+      1
+    )
+  })
+  graphPlotter.save('planar_graph.png')
+
+  // Plot each face.
+  // -------------------
+  const flatPlotter = new Plotter()
+  flatPlotter.setBounds(0, 0, 100, 100)
+
+  function plotCycle(cycle: number[], color: string): void {
+    const points = cycle.map((id) => planarGraph.nodes[id])
+
+    for (let i = 0; i < points.length; i++) {
+      const start = points[i]
+      const end = points[(i + 1) % points.length]
+
+      const startPoint: Point = { x: start[0], y: start[1] }
+      const endPoint: Point = { x: end[0], y: end[1] }
+
+      flatPlotter.plotLine({ start: startPoint, end: endPoint }, color, 1)
+    }
+    flatPlotter.save(`flat_segment_regions.png`)
+    let x = 1
+  }
+
+  function plotFaceRecursive(
+    face: any,
+    color: string = 'blue',
+    childColor: string = 'green'
+  ): void {
+    // Plot this face's cycle if it exists
+    if (face.cycle && face.cycle.length > 0) {
+      plotCycle(face.cycle, color)
+    }
+
+    // Recursively plot all children
+    if (face.children && face.children.length > 0) {
+      face.children.forEach((childFace: any) => {
+        plotFaceRecursive(childFace, childColor)
+      })
+    }
+  }
+
+  // Start the recursive plotting with the root faces
+  faceForest.forest.forEach((face) => {
+    plotFaceRecursive(face)
+  })
+
+  flatPlotter.save(`flat_segment_regions.png`)
+
+  let x = 1
+  // -------------------
 
   // Build regions.
   const { regions, regionVertexIds } = buildRegionsFromFaces(
@@ -259,57 +335,6 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   for (let i = 0; i < regions.length; i++) {
     regionTestPoints.push(computeTestPoint(regions[i], planarGraph, regionVertexIds[i]))
   }
-
-  // ---------------------------------------------------------------------------------
-  // Debug plotting of regions
-  const plotter = new Plotter()
-
-  // Define a cycle of colors.
-  const regionColors = [
-    'red',
-    'green',
-    'blue',
-    'orange',
-    'purple',
-    'cyan',
-    'magenta',
-    'brown',
-    'black',
-    'pink'
-  ]
-
-  // For each region, collect all the flattened points that correspond to its segments.
-  for (let i = 0; i < regions.length; i++) {
-    const region = regions[i]
-    const color = regionColors[i % regionColors.length]
-    const points: Point[] = []
-
-    for (let j = 0; j < region.segmentIds.length; j++) {
-      const segId = region.segmentIds[j]
-      const reversed = region.segmentReversed[j]
-      // Find all flattened segments that correspond to this parent segment.
-      const segFlats = flattenedSegments.filter((f) => f.parentSegmentId === segId)
-      for (const flat of segFlats) {
-        if (!reversed) {
-          points.push(flat.geometry.start)
-        } else {
-          points.push(flat.geometry.end)
-        }
-      }
-    }
-
-    // Optionally, close the region for plotting.
-    if (points.length > 0) {
-      points.push(points[0])
-    }
-
-    plotter.addPoints(points, 'lines+markers', 'scatter', color, `region_${i}`)
-  }
-
-  // Write the plot to an HTML file.
-  plotter.createPlot('regions_debug_plot.html')
-
-  // ---------------------------------------------------------------------------------
 
   // Then, we can do winding number tests for each region.
   const regionsAnnotated = determineInsideness(regions, regionTestPoints, flattenedSegments)
@@ -605,7 +630,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       if (bezier.isCubic) {
         bezierType = SegmentType.CubicBezier
       } else if (bezier.isQuadratic) {
-        bezierType = SegmentType.QudraticBezier
+        bezierType = SegmentType.QuadraticBezier
       } else {
         throw new Error('Unknown Bézier type.')
       }
@@ -849,7 +874,7 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
             idNextSegment: null // Will be set below.
           }
           break
-        case SegmentType.QudraticBezier:
+        case SegmentType.QuadraticBezier:
           const orginalQuad = segment.geometry as Bezier
           splitSegment = {
             id: splitSegmentId,

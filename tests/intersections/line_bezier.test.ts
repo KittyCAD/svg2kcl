@@ -150,4 +150,34 @@ describe('Line-Bezier Intersections', () => {
 
     expect(result).toHaveLength(0)
   })
+
+  it('should find intersection of line with smooth quadratic bezier (T command)', () => {
+    const line: Line = {
+      start: { x: 90, y: 50 },
+      end: { x: 30, y: 30 }
+    }
+    // Smooth quadratic from T 90 50 command: (60,30) to (90,50) with control at (75,50)
+    // Control point calculated by reflecting Q control point (45,10) across end point (60,30)
+    // Lifted from `basic_path.svg`.
+    const bezier = Bezier.quadratic({
+      start: { x: 60, y: 30 },
+      control: { x: 75, y: 50 },
+      end: { x: 90, y: 50 }
+    })
+
+    const result = getLineBezierIntersection(line, bezier)
+
+    expect(result.length).toBeGreaterThan(0)
+    result.forEach((intersection) => {
+      expect(intersection.t1).toBeGreaterThanOrEqual(0)
+      expect(intersection.t1).toBeLessThanOrEqual(1)
+      expect(intersection.t2).toBeGreaterThanOrEqual(0)
+      expect(intersection.t2).toBeLessThanOrEqual(1)
+      // Verify intersection point is on both line and bezier
+      expect(intersection.point.x).toBeGreaterThanOrEqual(60)
+      expect(intersection.point.x).toBeLessThanOrEqual(90)
+      expect(intersection.point.y).toBeGreaterThanOrEqual(30)
+      expect(intersection.point.y).toBeLessThanOrEqual(50)
+    })
+  })
 })

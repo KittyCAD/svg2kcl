@@ -1,4 +1,3 @@
-import { convertQuadraticToCubic } from '../bezier/helpers'
 import { Bezier } from '../bezier/core'
 import { EPS_PARAM, EPS_INTERSECTION } from '../intersections/constants'
 import {
@@ -25,7 +24,7 @@ import { Plotter } from '../utils/debug'
 import { getFaceRegions } from './regions_v2'
 import { plotLinkedSplitSegments } from './plot_segments'
 import { calculateReflectedControlPoint } from '../bezier/helpers'
-import { splitCubicBezierBetween } from '../bezier/split'
+import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/split'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -150,16 +149,21 @@ const LINE_COMMANDS = [
   PathCommandType.VerticalLineRelative
 ]
 
-const BEZIER_COMMANDS = [
+const QUADRATIC_BEZIER_COMMANDS = [
   PathCommandType.QuadraticBezierAbsolute,
   PathCommandType.QuadraticBezierRelative,
   PathCommandType.QuadraticBezierSmoothAbsolute,
-  PathCommandType.QuadraticBezierSmoothRelative,
+  PathCommandType.QuadraticBezierSmoothRelative
+]
+
+const CUBIC_BEZIER_COMMANDS = [
   PathCommandType.CubicBezierAbsolute,
   PathCommandType.CubicBezierRelative,
   PathCommandType.CubicBezierSmoothAbsolute,
   PathCommandType.CubicBezierSmoothRelative
 ]
+
+const BEZIER_COMMANDS = [...QUADRATIC_BEZIER_COMMANDS, ...CUBIC_BEZIER_COMMANDS]
 
 const ARC_COMMANDS = [PathCommandType.EllipticalArcAbsolute, PathCommandType.EllipticalArcRelative]
 
@@ -587,7 +591,6 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       // For quadratics:
       // - Smooth commands need to have their control point reflected and inserted.
       // - All must be converted to absolute.
-      // - All must be converted to cubic.
       // For cubics:
       // - Smooth commands need to have their control point reflected and inserted.
       // - All must be converted to absolute.
@@ -597,8 +600,17 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
         command.startPositionAbsolute,
         previousControlPoint
       )
+
+      let bezierType: SegmentType
+      if (bezier.isCubic) {
+        bezierType = SegmentType.CubicBezier
+      } else if (bezier.isQuadratic) {
+        bezierType = SegmentType.QudraticBezier
+      } else {
+        throw new Error('Unknown Bézier type.')
+      }
       const bezierSegment: Segment = {
-        type: SegmentType.CubicBezier,
+        type: bezierType,
         id: idCurrentSegment,
         geometry: bezier,
         idSubpath: subpath.id,
@@ -607,7 +619,7 @@ function buildSegmentsFromSubpath(subpath: Subpath): Segment[] {
       }
 
       segments.push(bezierSegment)
-      newPreviousControlPoint = bezier.control2
+      newPreviousControlPoint = bezier.finalControlPoint
     } else if (ARC_COMMANDS.includes(command.type)) {
       // Handle arc commands.
       // For now, we can only handle circular arcs—so we need to police the
@@ -837,14 +849,26 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
             idNextSegment: null // Will be set below.
           }
           break
-        case SegmentType.CubicBezier:
-          const originalBezier = segment.geometry as Bezier
+        case SegmentType.QudraticBezier:
+          const orginalQuad = segment.geometry as Bezier
           splitSegment = {
             id: splitSegmentId,
             idSubpath: segment.idSubpath,
             idParentSegment: segment.id,
             type: segment.type,
-            geometry: splitCubicBezierBetween(originalBezier, t1, t2),
+            geometry: splitQuadraticBezierBetween(orginalQuad, t1, t2),
+            idPrevSegment: null,
+            idNextSegment: null
+          }
+          break
+        case SegmentType.CubicBezier:
+          const originalCube = segment.geometry as Bezier
+          splitSegment = {
+            id: splitSegmentId,
+            idSubpath: segment.idSubpath,
+            idParentSegment: segment.id,
+            type: segment.type,
+            geometry: splitCubicBezierBetween(originalCube, t1, t2),
             idPrevSegment: null,
             idNextSegment: null
           }

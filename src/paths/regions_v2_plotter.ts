@@ -66,7 +66,7 @@ export function plotRegionsAndGraph(
     region.segments.forEach((seg: SplitSegment, sIdx: number) => {
       if (seg.type === 'Line') {
         plotter.plotLine(seg.geometry as Line, colour, 3)
-      } else if (seg.type === 'CubicBezier') {
+      } else if (seg.type === 'CubicBezier' || seg.type === 'QuadraticBezier') {
         plotter.plotBezier(seg.geometry as Bezier, colour, 3)
       } else {
         // If you have other segment kinds, add them here.

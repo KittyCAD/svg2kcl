@@ -1,7 +1,8 @@
 import { Plotter } from '../intersections/plotter'
 import { SplitSegment } from './path_processor_v2'
 import { Region } from './regions_v2'
-import { Bezier, Line } from '../intersections/intersections'
+import { Line } from '../intersections/intersections'
+import { Bezier } from '../bezier/core'
 
 type Node = [number, number]
 type Edge = [number, number]

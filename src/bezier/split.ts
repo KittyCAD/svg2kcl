@@ -230,3 +230,50 @@ export function splitCubicBezierRange(
     splitPoint2: splitT2.splitPoint // Point at t2
   }
 }
+
+export function splitCubicBezierBetween(bezier: Bezier, tMin: number, tMax: number): Bezier {
+  if (tMin >= tMax) {
+    throw new Error(`Invalid t range: tMin (${tMin}) >= tMax (${tMax})`)
+  }
+
+  const { start, control1, control2, end } = bezier
+
+  // Step 1: split at tMin → keep the second half.
+  const firstSplit = splitCubicBezier(start, control1, control2, end, tMin)
+  const [bStart, bCtrl1, bCtrl2, bEnd] = firstSplit.second
+
+  // Step 2: split the result again at a rescaled t.
+  const tRescaled = (tMax - tMin) / (1 - tMin)
+  const secondSplit = splitCubicBezier(bStart, bCtrl1, bCtrl2, bEnd, tRescaled)
+  const [finalStart, finalCtrl1, finalCtrl2, finalEnd] = secondSplit.first
+
+  return Bezier.cubic({
+    start: finalStart,
+    control1: finalCtrl1,
+    control2: finalCtrl2,
+    end: finalEnd
+  })
+}
+
+export function splitQuadraticBezierBetween(bezier: Bezier, tMin: number, tMax: number): Bezier {
+  if (tMin >= tMax) {
+    throw new Error(`Invalid t range: tMin (${tMin}) >= tMax (${tMax})`)
+  }
+
+  const { start, quadraticControl, end } = bezier
+
+  // Step 1: split at tMin → keep the second half.
+  const firstSplit = splitQuadraticBezier(start, quadraticControl, end, tMin)
+  const [bStart, bCtrl, bEnd] = firstSplit.second
+
+  // Step 2: split the result again at a rescaled t.
+  const tRescaled = (tMax - tMin) / (1 - tMin)
+  const secondSplit = splitQuadraticBezier(bStart, bCtrl, bEnd, tRescaled)
+  const [finalStart, finalCtrl, finalEnd] = secondSplit.first
+
+  return Bezier.quadratic({
+    start: finalStart,
+    control: finalCtrl,
+    end: finalEnd
+  })
+}

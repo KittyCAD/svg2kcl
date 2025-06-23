@@ -50,34 +50,34 @@ export function sampleCubicBezier(
   return points
 }
 
-// export function evaluateQuadraticBezier(
-//   t: number,
-//   start: Point,
-//   control: Point,
-//   end: Point
-// ): Point {
-//   const mt = 1 - t
-//   return {
-//     x: mt * mt * start.x + 2 * mt * t * control.x + t * t * end.x,
-//     y: mt * mt * start.y + 2 * mt * t * control.y + t * t * end.y
-//   }
-// }
+export function evaluateQuadraticBezier(
+  t: number,
+  start: Point,
+  control: Point,
+  end: Point
+): Point {
+  const mt = 1 - t
+  return {
+    x: mt * mt * start.x + 2 * mt * t * control.x + t * t * end.x,
+    y: mt * mt * start.y + 2 * mt * t * control.y + t * t * end.y
+  }
+}
 
-// export function evaluateCubicBezier(
-//   t: number,
-//   start: Point,
-//   control1: Point,
-//   control2: Point,
-//   end: Point
-// ): Point {
-//   const mt = 1 - t
-//   const mt2 = mt * mt
-//   const t2 = t * t
-//   return {
-//     x: mt2 * mt * start.x + 3 * mt2 * t * control1.x + 3 * mt * t2 * control2.x + t2 * t * end.x,
-//     y: mt2 * mt * start.y + 3 * mt2 * t * control1.y + 3 * mt * t2 * control2.y + t2 * t * end.y
-//   }
-// }
+export function evaluateCubicBezier(
+  t: number,
+  start: Point,
+  control1: Point,
+  control2: Point,
+  end: Point
+): Point {
+  const mt = 1 - t
+  const mt2 = mt * mt
+  const t2 = t * t
+  return {
+    x: mt2 * mt * start.x + 3 * mt2 * t * control1.x + 3 * mt * t2 * control2.x + t2 * t * end.x,
+    y: mt2 * mt * start.y + 3 * mt2 * t * control1.y + 3 * mt * t2 * control2.y + t2 * t * end.y
+  }
+}
 
 // export function splitQuadraticBezierSmooth(
 //   start: Point,

@@ -1,11 +1,8 @@
 import { PathFragment } from '../paths/fragments/fragment'
 import { PathFragmentType } from '../types/fragments'
 import { PathCommandEnriched, PathCommandType } from '../types/paths'
-import {
-  calculateReflectedControlPoint,
-  splitCubicBezierRange,
-  splitQuadraticBezierRange
-} from '../utils/bezier'
+import { splitCubicBezierRange, splitQuadraticBezierRange } from '../bezier/split'
+import { calculateReflectedControlPoint } from '../bezier/helpers'
 import { interpolateLine } from '../utils/geometry'
 
 export function subdivideCommand(

@@ -177,12 +177,12 @@ export function doBoxesOverlap(a: Bounds, b: Bounds): boolean {
 }
 
 export function calculateReflectedControlPoint(
-  previousControlPoint: Point,
-  referencePoint: Point
+  controlPoint: Point,
+  reflectAboutPoint: Point
 ): Point {
   // Reflect the previous control point about the reference point.
   return {
-    x: 2 * referencePoint.x - previousControlPoint.x,
-    y: 2 * referencePoint.y - previousControlPoint.y
+    x: 2 * reflectAboutPoint.x - controlPoint.x,
+    y: 2 * reflectAboutPoint.y - controlPoint.y
   }
 }

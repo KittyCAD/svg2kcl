@@ -1,6 +1,7 @@
 import { Plotter } from '../intersections/plotter'
 import { SplitSegment } from './path_processor_v2'
-import { Bezier, Line } from '../intersections/intersections'
+import { Line } from '../intersections/intersections'
+import { Bezier } from '../bezier/core'
 import { Point } from '../types/base'
 /**
  * Quick-and-simple plot of the raw linked split-segments.

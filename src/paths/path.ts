@@ -1,12 +1,9 @@
 import { EPSILON_INTERSECT } from '../constants'
 import { Point } from '../types/base'
 import { PathCommand, PathCommandEnriched, PathCommandType, PathSampleResult } from '../types/paths'
-import {
-  calculateReflectedControlPoint,
-  sampleCubicBezier,
-  sampleQuadraticBezier
-} from '../utils/bezier'
+import { sampleCubicBezier, sampleQuadraticBezier } from '../utils/bezier'
 import { computePointToPointDistance } from '../utils/geometry'
+import { calculateReflectedControlPoint } from '../bezier/helpers'
 
 export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
   // Our objective here is to sample the path into a series of points, while also
@@ -236,13 +233,6 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
   return { pathSamplePoints: points, pathCommands: commands }
 }
 
-function reflectControlPoint(controlPoint: Point, currentPoint: Point): Point {
-  return {
-    x: 2 * currentPoint.x - controlPoint.x,
-    y: 2 * currentPoint.y - controlPoint.y
-  }
-}
-
 // Helper function to convert relative coordinates to absolute.
 function toAbsolute(relative: number[], currentPoint: Point): number[] {
   const result: number[] = []
@@ -350,7 +340,7 @@ export function absolutizeSubpath(inputCommands: PathCommand[]): PathCommandEnri
 
         if (isSmooth) {
           // Smooth commands: reflect previous control point
-          controlPoint = reflectControlPoint(previousControlPoint, currentPoint)
+          controlPoint = calculateReflectedControlPoint(previousControlPoint, currentPoint)
           const [endX, endY] = isRelative
             ? [currentPoint.x + command.parameters[0], currentPoint.y + command.parameters[1]]
             : command.parameters
@@ -392,7 +382,7 @@ export function absolutizeSubpath(inputCommands: PathCommand[]): PathCommandEnri
 
         if (isSmooth) {
           // Smooth commands: reflect previous control point for first control point.
-          control1 = reflectControlPoint(previousControlPoint, currentPoint)
+          control1 = calculateReflectedControlPoint(previousControlPoint, currentPoint)
           const params = isRelative
             ? toAbsolute(command.parameters, currentPoint)
             : command.parameters

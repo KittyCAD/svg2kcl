@@ -17,7 +17,8 @@ import { PathCommand, PathCommandType } from '../types/paths'
 import { getCombinedTransform, Transform } from '../utils/transform'
 import { processPath, ProcessedPathV2 } from '../paths/path_processor_v2'
 import { SegmentType, Segment } from '../paths/path_processor_v2'
-import { Bezier, Line } from '../intersections/intersections'
+import { Line } from '../intersections/intersections'
+import { Bezier } from '../bezier/core'
 
 // TODO: Improve handling of relative coordinates, particularly prior to `close` calls.
 // Absolute coordinates allow us to get away from rounding/floating point issues.

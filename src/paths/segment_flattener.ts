@@ -1,6 +1,7 @@
 import { SplitSegment, SegmentType } from './path_processor_v2'
-import { Line, Bezier, Arc } from '../intersections/intersections'
-import { splitCubicBezier } from '../utils/bezier'
+import { Line, Arc } from '../intersections/intersections'
+import { Bezier } from '../bezier/core'
+import { splitCubicBezier } from '../bezier/split'
 import { Plotter } from '../intersections/plotter'
 import { newId } from '../utils/ids'
 
@@ -48,8 +49,18 @@ function flattenBezier(
   const [l0, l1, l2, l3] = first
   const [r0, r1, r2, r3] = second
 
-  flattenBezier({ start: l0, control1: l1, control2: l2, end: l3 }, tol, parentId, out)
-  flattenBezier({ start: r0, control1: r1, control2: r2, end: r3 }, tol, parentId, out)
+  flattenBezier(
+    Bezier.cubic({ start: l0, control1: l1, control2: l2, end: l3 }),
+    tol,
+    parentId,
+    out
+  )
+  flattenBezier(
+    Bezier.cubic({ start: r0, control1: r1, control2: r2, end: r3 }),
+    tol,
+    parentId,
+    out
+  )
 }
 
 function flattenArc(arc: Arc, tol: number, parentId: string, out: FlattenedSegment[]): void {

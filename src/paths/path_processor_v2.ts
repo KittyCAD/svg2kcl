@@ -1,8 +1,8 @@
-import { convertQuadraticToCubic } from '../intersections/bezier_helpers'
+import { convertQuadraticToCubic } from '../bezier/helpers'
+import { Bezier } from '../bezier/core'
 import { EPS_PARAM, EPS_INTERSECTION } from '../intersections/constants'
 import {
   Arc,
-  Bezier,
   getBezierBezierIntersection,
   getBezierSelfIntersection,
   getLineBezierIntersection,

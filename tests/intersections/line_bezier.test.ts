@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals'
-import { getLineBezierIntersection, Line, Bezier } from '../../src/intersections/intersections'
+import { getLineBezierIntersection, Line } from '../../src/intersections/intersections'
+import { Bezier } from '../../src/bezier/core'
 
 describe('Line-Bezier Intersections', () => {
   it('should find intersection of line crossing through bezier curve', () => {
@@ -7,12 +8,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: 5 },
       end: { x: 10, y: 5 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 2, y: 0 },
       control1: { x: 2, y: 10 },
       control2: { x: 8, y: 10 },
       end: { x: 8, y: 0 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 
@@ -31,12 +32,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: -5 },
       end: { x: 10, y: -5 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 2, y: 0 },
       control1: { x: 4, y: 2 },
       control2: { x: 6, y: 2 },
       end: { x: 8, y: 0 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 
@@ -48,12 +49,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: 0 },
       end: { x: 10, y: 5 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 4, y: 2 },
       control1: { x: 6, y: 4 },
       control2: { x: 8, y: 6 },
       end: { x: 10, y: 8 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 
@@ -71,12 +72,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: 0 },
       end: { x: 10, y: 10 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 0, y: 5 },
       control1: { x: 3, y: 7 },
       control2: { x: 7, y: 9 },
       end: { x: 8, y: 8 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 
@@ -94,12 +95,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: 5 },
       end: { x: 10, y: 5 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 2, y: 0 },
       control1: { x: 4, y: 3.33 },
       control2: { x: 6, y: 6.67 },
       end: { x: 8, y: 10 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 
@@ -114,12 +115,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: 5 },
       end: { x: 10, y: 5 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 1, y: 5 },
       control1: { x: 3, y: 0 },
       control2: { x: 7, y: 10 },
       end: { x: 9, y: 5 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 
@@ -138,12 +139,12 @@ describe('Line-Bezier Intersections', () => {
       start: { x: 0, y: 15 },
       end: { x: 10, y: 15 }
     }
-    const bezier: Bezier = {
+    const bezier = Bezier.cubic({
       start: { x: 2, y: 0 },
       control1: { x: 4, y: 2 },
       control2: { x: 6, y: 4 },
       end: { x: 8, y: 6 }
-    }
+    })
 
     const result = getLineBezierIntersection(line, bezier)
 

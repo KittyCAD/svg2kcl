@@ -1,7 +1,8 @@
 import { Canvas, CanvasRenderingContext2D, createCanvas } from 'canvas'
 import fs from 'fs'
 import { Point } from '../types/base'
-import { Arc, Bezier, Intersection, Line } from './intersections'
+import { Arc, Intersection, Line } from './intersections'
+import { Bezier } from '../bezier/core'
 
 export class Plotter {
   private canvas: Canvas
@@ -235,6 +236,7 @@ export class Plotter {
   save(filename: string): void {
     const buffer = this.canvas.toBuffer('image/png')
     fs.writeFileSync(filename, buffer)
+    let x = 1
   }
 
   clear(): void {

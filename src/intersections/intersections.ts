@@ -6,13 +6,10 @@ import {
   checkBezierDegeneracy,
   doBoxesOverlap,
   evaluateBezier,
-  fatLineReject,
-  getBezierBounds,
-  makeFatLine,
-  solveCubic,
-  solveQuadratic,
-  subdivideBezier
-} from './bezier_helpers'
+  getBezierBounds
+} from '../bezier/helpers'
+import { makeFatLine, fatLineReject, subdivideBezier } from '../bezier/split'
+import { solveCubic, solveQuadratic } from '../bezier/math'
 import {
   EPS_ANGLE_INTERSECTION,
   EPS_BBOX,
@@ -23,25 +20,16 @@ import {
 } from './constants'
 import { Plotter } from './plotter'
 import { warn } from 'console'
+import { Bezier } from '../bezier/core'
 
 // Saves us a few sqrt calls in the line intersection check.
 const EPS_INTERSECTION_SQUARED = Math.pow(EPS_INTERSECTION, 2)
 
+// Use the Bezier class, but for everything else we use plain objects.
 export interface Line {
   start: Point
   end: Point
 }
-
-export interface Bezier {
-  // We'll use cubic representation for both cubes and quads.
-  start: Point
-  control1: Point
-  control2: Point
-  end: Point
-  wasQuadratic?: boolean
-  wasSmooth?: boolean
-}
-
 export interface Arc {
   center: Point
   radius: number

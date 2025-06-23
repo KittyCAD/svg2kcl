@@ -1,25 +1,25 @@
 import { describe, expect, it } from '@jest/globals'
 import {
   getBezierBezierIntersection,
-  getBezierSelfIntersection,
-  Bezier
+  getBezierSelfIntersection
 } from '../../src/intersections/intersections'
-import { convertQuadraticToCubic } from '../../src/intersections/bezier_helpers'
+import { convertQuadraticToCubic } from '../../src/bezier/helpers'
+import { Bezier } from '../../src/bezier/core'
 
 describe('Bezier-Bezier intersections', () => {
   it('finds a single transversal intersection', () => {
-    const a: Bezier = {
+    const a = Bezier.cubic({
       start: { x: 1, y: 0 },
       control1: { x: 1, y: 4 },
       control2: { x: 5, y: 4 },
       end: { x: 5, y: 0 }
-    }
-    const b: Bezier = {
+    })
+    const b = Bezier.cubic({
       start: { x: 0, y: 3 },
       control1: { x: 3, y: -1 },
       control2: { x: 3, y: 5 },
       end: { x: 6, y: 1 }
-    }
+    })
 
     const hits = getBezierBezierIntersection(a, b)
     expect(hits.length).toBeGreaterThan(0)
@@ -32,36 +32,37 @@ describe('Bezier-Bezier intersections', () => {
   })
 
   it('returns empty array when curves do not intersect', () => {
-    const a: Bezier = {
+    const a = Bezier.cubic({
       start: { x: 0, y: 0 },
       control1: { x: 3, y: 2 },
       control2: { x: 6, y: 2 },
       end: { x: 9, y: 0 }
-    }
-    const b: Bezier = {
+    })
+    const b = Bezier.cubic({
       start: { x: 0, y: 5 },
       control1: { x: 3, y: 7 },
       control2: { x: 6, y: 7 },
       end: { x: 9, y: 5 }
-    }
+    })
 
     const hits = getBezierBezierIntersection(a, b)
     expect(hits).toHaveLength(0)
   })
 
   it('detects intersection at shared start point', () => {
-    const a: Bezier = {
+    const a = Bezier.cubic({
       start: { x: 0, y: 0 },
       control1: { x: 2, y: 3 },
       control2: { x: 4, y: 3 },
       end: { x: 6, y: 0 }
-    }
-    const b: Bezier = {
+    })
+
+    const b = Bezier.cubic({
       start: { x: 0, y: 0 }, // same start
       control1: { x: -2, y: -3 },
       control2: { x: -4, y: -3 },
       end: { x: -6, y: 0 }
-    }
+    })
 
     const hits = getBezierBezierIntersection(a, b)
     const startHit = hits.find((h) => Math.abs(h.t1) < 0.01 && Math.abs(h.t2) < 0.01)
@@ -73,18 +74,19 @@ describe('Bezier-Bezier intersections', () => {
   })
 
   it('detects multiple intersections for an “S” curve pair', () => {
-    const a: Bezier = {
+    const a = Bezier.cubic({
       start: { x: 1, y: 5 },
       control1: { x: 3, y: -2 },
       control2: { x: 7, y: 12 },
       end: { x: 9, y: 5 }
-    }
-    const b: Bezier = {
+    })
+
+    const b = Bezier.cubic({
       start: { x: 1, y: 1 },
       control1: { x: 4, y: 11 },
       control2: { x: 6, y: -1 },
       end: { x: 9, y: 9 }
-    }
+    })
 
     const hits = getBezierBezierIntersection(a, b)
     expect(hits.length).toBeGreaterThan(1)
@@ -104,13 +106,15 @@ describe('Bezier-Bezier intersections', () => {
     // Elevate to cubic
     const quadCubic = convertQuadraticToCubic(quadStart, quadControl, quadEnd)
 
+    // TODO: Just use a quad.
+
     // Cubic Bezier: crossing the arch
-    const cubic: Bezier = {
+    const cubic = Bezier.cubic({
       start: { x: 0, y: 2 },
       control1: { x: 1, y: 3 },
       control2: { x: 3, y: 1 },
       end: { x: 4, y: 2 }
-    }
+    })
 
     const hits = getBezierBezierIntersection(quadCubic, cubic)
     expect(hits.length).toBeGreaterThan(0)
@@ -128,12 +132,12 @@ describe('Bezier-Bezier intersections', () => {
   })
 
   it('detects the self-intersection of a looping cubic', () => {
-    const loop: Bezier = {
+    const loop = Bezier.cubic({
       start: { x: 0, y: 0 },
       control1: { x: 14, y: 5 },
       control2: { x: 0, y: 5 },
       end: { x: 10, y: 0 }
-    }
+    })
 
     const hits = getBezierSelfIntersection(loop)
 

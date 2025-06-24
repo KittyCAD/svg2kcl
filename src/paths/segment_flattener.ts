@@ -84,51 +84,60 @@ function flattenArc(arc: Arc, tol: number, parentId: string, out: FlattenedSegme
   }
 }
 
+/**
+ * Flattens a single segment into one or more line segments
+ */
+export function flattenSegment(segment: SplitSegment, tolerance: number): FlattenedSegment[] {
+  const result: FlattenedSegment[] = []
+  const parentId = segment.id
+
+  switch (segment.type) {
+    case SegmentType.Line:
+      // Sample the line more densely
+      const numPoints = 250
+      const dx = (segment.geometry.end.x - segment.geometry.start.x) / numPoints
+      const dy = (segment.geometry.end.y - segment.geometry.start.y) / numPoints
+
+      // Create line segments between consecutive points
+      for (let i = 0; i < numPoints; i++) {
+        const x1 = segment.geometry.start.x + i * dx
+        const y1 = segment.geometry.start.y + i * dy
+        const x2 = segment.geometry.start.x + (i + 1) * dx
+        const y2 = segment.geometry.start.y + (i + 1) * dy
+
+        result.push({
+          id: newId('flattenedSegment'),
+          parentSegmentId: parentId,
+          geometry: {
+            start: { x: x1, y: y1 },
+            end: { x: x2, y: y2 }
+          }
+        })
+      }
+      break
+
+    case SegmentType.QuadraticBezier:
+    case SegmentType.CubicBezier:
+      flattenBezier(segment.geometry as Bezier, tolerance, parentId, result)
+      break
+
+    case SegmentType.Arc:
+      flattenArc(segment.geometry as unknown as Arc, tolerance, parentId, result)
+      break
+
+    default:
+      throw new Error(`Unsupported segment type for flattening: ${segment.type}`)
+  }
+
+  return result
+}
+
 export function flattenSegments(segments: SplitSegment[], tolerance: number): FlattenedSegment[] {
   const output: FlattenedSegment[] = []
 
-  for (const seg of segments) {
-    const parentId = seg.id
-    switch (seg.type) {
-      case SegmentType.Line:
-        // Sample the line more densely
-        const numPoints = 100
-        const dx = (seg.geometry.end.x - seg.geometry.start.x) / numPoints
-        const dy = (seg.geometry.end.y - seg.geometry.start.y) / numPoints
-
-        // Create line segments between consecutive points
-        for (let i = 0; i < numPoints; i++) {
-          const x1 = seg.geometry.start.x + i * dx
-          const y1 = seg.geometry.start.y + i * dy
-          const x2 = seg.geometry.start.x + (i + 1) * dx
-          const y2 = seg.geometry.start.y + (i + 1) * dy
-
-          output.push({
-            id: newId('flattenedSegment'),
-            parentSegmentId: parentId,
-            geometry: {
-              start: { x: x1, y: y1 },
-              end: { x: x2, y: y2 }
-            }
-          })
-        }
-        break
-      // output.push({
-      //   id: newId('flattendSegment'),
-      //   parentSegmentId: parentId,
-      //   geometry: seg.geometry as Line
-      // })
-      // break
-      case SegmentType.QuadraticBezier:
-      case SegmentType.CubicBezier:
-        flattenBezier(seg.geometry as Bezier, tolerance, parentId, output)
-        break
-      case SegmentType.Arc:
-        // flattenArc(seg.geometry as Arc, tolerance, parentId, output)
-        break
-      default:
-        throw new Error(`Unsupported segment type for flattening: ${seg.type}`)
-    }
+  for (const segment of segments) {
+    const flattenedSegments = flattenSegment(segment, tolerance)
+    output.push(...flattenedSegments)
   }
 
   // --------------------------------------------------------------------------

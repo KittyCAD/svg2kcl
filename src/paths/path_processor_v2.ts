@@ -15,15 +15,17 @@ import { PathCommand, PathCommandType } from '../types/paths'
 import { doesRayIntersectLineSegment, interpolateLine } from '../utils/geometry'
 import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { computePointToPointDistance } from '../utils/geometry'
-import { flattenSegments, FlattenedSegment } from './segment_flattener'
+import { flattenSegment, flattenSegments, FlattenedSegment } from './segment_flattener'
 import { isLeft } from '../utils/geometry'
 import { calculateCentroid } from '../utils/geometry'
 import { calculateWindingDirection } from '../utils/polygon'
 import { newId } from '../utils/ids'
-import { plotLinkedSplitSegments } from './plot_segments'
+import { plotLinkedSplitSegments, plotFaceCoords } from './plot_segments'
 import { calculateReflectedControlPoint } from '../bezier/helpers'
 import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/split'
 import { Plotter } from '../intersections/plotter'
+import { writeToJsonFile } from '../utils/debug'
+import { buildTopologicalGraph, buildGraphForLibrary } from './topology'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -56,7 +58,7 @@ export interface Region {
   isACW: boolean
 }
 
-interface EdgeSegmentInfo {
+export interface EdgeSegmentInfo {
   segmentId: string
   isReversed: boolean
 }
@@ -228,10 +230,47 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSplitSegments = splitSegments(allSegments, intersections)
 
-  plotLinkedSplitSegments(linkedSplitSegments, 'linked_split_segments.png')
+  // -----------------------------------------------------------------------------------
 
-  // This won't work because of the line-bezier loop |) being flagged as a single line with no area.
-  // getFaceRegions(linkedSplitSegments)
+  // Connect segments.
+  const epsilonTop = 0.001
+  const graph = buildTopologicalGraph(linkedSplitSegments, epsilonTop)
+
+  // Now get the faces.
+  const flattenedEdgeMap = new Map<string, Point[]>()
+
+  for (const edge of graph.edges.values()) {
+    // 1. Get the array of tiny line segments from your existing function.
+    const tinySegments: FlattenedSegment[] = flattenSegment(edge.sourceSegment, epsilonTop)
+
+    // 2. Now, convert this array of segments into a single array of points (a polyline).
+    const polyline: Point[] = []
+    if (tinySegments.length > 0) {
+      // Start the polyline with the first segment's start point.
+      polyline.push(tinySegments[0].geometry.start)
+      // Then, add the end point of every segment in order.
+      for (const seg of tinySegments) {
+        polyline.push(seg.geometry.end)
+      }
+    }
+
+    // 3. Store the correctly typed polyline (Point[]) in the map.
+    flattenedEdgeMap.set(edge.id, polyline)
+
+    writeToJsonFile(flattenedEdgeMap, 'flattened_edges.json')
+  }
+  // Build the graph for edges.
+  const outGraph = buildGraphForLibrary(flattenedEdgeMap)
+
+  const muhFaces = getFaces(outGraph)
+
+  writeToJsonFile(muhFaces, 'faces.json')
+
+  plotFaceOutlines(muhFaces, outGraph, new Plotter())
+
+  // -----------------------------------------------------------------------------------
+
+  plotLinkedSplitSegments(linkedSplitSegments, '01_linked_split_segments.png')
 
   // The above is _almost_ a DCEL, but I think we can get a quicker win
   // by flattening (as in sampling) here, then building a planar graph, and doing our
@@ -239,87 +278,9 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const epsilon = 0.001
   const flattenedSegments = flattenSegments(linkedSplitSegments, epsilon)
 
-  // Plot flattened segments.
-  // -------------------
-  const plotter = new Plotter()
-  plotter.setBounds(0, 0, 100, 100)
-  flattenedSegments.forEach((seg) => {
-    const line = seg.geometry as Line
-    plotter.plotLine(line, 'black', 1)
-  })
-  plotter.save('flattened_segments.png')
-  // -------------------
-
   // Planar graph structure.
   const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments)
   const faceForest = getFaces(planarGraph)
-
-  // Just plot the graph.
-  // -------------------
-  const graphPlotter = new Plotter()
-  graphPlotter.setBounds(0, 0, 100, 100)
-  planarGraph.nodes.forEach((node, id) => {
-    graphPlotter.plotPoint({ x: node[0], y: node[1] }, 'red', 2)
-  })
-  planarGraph.edges.forEach((edge) => {
-    const start = planarGraph.nodes[edge[0]]
-    const end = planarGraph.nodes[edge[1]]
-    graphPlotter.plotLine(
-      { start: { x: start[0], y: start[1] }, end: { x: end[0], y: end[1] } },
-      'blue',
-      1
-    )
-  })
-  graphPlotter.save('planar_graph.png')
-
-  // Plot each face.
-  // -------------------
-  const flatPlotter = new Plotter()
-  flatPlotter.setBounds(0, 0, 100, 100)
-
-  function plotCycle(cycle: number[], color: string): void {
-    const points = cycle.map((id) => planarGraph.nodes[id])
-
-    for (let i = 0; i < points.length; i++) {
-      const start = points[i]
-      const end = points[(i + 1) % points.length]
-
-      const startPoint: Point = { x: start[0], y: start[1] }
-      const endPoint: Point = { x: end[0], y: end[1] }
-
-      flatPlotter.plotLine({ start: startPoint, end: endPoint }, color, 1)
-    }
-    flatPlotter.save(`flat_segment_regions.png`)
-    let x = 1
-  }
-
-  function plotFaceRecursive(
-    face: any,
-    color: string = 'blue',
-    childColor: string = 'green'
-  ): void {
-    // Plot this face's cycle if it exists
-    if (face.cycle && face.cycle.length > 0) {
-      plotCycle(face.cycle, color)
-    }
-
-    // Recursively plot all children
-    if (face.children && face.children.length > 0) {
-      face.children.forEach((childFace: any) => {
-        plotFaceRecursive(childFace, childColor)
-      })
-    }
-  }
-
-  // Start the recursive plotting with the root faces
-  faceForest.forest.forEach((face) => {
-    plotFaceRecursive(face)
-  })
-
-  flatPlotter.save(`flat_segment_regions.png`)
-
-  let x = 1
-  // -------------------
 
   // Build regions.
   const { regions, regionVertexIds } = buildRegionsFromFaces(
@@ -350,6 +311,60 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const finalRegions = cleanup(flattenedSegments, stackedRegions)
 
   return new ProcessedPathV2(linkedSplitSegments, flattenedSegments, finalRegions.regions)
+}
+
+function plotFaceOutlines(
+  faceForest: DiscoveryResult,
+  planarGraph: PlanarGraph,
+  plotter: Plotter
+): void {
+  const colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan']
+  let iColor = 0
+
+  plotter.setBounds(0, 0, 100, 100)
+  // A helper function to process each face in the tree structure
+  function processFace(faceNode: any) {
+    const cycle: number[] = faceNode.cycle
+
+    // A valid face must have at least 3 points in its cycle
+    if (cycle && cycle.length >= 3) {
+      // Draw a line for each edge of the cycle
+      for (let i = 0; i < cycle.length - 1; i++) {
+        const nodeIndex1 = cycle[i]
+        const nodeIndex2 = cycle[i + 1]
+
+        // Look up the coordinates from the main nodes array
+        const coords1 = planarGraph.nodes[nodeIndex1]
+        const coords2 = planarGraph.nodes[nodeIndex2]
+
+        if (coords1 && coords2) {
+          const p1: Point = { x: coords1[0], y: coords1[1] }
+          const p2: Point = { x: coords2[0], y: coords2[1] }
+
+          // Use your plotter to draw the line
+          plotter.plotLine({ start: p1, end: p2 }, colors[iColor], 2)
+        }
+      }
+
+      iColor = (iColor + 1) % colors.length // Cycle through colors
+    }
+
+    // Recursively process any child faces (holes)
+    if (faceNode.children && faceNode.children.length > 0) {
+      for (const child of faceNode.children) {
+        processFace(child)
+      }
+    }
+  }
+
+  // Start the process for each root of the forest
+  for (const root of faceForest.forest) {
+    processFace(root)
+  }
+
+  plotter.save('faces_outlines.png')
+
+  let x = 1
 }
 
 function splitSubpaths(commands: PathCommand[]): Subpath[] {
@@ -995,6 +1010,7 @@ function makeNodeAccessor(nodes: Array<[number, number]>) {
 
 export function buildPlanarGraphFromFlattenedSegments(segments: FlattenedSegment[]): PlanarGraph {
   // Use our own pattern. We need
+  writeToJsonFile(segments, 'flattened_segments.json')
 
   const nodes: Array<[number, number]> = []
   const getNodeId = makeNodeAccessor(nodes)

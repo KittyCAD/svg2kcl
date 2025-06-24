@@ -1,5 +1,6 @@
 import { Point } from '../types/base'
 import * as fs from 'fs'
+import * as path from 'path'
 
 // export function exportPointsToCSV(points: Point[], filename: string = 'output.csv'): void {
 //   const csvContent = 'X,Y\n' + points.map((point) => `${point.x},${point.y}`).join('\n')
@@ -72,4 +73,32 @@ export class Plotter {
 
     fs.writeFileSync(filename, htmlContent)
   }
+}
+
+export function writeToJsonFile(data: any, filePath: string, pretty = true): void {
+  // Create directory if it doesn't exist
+  const dir = path.dirname(filePath)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+
+  // Custom replacer function to handle Maps
+  const mapReplacer = (key: string, value: any) => {
+    if (value instanceof Map) {
+      return {
+        dataType: 'Map',
+        value: Array.from(value.entries())
+      }
+    }
+    return value
+  }
+
+  // Convert to JSON string with optional pretty-printing
+  const jsonContent = pretty
+    ? JSON.stringify(data, mapReplacer, 2)
+    : JSON.stringify(data, mapReplacer)
+
+  // Write to file
+  fs.writeFileSync(filePath, jsonContent)
+  console.log(`Data written to ${filePath}`)
 }

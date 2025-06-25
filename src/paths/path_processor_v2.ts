@@ -26,7 +26,7 @@ import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/
 import { Plotter } from '../intersections/plotter'
 import { writeToJsonFile } from '../utils/debug'
 import { buildTopologicalGraph, buildGraphForLibrary } from './topology'
-import { makeHalfEdges } from './dcel/dcel'
+import { makeHalfEdges, HalfEdge } from './dcel/dcel'
 import { VertexCollection } from './dcel/vertex_collection'
 
 export enum SegmentType {
@@ -240,6 +240,35 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // Now we need to sort our outgoing edges.
   vertexCollection.finalizeRotation()
 
+  // -----------------------------------------------------------------------------------
+  // Quick peek at a handful of half-edges.
+  console.table(
+    halfEdges.map((e, i) => ({
+      i,
+      tail: `(${e.tail.x},${e.tail.y})`,
+      head: `(${e.head.x},${e.head.y})`,
+      dir: e.geometryReversed ? 'rev' : 'fwd',
+      twin: halfEdges.indexOf(e.twin!),
+      next: e.next ? halfEdges.indexOf(e.next) : -1
+    }))
+  )
+  // Vertex stats.
+  vertexCollection.dump()
+
+  // Walk faces???
+  const faces: HalfEdge[][] = []
+  const seen = new Set<HalfEdge>()
+  for (const seed of halfEdges) {
+    if (seen.has(seed)) continue
+    const loop: HalfEdge[] = []
+    let e = seed
+    do {
+      seen.add(e)
+      loop.push(e)
+      e = e.next!
+    } while (e !== seed)
+    faces.push(loop)
+  }
   let x = 1
 
   // -----------------------------------------------------------------------------------

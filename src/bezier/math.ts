@@ -1,4 +1,6 @@
 import { EPS_INTERSECTION } from '../intersections/constants.js'
+import { Vector } from '../types/base'
+import { BezierPointsCubic, BezierPointsQuadratic } from './core.js'
 
 export function solveQuadratic(a: number, b: number, c: number): number[] {
   // Quadratic formula: x = (-b ± sqrt(b² - 4ac)) / (2a)
@@ -54,5 +56,41 @@ export function solveCubic(a: number, b: number, c: number, d: number): number[]
       factor * Math.cos((theta + 2 * Math.PI) / 3) + offset,
       factor * Math.cos((theta + 4 * Math.PI) / 3) + offset
     ]
+  }
+}
+
+export function computeTangentToQuadratic(object: BezierPointsQuadratic, t: number): Vector {
+  // Quadratic Bézier derivative.
+  // B'(t) = 2(1-t)(P1-P0) + 2t(P2-P1)
+  const { start, control, end } = object
+
+  if (!control) {
+    throw new Error('control1 missing for quadratic bezier fragment')
+  }
+
+  return {
+    x: 2 * (1 - t) * (control.x - start.x) + 2 * t * (end.x - control.x),
+    y: 2 * (1 - t) * (control.y - start.y) + 2 * t * (end.y - control.y)
+  }
+}
+
+export function computeTangentToCubic(object: BezierPointsCubic, t: number): Vector {
+  // Cubic Bézier derivative.
+  // B'(t) = 3(1-t)²(P1-P0) + 6(1-t)t(P2-P1) + 3t²(P3-P2)
+  const { start, control1, control2, end } = object
+
+  if (!control1 || !control2) {
+    throw new Error('Control points missing for cubic bezier fragment')
+  }
+
+  return {
+    x:
+      3 * (1 - t) ** 2 * (control1.x - start.x) +
+      6 * (1 - t) * t * (control2.x - control1.x) +
+      3 * t ** 2 * (end.x - control2.x),
+    y:
+      3 * (1 - t) ** 2 * (control1.y - start.y) +
+      6 * (1 - t) * t * (control2.y - control1.y) +
+      3 * t ** 2 * (end.y - control2.y)
   }
 }

@@ -43,7 +43,12 @@ import {
 import { determineInsideness, isPointInsidePolygon, isPolygonInsidePolygon } from '../utils/polygon'
 import { connectFragments } from './fragments/connector'
 import { PathFragment, sampleFragment } from './fragments/fragment'
-import { buildPlanarGraphFromFragments, buildRegions, getFaces } from './fragments/planar_face'
+import {
+  buildPlanarGraphFromFragments,
+  buildRegions,
+  getFaces,
+  plotFaceOutlines
+} from './fragments/planar_face'
 import { sampleSubpath } from './path'
 import { getRegionPoints } from './regions'
 import { subdivideCommand } from './subdivision'
@@ -84,6 +89,8 @@ export class PathProcessor {
     // We need to now do planar face discovery.
     const planarGraph = buildPlanarGraphFromFragments(fragments)
     const faceForest = getFaces(planarGraph)
+
+    plotFaceOutlines(faceForest, planarGraph)
 
     // Get regions from faces.
     const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)

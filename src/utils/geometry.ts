@@ -342,3 +342,7 @@ export function findIntersectionsBetweenSubpaths(
 
   return intersections
 }
+
+export function polarAngle(dx: number, dy: number): number {
+  return Math.atan2(dy, dx)
+}

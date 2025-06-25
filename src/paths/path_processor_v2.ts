@@ -26,6 +26,8 @@ import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/
 import { Plotter } from '../intersections/plotter'
 import { writeToJsonFile } from '../utils/debug'
 import { buildTopologicalGraph, buildGraphForLibrary } from './topology'
+import { makeHalfEdges } from './dcel/dcel'
+import { VertexCollection } from './dcel/vertex_collection'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -228,13 +230,22 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // factor out the flattening (as in flatMap) as we do this twice. Note that we track
   // everything for linking via subpath ID, so the flatmap is safe.
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
-  const linkedSplitSegments = splitSegments(allSegments, intersections)
+  const linkedSegmentPieces = splitSegments(allSegments, intersections)
 
   // -----------------------------------------------------------------------------------
+  // DCEL
+  const vertexCollection = new VertexCollection(EPS_INTERSECTION)
+  const halfEdges = makeHalfEdges(linkedSegmentPieces, vertexCollection)
 
+  // Now we need to sort our outgoing edges.
+  vertexCollection.finalizeRotation()
+
+  let x = 1
+
+  // -----------------------------------------------------------------------------------
   // Connect segments.
   const epsilonTop = 0.001
-  const graph = buildTopologicalGraph(linkedSplitSegments, epsilonTop)
+  const graph = buildTopologicalGraph(linkedSegmentPieces, epsilonTop)
 
   // Now get the faces.
   const flattenedEdgeMap = new Map<string, Point[]>()
@@ -256,61 +267,32 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
     // 3. Store the correctly typed polyline (Point[]) in the map.
     flattenedEdgeMap.set(edge.id, polyline)
-
-    writeToJsonFile(flattenedEdgeMap, 'flattened_edges.json')
   }
   // Build the graph for edges.
   const outGraph = buildGraphForLibrary(flattenedEdgeMap)
-
   const muhFaces = getFaces(outGraph)
-
-  writeToJsonFile(muhFaces, 'faces.json')
-
-  plotFaceOutlines(muhFaces, outGraph, new Plotter())
 
   // -----------------------------------------------------------------------------------
 
-  plotLinkedSplitSegments(linkedSplitSegments, '01_linked_split_segments.png')
+  plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
 
   // The above is _almost_ a DCEL, but I think we can get a quicker win
   // by flattening (as in sampling) here, then building a planar graph, and doing our
   // fill-rule logic with that.
   const epsilon = 0.001
-  const flattenedSegments = flattenSegments(linkedSplitSegments, epsilon)
+  const flattenedSegments = flattenSegments(linkedSegmentPieces, epsilon)
 
   // Planar graph structure.
-  const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments)
+  const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments, linkedSegmentPieces)
   const faceForest = getFaces(planarGraph)
 
-  // Build regions.
-  const { regions, regionVertexIds } = buildRegionsFromFaces(
-    planarGraph,
-    faceForest,
-    flattenedSegments,
-    linkedSplitSegments
-  )
+  plotFaceOutlines(faceForest, planarGraph, new Plotter())
 
-  // Now we need to get the fill rules for each region.
-  // First, get a test point for each.
-  const regionTestPoints: Point[] = []
-  for (let i = 0; i < regions.length; i++) {
-    regionTestPoints.push(computeTestPoint(regions[i], planarGraph, regionVertexIds[i]))
-  }
+  // DEBUG.
+  writeToJsonFile(flattenedSegments, 'flattened_segments.json')
+  writeToJsonFile(planarGraph, 'planar_graph.json')
 
-  // Then, we can do winding number tests for each region.
-  const regionsAnnotated = determineInsideness(regions, regionTestPoints, flattenedSegments)
-
-  // Trim redundant regions.
-  const stackedRegions = resolveContainmentHierarchy(
-    regionsAnnotated,
-    regionTestPoints,
-    regionVertexIds,
-    planarGraph,
-    path.fillRule
-  )
-  const finalRegions = cleanup(flattenedSegments, stackedRegions)
-
-  return new ProcessedPathV2(linkedSplitSegments, flattenedSegments, finalRegions.regions)
+  return new ProcessedPathV2([], [], [])
 }
 
 function plotFaceOutlines(
@@ -346,6 +328,7 @@ function plotFaceOutlines(
         }
       }
 
+      plotter.save('faces_outlines.png')
       iColor = (iColor + 1) % colors.length // Cycle through colors
     }
 
@@ -1008,40 +991,172 @@ function makeNodeAccessor(nodes: Array<[number, number]>) {
   }
 }
 
-export function buildPlanarGraphFromFlattenedSegments(segments: FlattenedSegment[]): PlanarGraph {
-  // Use our own pattern. We need
-  writeToJsonFile(segments, 'flattened_segments.json')
+function computePointToPointDistanceSq(p1: Point, p2: Point): number {
+  const dx = p1.x - p2.x
+  const dy = p1.y - p2.y
+  return dx * dx + dy * dy
+}
 
+export function buildPlanarGraphFromFlattenedSegments(
+  flattenedSegments: FlattenedSegment[],
+  linkedSplitSegments: SplitSegment[]
+): PlanarGraph {
   const nodes: Array<[number, number]> = []
-  const getNodeId = makeNodeAccessor(nodes)
+  const edgeSegmentMap = new Map<string, EdgeSegmentInfo>()
+
+  function getNodeId(point: Point): number {
+    const epsilonSq = EPS_INTERSECTION * EPS_INTERSECTION
+    for (let i = 0; i < nodes.length; i++) {
+      const [nx, ny] = nodes[i]
+      if (computePointToPointDistanceSq(point, { x: nx, y: ny }) < epsilonSq) {
+        return i
+      }
+    }
+    const newId = nodes.length
+    nodes.push([point.x, point.y])
+    return newId
+  }
 
   const edgeSet = new Set<string>()
-  const edgeSegmentMap = new Map<string, EdgeSegmentInfo>() // For direction.
 
-  for (const seg of segments) {
-    const { start, end } = seg.geometry
-    const aId = getNodeId(start)
-    const bId = getNodeId(end)
-    if (aId === bId) continue // Ignore zero‑length.
+  // Build lookup for split segments
+  const splitSegmentLookup = new Map<string, SplitSegment>()
+  for (const segment of linkedSplitSegments) {
+    splitSegmentLookup.set(segment.id, segment)
+  }
 
-    const key = aId < bId ? `${aId},${bId}` : `${bId},${aId}`
-    const isReversed = aId > bId // Direction.
+  // Group flattened segments by their parent split segment ID
+  const segmentGroups = new Map<string, FlattenedSegment[]>()
+  for (const tinySegment of flattenedSegments) {
+    const parentId = tinySegment.parentSegmentId
+    if (!segmentGroups.has(parentId)) {
+      segmentGroups.set(parentId, [])
+    }
+    segmentGroups.get(parentId)!.push(tinySegment)
+  }
 
-    if (!edgeSet.has(key)) {
-      edgeSet.add(key)
-      edgeSegmentMap.set(key, {
-        segmentId: seg.parentSegmentId,
-        isReversed
-      })
+  // CRUCIAL: Process each split segment as a sequential chain
+  for (const [parentSplitSegmentId, tinySegments] of segmentGroups) {
+    if (tinySegments.length === 0) continue
+
+    const parentSegment = splitSegmentLookup.get(parentSplitSegmentId)
+    if (!parentSegment) continue
+
+    // Sort by distance from parent start to ensure proper order
+    const parentStart = getSegmentStartPoint(parentSegment)
+    tinySegments.sort((a, b) => {
+      const distA = computePointToPointDistanceSq(a.geometry.start, parentStart)
+      const distB = computePointToPointDistanceSq(b.geometry.start, parentStart)
+      return distA - distB
+    })
+
+    // Create sequential edges - this is what we were missing!
+    for (let i = 0; i < tinySegments.length; i++) {
+      const tinySegment = tinySegments[i]
+      const startNodeId = getNodeId(tinySegment.geometry.start)
+      const endNodeId = getNodeId(tinySegment.geometry.end)
+
+      // Always connect start to end of each tiny segment
+      if (startNodeId !== endNodeId) {
+        const a = Math.min(startNodeId, endNodeId)
+        const b = Math.max(startNodeId, endNodeId)
+        const edgeKey = `${a},${b}`
+
+        if (!edgeSet.has(edgeKey)) {
+          edgeSet.add(edgeKey)
+          edgeSegmentMap.set(edgeKey, {
+            segmentId: parentSplitSegmentId,
+            isReversed: false
+          })
+        }
+      }
+
+      // Connect to the next tiny segment in the sequence
+      if (i < tinySegments.length - 1) {
+        const nextTinySegment = tinySegments[i + 1]
+        const currentEndNodeId = endNodeId
+        const nextStartNodeId = getNodeId(nextTinySegment.geometry.start)
+
+        if (currentEndNodeId !== nextStartNodeId) {
+          const a = Math.min(currentEndNodeId, nextStartNodeId)
+          const b = Math.max(currentEndNodeId, nextStartNodeId)
+          const edgeKey = `${a},${b}`
+
+          if (!edgeSet.has(edgeKey)) {
+            edgeSet.add(edgeKey)
+            edgeSegmentMap.set(edgeKey, {
+              segmentId: parentSplitSegmentId,
+              isReversed: false
+            })
+          }
+        }
+      }
     }
   }
 
-  const edges: Array<[number, number]> = Array.from(edgeSet, (k) => {
-    const [a, b] = k.split(',').map(Number)
+  // Handle connections between split segments
+  for (const splitSegment of linkedSplitSegments) {
+    if (!splitSegment.idNextSegment) continue
+
+    const nextSegment = splitSegmentLookup.get(splitSegment.idNextSegment)
+    if (!nextSegment) continue
+
+    const currentEndPoint = getSegmentEndPoint(splitSegment)
+    const nextStartPoint = getSegmentStartPoint(nextSegment)
+
+    const currentEndNodeId = getNodeId(currentEndPoint)
+    const nextStartNodeId = getNodeId(nextStartPoint)
+
+    if (currentEndNodeId !== nextStartNodeId) {
+      const a = Math.min(currentEndNodeId, nextStartNodeId)
+      const b = Math.max(currentEndNodeId, nextStartNodeId)
+      const edgeKey = `${a},${b}`
+
+      if (!edgeSet.has(edgeKey)) {
+        edgeSet.add(edgeKey)
+        edgeSegmentMap.set(edgeKey, {
+          segmentId: `connection_${splitSegment.id}_${nextSegment.id}`,
+          isReversed: false
+        })
+      }
+    }
+  }
+
+  const edges: Array<[number, number]> = Array.from(edgeSet, (key) => {
+    const [a, b] = key.split(',').map(Number)
     return [a, b]
   })
 
-  return { nodes, edges, edgeSegmentMap }
+  return {
+    nodes,
+    edges,
+    edgeSegmentMap
+  }
+}
+
+// Helper functions
+function getSegmentEndPoint(segment: SplitSegment): Point {
+  switch (segment.type) {
+    case SegmentType.Line:
+      return (segment.geometry as Line).end
+    case SegmentType.QuadraticBezier:
+    case SegmentType.CubicBezier:
+      return (segment.geometry as Bezier).end
+    default:
+      throw new Error(`Unsupported segment type: ${segment.type}`)
+  }
+}
+
+function getSegmentStartPoint(segment: SplitSegment): Point {
+  switch (segment.type) {
+    case SegmentType.Line:
+      return (segment.geometry as Line).start
+    case SegmentType.QuadraticBezier:
+    case SegmentType.CubicBezier:
+      return (segment.geometry as Bezier).start
+    default:
+      throw new Error(`Unsupported segment type: ${segment.type}`)
+  }
 }
 
 export function getFaces(graph: PlanarGraph): DiscoveryResult {

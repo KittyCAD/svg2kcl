@@ -5,6 +5,7 @@ import { FragmentMap } from '../../types/fragments'
 import { PathRegion } from '../../types/regions'
 import { computePointToPointDistance } from '../../utils/geometry'
 import { calculateBoundingBox, calculateTestPoint, PathFragment } from './fragment'
+import { Plotter } from '../../intersections/plotter'
 
 interface PlanarGraph {
   nodes: Array<[number, number]>
@@ -128,6 +129,56 @@ export function getFaces(graph: PlanarGraph): DiscoveryResult {
   } else {
     throw new Error('Face discovery failed')
   }
+}
+
+export function plotFaceOutlines(faceForest: DiscoveryResult, planarGraph: PlanarGraph): void {
+  const plotter = new Plotter()
+  const colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan']
+  let iColor = 0
+
+  plotter.setBounds(0, 0, 100, 100)
+  // A helper function to process each face in the tree structure
+  function processFace(faceNode: any) {
+    const cycle: number[] = faceNode.cycle
+
+    // A valid face must have at least 3 points in its cycle
+    if (cycle && cycle.length >= 3) {
+      // Draw a line for each edge of the cycle
+      for (let i = 0; i < cycle.length - 1; i++) {
+        const nodeIndex1 = cycle[i]
+        const nodeIndex2 = cycle[i + 1]
+
+        // Look up the coordinates from the main nodes array
+        const coords1 = planarGraph.nodes[nodeIndex1]
+        const coords2 = planarGraph.nodes[nodeIndex2]
+
+        if (coords1 && coords2) {
+          const p1: Point = { x: coords1[0], y: coords1[1] }
+          const p2: Point = { x: coords2[0], y: coords2[1] }
+
+          // Use your plotter to draw the line
+          plotter.plotLine({ start: p1, end: p2 }, colors[iColor], 2)
+        }
+      }
+
+      plotter.save('faces_outlines.png')
+      iColor = (iColor + 1) % colors.length // Cycle through colors
+    }
+
+    // Recursively process any child faces (holes)
+    if (faceNode.children && faceNode.children.length > 0) {
+      for (const child of faceNode.children) {
+        processFace(child)
+      }
+    }
+  }
+
+  // Start the process for each root of the forest
+  for (const root of faceForest.forest) {
+    processFace(root)
+  }
+
+  plotter.save('faces_outlines.png')
 }
 
 export function buildRegions(

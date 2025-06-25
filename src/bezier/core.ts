@@ -1,5 +1,6 @@
 import { Point } from '../types/base'
 import { convertQuadraticToCubic } from './helpers'
+import { computeTangentToCubic, computeTangentToQuadratic } from './math'
 
 export enum BezierType {
   Quadratic = 'quadratic',
@@ -30,10 +31,7 @@ export class Bezier {
   private readonly _cubicControl2?: Point
 
   // Cached cubic form for quadratics.
-  private _cachedCubicForm?: {
-    control1: Point
-    control2: Point
-  }
+  private _cachedCubicForm?: BezierPointsCubic
 
   private constructor(
     type: BezierType,
@@ -67,7 +65,8 @@ export class Bezier {
     )
   }
 
-  // Getters for control points.
+  // Getters for control points. This allows us to destructure the Bezier object
+  // as if it were a regular object.
   get quadraticControl(): Point {
     if (this.type !== BezierType.Quadratic || !this._quadraticControl) {
       throw new Error('Cannot get quadratic control point from non-quadratic Bezier')
@@ -100,11 +99,13 @@ export class Bezier {
   }
 
   // Convert to cubic form.
-  asCubic(): { control1: Point; control2: Point } {
+  asCubic(): BezierPointsCubic {
     if (this.type === BezierType.Cubic) {
       return {
+        start: this.start,
         control1: this.control1,
-        control2: this.control2
+        control2: this.control2,
+        end: this.end
       }
     }
 
@@ -116,12 +117,26 @@ export class Bezier {
 
       const cubic = convertQuadraticToCubic(this.start, this._quadraticControl, this.end)
       this._cachedCubicForm = {
+        start: cubic.start,
         control1: cubic.control1,
-        control2: cubic.control2
+        control2: cubic.control2,
+        end: cubic.end
       }
     }
 
     return this._cachedCubicForm
+  }
+
+  // Return in quadratic form.
+  asQuadratic(): BezierPointsQuadratic {
+    if (this.type === BezierType.Quadratic) {
+      return {
+        start: this.start,
+        control: this.quadraticControl,
+        end: this.end
+      }
+    }
+    throw new Error('Cannot convert cubic Bezier to quadratic form')
   }
 
   get isQuadratic(): boolean {
@@ -138,6 +153,14 @@ export class Bezier {
       return this.control2
     } else {
       return this.quadraticControl
+    }
+  }
+
+  get tangent(): (t: number) => Point {
+    if (this.type === BezierType.Cubic) {
+      return (t: number) => computeTangentToCubic(this.asCubic(), t)
+    } else {
+      return (t: number) => computeTangentToQuadratic(this.asQuadratic(), t)
     }
   }
 }

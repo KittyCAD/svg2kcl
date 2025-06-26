@@ -91,7 +91,7 @@ export function flattenSegment(segment: SplitSegment, tolerance: number): Flatte
   switch (segment.type) {
     case SegmentType.Line:
       // Sample the line more densely
-      const numPoints = 250
+      const numPoints = 100
       const dx = (segment.geometry.end.x - segment.geometry.start.x) / numPoints
       const dy = (segment.geometry.end.y - segment.geometry.start.y) / numPoints
 

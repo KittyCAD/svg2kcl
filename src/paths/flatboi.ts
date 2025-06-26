@@ -7,7 +7,7 @@ import { Plotter } from '../intersections/plotter'
 import { SegmentIntersection } from './path_processor_v2'
 
 const EPS_FLATTEN = 0.001
-const QUANTIZATION_FACTOR = 1 / (EPS_INTERSECTION * 100)
+const QUANTIZATION_FACTOR = 1 / EPS_INTERSECTION
 
 type VertexMap = Map<string, number> // Grid key to vertex index mapping.
 type Edge = [number, number] // Integer pairs representing edges by vertex index pair.
@@ -37,11 +37,6 @@ function computeQuantizedPointAndKey(p: Point): QuantizedResult {
   }
 
   return { key, point: snappedPoint }
-}
-
-function computeQuantizedGridKey(p: Point): string {
-  const { key } = computeQuantizedPointAndKey(p)
-  return key
 }
 
 function getOrCreateVertexIndex(vertices: Point[], vertexMap: VertexMap, p: Point): number {
@@ -75,12 +70,7 @@ export function processSegments(segments: SplitSegment[], intersections: Segment
   const allVertices = result.vertices
   const directedEdges = Object.values(result.segmentEdges).flat()
 
-  console.log(`Original vertex count: ${allVertices.length}`)
-  console.log(`Original (potentially directed) edge count: ${directedEdges.length}`)
-
   const allEdges = createUndirectedEdgeSet(directedEdges)
-
-  console.log(`Final unique undirected edge count: ${allEdges.length}`)
 
   // Now run the debug checks and face finding on the corrected, undirected edge list.
   verifyNoIntersections(allVertices, allEdges)

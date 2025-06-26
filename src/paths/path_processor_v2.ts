@@ -15,6 +15,7 @@ import {
 import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/paths'
+import { writeToJsonFile } from '../utils/debug'
 import {
   calculateCentroid,
   computePointToPointDistance,
@@ -24,14 +25,11 @@ import {
 } from '../utils/geometry'
 import { newId } from '../utils/ids'
 import { calculateWindingDirection } from '../utils/polygon'
-import { HalfEdge, makeHalfEdges } from './dcel/dcel'
+import { findMinimalFaces, makeHalfEdges, edgeAngle } from './dcel/dcel'
 import { VertexCollection } from './dcel/vertex_collection'
-import { plotLinkedSplitSegments } from './plot_segments'
+import { computeQuantizedPointAndKey, processSegments } from './flatboi'
+import { plotFaces, plotLinkedSplitSegments } from './plot_segments'
 import { FlattenedSegment } from './segment_flattener'
-import { plotFaces } from './plot_segments'
-import { writeToJsonFile } from '../utils/debug'
-import { findMinimalFaces } from './dcel/dcel'
-import { processSegments } from './flatboi'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -201,27 +199,43 @@ export class ProcessedPathV2 {
   }
 }
 
-function computeKey(p: Point): string {
-  // Rounds coordinates to the nearest epsilon grid to ensure uniqueness within tolerance
-  const scale = 1 / EPS_INTERSECTION
-  return `X${Math.round(p.x * scale)}Y${Math.round(p.y * scale)}`
-}
-
 function extractTopologicalEdges(pieces: SplitSegment[]): SplitSegment[] {
-  const vertexToVertex = new Map<string, SplitSegment>()
+  const edgeMap = new Map<string, SplitSegment>()
 
   for (const piece of pieces) {
     const start = piece.geometry.start
     const end = piece.geometry.end
-    const key = `${computeKey(start)}>${computeKey(end)}`
 
-    // Only keep one edge per vertex pair
-    if (!vertexToVertex.has(key)) {
-      vertexToVertex.set(key, piece)
+    // Get quantized keys for start and end points
+    const startResult = computeQuantizedPointAndKey(start)
+    const endResult = computeQuantizedPointAndKey(end)
+
+    // Create a more specific key that includes geometry type and path shape
+    let geometryKey = 'line'
+
+    if (piece.type === SegmentType.QuadraticBezier) {
+      const pieceGeometry = piece.geometry as Bezier
+      const ctrl = pieceGeometry.quadraticControl
+      const ctrlResult = computeQuantizedPointAndKey(ctrl)
+      geometryKey = `quad_ctrl${ctrlResult.key}`
+    } else if (piece.type === SegmentType.CubicBezier) {
+      const pieceGeometry = piece.geometry as Bezier
+      const c1 = pieceGeometry.control1
+      const c2 = pieceGeometry.control2
+      const c1Result = computeQuantizedPointAndKey(c1)
+      const c2Result = computeQuantizedPointAndKey(c2)
+      geometryKey = `cube_ctrl1${c1Result.key}_ctrl2${c2Result.key}`
+    }
+
+    const key = `${startResult.key}>${endResult.key}_${geometryKey}`
+
+    // Only deduplicate truly identical edges (same geometry + same path)
+    if (!edgeMap.has(key)) {
+      edgeMap.set(key, piece)
     }
   }
 
-  return Array.from(vertexToVertex.values())
+  return Array.from(edgeMap.values())
 }
 
 export function processPath(path: PathElement): ProcessedPathV2 {
@@ -265,8 +279,6 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // Flattened idea.
   processSegments(linkedSegmentPieces, intersections)
 
-  throw new Error('STOPPING')
-
   // -----------------------------------------------------------------------------------
   // DCEL
   const topologicalEdges = extractTopologicalEdges(linkedSegmentPieces)
@@ -285,7 +297,23 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // Now we need to sort our outgoing edges.
   vertexCollection.finalizeRotation()
 
-  // -----------------------------------------------------------------------------------
+  const vertex90_50 = Array.from(vertexCollection.vertices()).find(
+    (v) => Math.abs(v.x - 90) < 0.001 && Math.abs(v.y - 50) < 0.001
+  )
+
+  if (vertex90_50) {
+    console.log(`\nVertex (90,50) outgoing edges in sorted order:`)
+    vertex90_50.outgoing.forEach((edge, i) => {
+      const angle = (edgeAngle(edge) * 180) / Math.PI
+      const nextEdge = edge.twin?.next
+      const nextIdx = nextEdge ? halfEdges.indexOf(nextEdge) : -1
+      console.log(
+        `  ${i}: Edge[${halfEdges.indexOf(edge)}] → (${edge.head.x},${edge.head.y}) ` +
+          `angle=${angle.toFixed(2)}° twin.next=${nextIdx}`
+      )
+    })
+  }
+
   // Quick peek at a handful of half-edges.
   console.table(
     halfEdges.map((e, i) => ({
@@ -302,7 +330,6 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   // Walk faces???
   const faces = findMinimalFaces(halfEdges)
-  // -----------------------------------------------------------------------------------
 
   // Get debug list of face geometries.
   const faceGeometries = []
@@ -325,6 +352,8 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   plotFaces(faces)
 
   plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
+
+  // -----------------------------------------------------------------------------------
 
   return new ProcessedPathV2([], [], [])
 }

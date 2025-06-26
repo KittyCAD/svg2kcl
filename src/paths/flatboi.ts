@@ -2,7 +2,7 @@ import { Segment, SplitSegment } from './path_processor_v2'
 import { flattenSegment } from './segment_flattener'
 import { EPS_INTERSECTION } from '../intersections/constants'
 import { Point } from '../types/base'
-import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
+import { CycleTree, DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { Plotter } from '../intersections/plotter'
 import { SegmentIntersection } from './path_processor_v2'
 
@@ -24,7 +24,7 @@ interface QuantizedResult {
   point: Point // The new, snapped point
 }
 
-function computeQuantizedPointAndKey(p: Point): QuantizedResult {
+export function computeQuantizedPointAndKey(p: Point): QuantizedResult {
   const qx = Math.round(p.x * QUANTIZATION_FACTOR)
   const qy = Math.round(p.y * QUANTIZATION_FACTOR)
 
@@ -64,6 +64,18 @@ function getFaces(nodes: Point[], edges: Edge[]): DiscoveryResult {
   }
 }
 
+function arrayContainsSubarray<T>(arr: T[], sub: T[]): boolean {
+  if (sub.length === 0) return true
+  if (sub.length > arr.length) return false
+
+  for (let i = 0; i <= arr.length - sub.length; i++) {
+    if (sub.every((val, j) => arr[i + j] === val)) {
+      return true
+    }
+  }
+  return false
+}
+
 export function processSegments(segments: SplitSegment[], intersections: SegmentIntersection[]) {
   const result = buildVertexGraph(segments, intersections)
 
@@ -78,6 +90,72 @@ export function processSegments(segments: SplitSegment[], intersections: Segment
   const faces = getFaces(allVertices, allEdges)
 
   plotFaces(faces, allVertices, allEdges, 'faces.png')
+
+  // Now we need to establish the geometric segments that correspond to each face.
+  const faceSegments: Segment[][] = []
+
+  function getSegmentsForFace(
+    face: CycleTree,
+    segmentVertices: Record<string, number[]>,
+    segments: Segment[],
+    faceSegments: Segment[][]
+  ): Segment[][] {
+    if (face.cycle.length > 0) {
+      const cycleSegmentIDs = []
+      // Find which segments correspond to this cycle.
+      // Loop over segment vertex sets and see if these occur in the cycle.
+      for (const [segmentID, vertices] of Object.entries(segmentVertices)) {
+        // Check if this vertex set exists _forward_ in the cycle.
+        if (arrayContainsSubarray(face.cycle, vertices)) {
+          // We found a matching segment for this face cycle.
+          cycleSegmentIDs.push(segmentID)
+        }
+
+        // Check if this vertex set exists _backward_ in the cycle.
+        const reversedVertices = [...vertices].reverse()
+        if (arrayContainsSubarray(face.cycle, reversedVertices)) {
+          // We found a matching segment for this face cycle in reverse.
+          cycleSegmentIDs.push(segmentID)
+        }
+      }
+
+      // Actual segments for our IDs.
+      const cycleSegments = []
+      for (const segmentID of cycleSegmentIDs) {
+        const segment = segments.find((s) => s.id === segmentID)
+        if (segment) {
+          cycleSegments.push(segment)
+        } else {
+          console.warn(`Segment ID ${segmentID} not found in segments list`)
+        }
+      }
+
+      // Push the segments that correspond to this face cycle.
+      faceSegments.push(cycleSegments)
+    }
+
+    for (const child of face.children) {
+      // Recursively process children.
+      getSegmentsForFace(child, segmentVertices, segments, faceSegments)
+    }
+
+    return faceSegments
+  }
+
+  if (faces) {
+    for (const face of faces.forest) {
+      // Each face is a cycle of vertex indices.
+      // We need to find the segments that correspond to this cycle.
+      // The segments are defined by their vertex indices in segmentVertices.
+      // We will create a Segment for each face cycle.
+
+      // Get segments for this face
+      getSegmentsForFace(face, result.segmentVertices, segments, faceSegments)
+    }
+  }
+
+  // Now we should have actual segments for each face.
+  let x = 1
 }
 
 function findMidpointIntersection(p1: Point, q1: Point, p2: Point, q2: Point): Point | null {

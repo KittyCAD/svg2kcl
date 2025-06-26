@@ -286,6 +286,8 @@ export function plotFaces(faces: HalfEdge[][], filename = 'faces.png'): void {
         }
       }
     })
+    plotter.save(filename)
+    let x = 1
   })
 
   plotter.save(filename)

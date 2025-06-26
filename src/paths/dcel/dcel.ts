@@ -115,10 +115,15 @@ export function makeHalfEdges(pieces: SplitSegment[], V: VertexCollection): Half
 
 export function edgeAngle(e: HalfEdge): number {
   const t = e.geometryReversed ? 1 : 0
-  const v = e.geometry.tangent(t)
+  let v = e.geometry.tangent(t)
+
+  // If reversed, flip the tangent direction
+  if (e.geometryReversed) {
+    v = { x: -v.x, y: -v.y }
+  }
+
   return polarAngle(v.x, v.y)
 }
-
 // export function edgeAngle(e: HalfEdge): number {
 //   // Choose which end of the curve we're standing at.
 //   const t = e.geometryReversed ? 1 : 0
@@ -138,125 +143,34 @@ export function edgeAngle(e: HalfEdge): number {
 // }
 
 export function findMinimalFaces(halfEdges: HalfEdge[]): HalfEdge[][] {
-  // Step 1: Build adjacency structure
-  const adjacency = new Map<string, HalfEdge[]>()
+  const faces: HalfEdge[][] = []
+  const visited = new Set<HalfEdge>()
 
-  for (const edge of halfEdges) {
-    const headKey = `${edge.head.x},${edge.head.y}`
-    if (!adjacency.has(headKey)) {
-      adjacency.set(headKey, [])
-    }
-    adjacency.get(headKey)!.push(edge)
-  }
-
-  // Step 2: Find ALL possible faces by exhaustive search
-  const allFaces: HalfEdge[][] = []
-  const usedPairs = new Set<string>()
-
-  function edgePairKey(e1: HalfEdge, e2: HalfEdge): string {
-    const idx1 = halfEdges.indexOf(e1)
-    const idx2 = halfEdges.indexOf(e2)
-    return `${idx1}->${idx2}`
-  }
-
-  function findFacesFromEdge(startEdge: HalfEdge, path: HalfEdge[] = []): void {
-    if (path.length > 15) return // Prevent infinite recursion
-
-    const currentVertex = startEdge.head
-    const vertexKey = `${currentVertex.x},${currentVertex.y}`
-    const nextEdges = adjacency.get(vertexKey) || []
-
-    for (const nextEdge of nextEdges) {
-      // Don't go back on the twin edge immediately
-      if (nextEdge === startEdge.twin) continue
-
-      // Check if we've completed a cycle
-      if (path.length > 0 && nextEdge === path[0]) {
-        // Found a face! Check if all pairs are unused
-        const fullPath = [...path, startEdge]
-        let validFace = true
-
-        for (let i = 0; i < fullPath.length; i++) {
-          const curr = fullPath[i]
-          const next = fullPath[(i + 1) % fullPath.length]
-          const pairKey = edgePairKey(curr, next)
-          if (usedPairs.has(pairKey)) {
-            validFace = false
-            break
-          }
-        }
-
-        if (validFace && fullPath.length >= 3) {
-          allFaces.push([...fullPath])
-        }
-        return
-      }
-
-      // Continue exploring if we haven't seen this edge in current path
-      if (!path.includes(nextEdge)) {
-        findFacesFromEdge(nextEdge, [...path, startEdge])
-      }
-    }
-  }
-
-  // Step 3: Try starting from every edge
   for (const startEdge of halfEdges) {
-    findFacesFromEdge(startEdge)
-  }
+    if (visited.has(startEdge)) continue
 
-  // Step 4: Select minimal faces (shortest path to each region)
-  // Group faces by their "region" (same set of vertices)
-  const facesByRegion = new Map<string, HalfEdge[][]>()
+    const face: HalfEdge[] = []
+    let currentEdge = startEdge
 
-  for (const face of allFaces) {
-    const vertices = face
-      .map((e) => `${e.tail.x},${e.tail.y}`)
-      .sort()
-      .join('|')
-    if (!facesByRegion.has(vertices)) {
-      facesByRegion.set(vertices, [])
-    }
-    facesByRegion.get(vertices)!.push(face)
-  }
+    // Follow the next pointers around the face
+    do {
+      face.push(currentEdge)
+      visited.add(currentEdge)
+      currentEdge = currentEdge.next!
+    } while (currentEdge && currentEdge !== startEdge && face.length < 1000) // Safety limit
 
-  // Step 5: Take the shortest face for each region
-  const minimalFaces: HalfEdge[][] = []
-
-  for (const [region, faces] of facesByRegion) {
-    const shortestFace = faces.reduce((shortest, current) =>
-      current.length < shortest.length ? current : shortest
-    )
-    minimalFaces.push(shortestFace)
-  }
-
-  // Step 6: Mark used pairs and return non-conflicting faces
-  const finalFaces: HalfEdge[][] = []
-  const finalUsedPairs = new Set<string>()
-
-  // Sort by face length to prioritize smaller faces
-  minimalFaces.sort((a, b) => a.length - b.length)
-
-  for (const face of minimalFaces) {
-    let canUse = true
-    const facePairs: string[] = []
-
-    for (let i = 0; i < face.length; i++) {
-      const curr = face[i]
-      const next = face[(i + 1) % face.length]
-      const pairKey = edgePairKey(curr, next)
-
-      if (finalUsedPairs.has(pairKey)) {
-        canUse = false
-        break
-      }
-      facePairs.push(pairKey)
-    }
-
-    if (canUse) {
-      finalFaces.push(face)
-      facePairs.forEach((pair) => finalUsedPairs.add(pair))
+    // Only keep valid faces (should close the loop)
+    if (currentEdge === startEdge && face.length >= 3) {
+      faces.push(face)
+    } else if (face.length > 0) {
+      // Something went wrong - log for debugging
+      console.warn(
+        `Invalid face found starting from edge ${halfEdges.indexOf(startEdge)}, length: ${
+          face.length
+        }`
+      )
     }
   }
 
-  return finalFaces
+  return faces
 }

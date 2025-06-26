@@ -346,3 +346,7 @@ export function findIntersectionsBetweenSubpaths(
 export function polarAngle(dx: number, dy: number): number {
   return Math.atan2(dy, dx)
 }
+
+export function normalizeAngle(angle: number): number {
+  return (angle + 2 * Math.PI) % (2 * Math.PI)
+}

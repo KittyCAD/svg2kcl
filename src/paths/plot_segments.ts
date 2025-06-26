@@ -64,8 +64,12 @@ export function plotLinkedSplitSegments(
 
     if (seg.type === 'Line') {
       plotter.plotLine(seg.geometry as Line, color, 3)
+      plotter.plotPoint(seg.geometry.start, color, 5)
+      plotter.plotPoint(seg.geometry.end, color, 5)
     } else {
       plotter.plotBezier(seg.geometry as Bezier, color, 3)
+      plotter.plotPoint(seg.geometry.start, color, 5)
+      plotter.plotPoint(seg.geometry.end, color, 5)
     }
   })
 

@@ -1,5 +1,5 @@
 // General case. Used for line-line intersection, and for point degeneracy checks etc.
-export const EPS_INTERSECTION = 1e-3
+export const EPS_INTERSECTION = 1e-9
 
 // Line-Arc intersection.
 export const EPS_ANGLE_INTERSECTION = 1e-6 // Angle difference (radians) small enough to treat as zero.

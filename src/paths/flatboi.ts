@@ -4,8 +4,10 @@ import { EPS_INTERSECTION } from '../intersections/constants'
 import { Point } from '../types/base'
 import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { Plotter } from '../intersections/plotter'
+import { SegmentIntersection } from './path_processor_v2'
 
 const EPS_FLATTEN = 0.001
+const QUANTIZATION_FACTOR = 1 / (EPS_INTERSECTION * 100)
 
 type VertexMap = Map<string, number> // Grid key to vertex index mapping.
 type Edge = [number, number] // Integer pairs representing edges by vertex index pair.
@@ -17,22 +19,40 @@ type SegmentGraph = {
   originalSegments?: Record<string, Segment> // Optional, for debugging.
 }
 
+interface QuantizedResult {
+  key: string
+  point: Point // The new, snapped point
+}
+
+function computeQuantizedPointAndKey(p: Point): QuantizedResult {
+  const qx = Math.round(p.x * QUANTIZATION_FACTOR)
+  const qy = Math.round(p.y * QUANTIZATION_FACTOR)
+
+  const key = `${qx}:${qy}`
+
+  // The snapped point has its coordinates derived from the quantized integers.
+  const snappedPoint: Point = {
+    x: qx / QUANTIZATION_FACTOR,
+    y: qy / QUANTIZATION_FACTOR
+  }
+
+  return { key, point: snappedPoint }
+}
+
 function computeQuantizedGridKey(p: Point): string {
-  const quantFactor = 1 / EPS_INTERSECTION
-  const x = Math.round(p.x * quantFactor)
-  const y = Math.round(p.y * quantFactor)
-  return `${x}:${y}`
+  const { key } = computeQuantizedPointAndKey(p)
+  return key
 }
 
 function getOrCreateVertexIndex(vertices: Point[], vertexMap: VertexMap, p: Point): number {
-  const key = computeQuantizedGridKey(p)
+  const { key, point: quantizedPoint } = computeQuantizedPointAndKey(p)
   const hit = vertexMap.get(key)
   if (hit !== undefined) return hit
 
   // If not found, add it to the map and the list.
   const index = vertices.length
   vertexMap.set(key, index)
-  vertices.push(p)
+  vertices.push(quantizedPoint)
   return index
 }
 
@@ -49,69 +69,302 @@ function getFaces(nodes: Point[], edges: Edge[]): DiscoveryResult {
   }
 }
 
-export function processSegments(segments: SplitSegment[]) {
-  // Build a vertex graph from the segments.
-  const result = buildVertexGraphFromSegments(segments)
+export function processSegments(segments: SplitSegment[], intersections: SegmentIntersection[]) {
+  const result = buildVertexGraph(segments, intersections)
 
-  // Now we want to run planar face discovery, so we might need to merge some stuff.
   const allVertices = result.vertices
-  const allEdges = Object.values(result.segmentEdges).flat()
+  const directedEdges = Object.values(result.segmentEdges).flat()
+
+  console.log(`Original vertex count: ${allVertices.length}`)
+  console.log(`Original (potentially directed) edge count: ${directedEdges.length}`)
+
+  const allEdges = createUndirectedEdgeSet(directedEdges)
+
+  console.log(`Final unique undirected edge count: ${allEdges.length}`)
+
+  // Now run the debug checks and face finding on the corrected, undirected edge list.
+  verifyNoIntersections(allVertices, allEdges)
+
   const faces = getFaces(allVertices, allEdges)
 
-  // Plot these, one at a time.
   plotFaces(faces, allVertices, allEdges, 'faces.png')
-
-  let x = 1
 }
 
-export function buildVertexGraphFromSegments(segments: SplitSegment[]): SegmentGraph {
-  // We want to get to the position where each segment can be represented
-  // by a unique list of n vertices, with n-1 edges joining them.
-  const vertices: Point[] = [] // A list of unique vertices.
-  const vertexMap: VertexMap = new Map() // Maps quantized grid keys to vertex indices.
+function findMidpointIntersection(p1: Point, q1: Point, p2: Point, q2: Point): Point | null {
+  const a1 = q1.y - p1.y
+  const b1 = p1.x - q1.x
+  const c1 = a1 * p1.x + b1 * p1.y
 
-  // Then, we want to quantize all flattened segments to a grid.
-  // Each segment will be represented by a list of vertex indices, with edges
-  // being pairs of indices.
+  const a2 = q2.y - p2.y
+  const b2 = p2.x - q2.x
+  const c2 = a2 * p2.x + b2 * p2.y
+
+  const determinant = a1 * b2 - a2 * b1
+
+  if (Math.abs(determinant) < 1e-9) {
+    // Lines are parallel, no intersection for our purposes
+    return null
+  }
+
+  const x = (b2 * c1 - b1 * c2) / determinant
+  const y = (a1 * c2 - a2 * c1) / determinant
+
+  const intersectionPoint = { x, y }
+
+  // Check if the intersection point lies on both segments
+  const onSegment1 =
+    Math.min(p1.x, q1.x) < x + 1e-9 &&
+    x - 1e-9 < Math.max(p1.x, q1.x) &&
+    Math.min(p1.y, q1.y) < y + 1e-9 &&
+    y - 1e-9 < Math.max(p1.y, q1.y)
+
+  const onSegment2 =
+    Math.min(p2.x, q2.x) < x + 1e-9 &&
+    x - 1e-9 < Math.max(p2.x, q2.x) &&
+    Math.min(p2.y, q2.y) < y + 1e-9 &&
+    y - 1e-9 < Math.max(p2.y, q2.y)
+
+  if (onSegment1 && onSegment2) {
+    return intersectionPoint
+  }
+
+  return null
+}
+
+function verifyNoIntersections(vertices: Point[], edges: Edge[], plotter?: Plotter): void {
+  console.log(`\n--- Running Planarity Check (Edge Intersections) ---`)
+  let illegalIntersections = 0
+
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      const edge1 = edges[i] // [v1_idx, v2_idx]
+      const edge2 = edges[j] // [v3_idx, v4_idx]
+
+      // Check if edges share a vertex. If so, they can't illegally intersect.
+      if (
+        edge1[0] === edge2[0] ||
+        edge1[0] === edge2[1] ||
+        edge1[1] === edge2[0] ||
+        edge1[1] === edge2[1]
+      ) {
+        continue
+      }
+
+      const p1 = vertices[edge1[0]]
+      const q1 = vertices[edge1[1]]
+      const p2 = vertices[edge2[0]]
+      const q2 = vertices[edge2[1]]
+
+      const intersection = findMidpointIntersection(p1, q1, p2, q2)
+
+      if (intersection) {
+        illegalIntersections++
+        console.error(
+          `PLANARITY VIOLATION: Edge [${edge1[0]}, ${edge1[1]}] intersects Edge [${edge2[0]}, ${edge2[1]}]`
+        )
+        console.warn(
+          `  - Intersection at: (${intersection.x.toFixed(3)}, ${intersection.y.toFixed(3)})`
+        )
+
+        // Optional: If you pass in your plotter, it will draw the problem
+        if (plotter) {
+          plotter.plotPoint(intersection, 'magenta', 10)
+          plotter.plotLine({ start: p1, end: q1 }, 'magenta', 2)
+          plotter.plotLine({ start: p2, end: q2 }, 'magenta', 2)
+        }
+      }
+    }
+  }
+
+  if (illegalIntersections === 0) {
+    console.log('OK: Graph is planar. No illegal edge intersections found.')
+  } else {
+    console.error(
+      `\nFATAL: Found ${illegalIntersections} illegal edge intersection(s). The graph is not planar.`
+    )
+    if (plotter) {
+      console.log(
+        "Saving debug plot with intersections highlighted in magenta to 'faces_intersections_debug.png'"
+      )
+      plotter.save('faces_intersections_debug.png')
+    }
+  }
+}
+
+function createUndirectedEdgeSet(edges: Edge[]): Edge[] {
+  const uniqueEdgeKeys = new Set<string>()
+  const undirectedEdges: Edge[] = []
+
+  for (const edge of edges) {
+    // Normalize the edge so [A, B] and [B, A] produce the same key.
+    const key = edge[0] < edge[1] ? `${edge[0]}-${edge[1]}` : `${edge[1]}-${edge[0]}`
+
+    if (!uniqueEdgeKeys.has(key)) {
+      uniqueEdgeKeys.add(key)
+      undirectedEdges.push(edge) // Add the original edge just once
+    }
+  }
+
+  return undirectedEdges
+}
+
+export function buildVertexGraph(
+  segments: SplitSegment[],
+  intersections: SegmentIntersection[]
+): SegmentGraph {
+  const vertices: Point[] = []
+  const vertexMap: VertexMap = new Map()
   const segmentVertices: Record<string, number[]> = {}
   const segmentEdges: Record<string, Edge[]> = {}
 
-  for (const segment of segments) {
-    // Flatten the segment into straight lines.
-    const flattened = flattenSegment(segment, EPS_FLATTEN)
+  // --- Step 1: Create authoritative vertices for all KNOWN intersections ---
+  const authoritativeIntersectionIndexMap = new Map<string, number>()
 
-    // Get the vertices for each point.
+  for (const int of intersections) {
+    const { point: intersectionPoint } = int.intersection
+    const { key, point: quantizedPoint } = computeQuantizedPointAndKey(intersectionPoint)
+
+    if (!authoritativeIntersectionIndexMap.has(key)) {
+      const index = vertices.length
+      vertices.push(quantizedPoint)
+      vertexMap.set(key, index)
+      authoritativeIntersectionIndexMap.set(key, index)
+    }
+  }
+
+  // --- Step 2: Pre-quantize all segment endpoints to ensure connectivity ---
+  const quantizedSegments = segments.map((segment) => {
+    const quantizedStart = computeQuantizedPointAndKey(segment.geometry.start)
+    const quantizedEnd = computeQuantizedPointAndKey(segment.geometry.end)
+
+    return {
+      segment: segment,
+      quantizedStart: quantizedStart.point,
+      quantizedEnd: quantizedEnd.point,
+      startKey: quantizedStart.key,
+      endKey: quantizedEnd.key
+    }
+  })
+
+  // --- Step 3: Process each segment with forced endpoint connectivity ---
+  for (const segmentData of quantizedSegments) {
+    const { segment, quantizedStart, quantizedEnd, startKey, endKey } = segmentData
+
     const segmentVerticesList: number[] = []
     const segmentEdgesList: Edge[] = []
-    let lastIdx: number | null = null
 
-    for (const chord of flattened) {
-      const { start, end } = chord.geometry
-
-      // First chord: create both start & end vertices..
-      const iStart = lastIdx ?? getOrCreateVertexIndex(vertices, vertexMap, start)
-      const iEnd = getOrCreateVertexIndex(vertices, vertexMap, end)
-
-      // Append new vertex only if it differs from last.
-      if (lastIdx === null) segmentVerticesList.push(iStart)
-      segmentVerticesList.push(iEnd)
-
-      // Emit an edge.
-      segmentEdgesList.push([iStart, iEnd] as [number, number])
-      lastIdx = iEnd
+    // --- Get or create START vertex ---
+    let startIdx: number
+    if (authoritativeIntersectionIndexMap.has(startKey)) {
+      startIdx = authoritativeIntersectionIndexMap.get(startKey)!
+    } else {
+      startIdx = getOrCreateVertexIndex(vertices, vertexMap, quantizedStart)
     }
 
-    // Store the segment vertices and edges.
-    const segmentId = segment.id
-    segmentVertices[segmentId] = segmentVerticesList
-    segmentEdges[segmentId] = segmentEdgesList
+    // --- Get or create END vertex ---
+    let endIdx: number
+    if (authoritativeIntersectionIndexMap.has(endKey)) {
+      endIdx = authoritativeIntersectionIndexMap.get(endKey)!
+    } else {
+      endIdx = getOrCreateVertexIndex(vertices, vertexMap, quantizedEnd)
+    }
+
+    // --- Check if this is effectively a zero-length segment ---
+    if (startIdx === endIdx) {
+      // Degenerate segment, skip it but still record it
+      segmentVertices[segment.id] = [startIdx]
+      segmentEdges[segment.id] = []
+      continue
+    }
+
+    // --- Determine if we need to flatten or can use direct connection ---
+    const directDistance = Math.sqrt(
+      Math.pow(quantizedEnd.x - quantizedStart.x, 2) +
+        Math.pow(quantizedEnd.y - quantizedStart.y, 2)
+    )
+
+    // For very short segments or lines, just create a direct edge
+    if (segment.type === 'Line' || directDistance < EPS_FLATTEN * 3) {
+      segmentVerticesList.push(startIdx, endIdx)
+      segmentEdgesList.push([startIdx, endIdx])
+    } else {
+      // --- Flatten the curve but force endpoints to match quantized positions ---
+      const flattened = flattenSegment(segment, EPS_FLATTEN)
+
+      if (flattened.length === 0) {
+        // Fallback to direct connection
+        segmentVerticesList.push(startIdx, endIdx)
+        segmentEdgesList.push([startIdx, endIdx])
+        continue
+      }
+
+      // Force the flattened polyline to start and end at the quantized points
+      const adjustedFlattened = [...flattened]
+
+      // Adjust first segment start
+      if (adjustedFlattened.length > 0) {
+        adjustedFlattened[0] = {
+          ...adjustedFlattened[0],
+          geometry: {
+            ...adjustedFlattened[0].geometry,
+            start: quantizedStart
+          }
+        }
+      }
+
+      // Adjust last segment end
+      if (adjustedFlattened.length > 0) {
+        const lastIndex = adjustedFlattened.length - 1
+        adjustedFlattened[lastIndex] = {
+          ...adjustedFlattened[lastIndex],
+          geometry: {
+            ...adjustedFlattened[lastIndex].geometry,
+            end: quantizedEnd
+          }
+        }
+      }
+
+      // --- Process the adjusted flattened segments with full quantization ---
+      let currentIdx = startIdx
+      segmentVerticesList.push(currentIdx)
+
+      for (let i = 0; i < adjustedFlattened.length; i++) {
+        const flatSegment = adjustedFlattened[i]
+        let nextIdx: number
+
+        if (i === adjustedFlattened.length - 1) {
+          // Last segment must end at the quantized end point
+          nextIdx = endIdx
+        } else {
+          // CRITICAL: Quantize ALL intermediate points too
+          const { point: quantizedIntermediatePoint } = computeQuantizedPointAndKey(
+            flatSegment.geometry.end
+          )
+          nextIdx = getOrCreateVertexIndex(vertices, vertexMap, quantizedIntermediatePoint)
+        }
+
+        // Only add edge if we're actually moving to a different vertex
+        if (nextIdx !== currentIdx) {
+          segmentEdgesList.push([currentIdx, nextIdx])
+          segmentVerticesList.push(nextIdx)
+          currentIdx = nextIdx
+        }
+      }
+
+      // Ensure we end at the correct vertex (safety check)
+      if (currentIdx !== endIdx) {
+        segmentEdgesList.push([currentIdx, endIdx])
+        if (!segmentVerticesList.includes(endIdx)) {
+          segmentVerticesList.push(endIdx)
+        }
+      }
+    }
+
+    segmentVertices[segment.id] = segmentVerticesList
+    segmentEdges[segment.id] = segmentEdgesList
   }
 
-  return {
-    vertices,
-    segmentVertices,
-    segmentEdges
-  }
+  return { vertices, segmentVertices, segmentEdges }
 }
 
 interface FaceNode {

@@ -125,7 +125,7 @@ const intersectionDispatch: Record<
   }
 }
 
-interface SegmentIntersection {
+export interface SegmentIntersection {
   idSeg1: string
   idSeg2: string
   intersection: Intersection
@@ -259,9 +259,11 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSegmentPieces = splitSegments(allSegments, intersections)
 
+  plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
+
   // -----------------------------------------------------------------------------------
   // Flattened idea.
-  processSegments(linkedSegmentPieces)
+  processSegments(linkedSegmentPieces, intersections)
 
   throw new Error('STOPPING')
 
@@ -769,10 +771,12 @@ function deduplicateWithThreshold(arr: number[], threshold: number): number[] {
 function splitSegments(segments: Segment[], intersections: SegmentIntersection[]): SplitSegment[] {
   // Build map of segment IDs to their intersection t-values
   const segmentTMap = new Map<string, number[]>()
+  const segmentIntersectionMap = new Map<string, Map<number, Point>>() // Change to map t-values to points
 
   // Initialize arrays for all segments first.
   for (const segment of segments) {
     segmentTMap.set(segment.id, [])
+    segmentIntersectionMap.set(segment.id, new Map<number, Point>())
   }
 
   // Now populate the t-values.
@@ -784,6 +788,14 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
 
     seg1TValues.push(intersection.intersection.t1)
     seg2TValues.push(intersection.intersection.t2)
+
+    // Store the intersection points keyed by their t-values
+    segmentIntersectionMap
+      .get(intersection.idSeg1)
+      ?.set(intersection.intersection.t1, intersection.intersection.point)
+    segmentIntersectionMap
+      .get(intersection.idSeg2)
+      ?.set(intersection.intersection.t2, intersection.intersection.point)
   }
 
   // Create lookup for segments by ID.
@@ -831,6 +843,12 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
       const t1 = currentSegmentTFull[i]
       const t2 = currentSegmentTFull[i + 1]
 
+      // Handle start and end vs. intersection points.
+      const intersectionPointStart =
+        segmentIntersectionMap.get(segment.id)?.get(t1) || segment.geometry.start
+      const intersectionPointEnd =
+        segmentIntersectionMap.get(segment.id)?.get(t2) || segment.geometry.end
+
       // Skip zero-length segments.
       if (t2 - t1 < EPS_PARAM) continue
 
@@ -851,24 +869,43 @@ function splitSegments(segments: Segment[], intersections: SegmentIntersection[]
           break
         case SegmentType.QuadraticBezier:
           const orginalQuad = segment.geometry as Bezier
+
+          // Inject the intersection points into the split geometry.
+          const rawSplitQuad = splitQuadraticBezierBetween(orginalQuad, t1, t2)
+          const quad = Bezier.quadratic({
+            start: intersectionPointStart,
+            control: rawSplitQuad.quadraticControl,
+            end: intersectionPointEnd
+          })
+
           splitSegment = {
             id: splitSegmentId,
             idSubpath: segment.idSubpath,
             idParentSegment: segment.id,
             type: segment.type,
-            geometry: splitQuadraticBezierBetween(orginalQuad, t1, t2),
+            geometry: quad,
             idPrevSegment: null,
             idNextSegment: null
           }
           break
         case SegmentType.CubicBezier:
           const originalCube = segment.geometry as Bezier
+
+          // Inject the intersection points into the split geometry.
+          const rawSplitCube = splitCubicBezierBetween(originalCube, t1, t2)
+          const cube = Bezier.cubic({
+            start: intersectionPointStart,
+            control1: rawSplitCube.control1,
+            control2: rawSplitCube.control2,
+            end: intersectionPointEnd
+          })
+
           splitSegment = {
             id: splitSegmentId,
             idSubpath: segment.idSubpath,
             idParentSegment: segment.id,
             type: segment.type,
-            geometry: splitCubicBezierBetween(originalCube, t1, t2),
+            geometry: cube,
             idPrevSegment: null,
             idNextSegment: null
           }

@@ -1,5 +1,8 @@
+import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
 import { Bezier } from '../bezier/core'
-import { EPS_PARAM, EPS_INTERSECTION } from '../intersections/constants'
+import { calculateReflectedControlPoint } from '../bezier/helpers'
+import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/split'
+import { EPS_INTERSECTION, EPS_PARAM } from '../intersections/constants'
 import {
   Arc,
   getBezierBezierIntersection,
@@ -9,25 +12,25 @@ import {
   Intersection,
   Line
 } from '../intersections/intersections'
-import { Point, FillRule } from '../types/base'
+import { FillRule, Point } from '../types/base'
 import { PathElement } from '../types/elements'
 import { PathCommand, PathCommandType } from '../types/paths'
-import { doesRayIntersectLineSegment, interpolateLine } from '../utils/geometry'
-import { DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
-import { computePointToPointDistance } from '../utils/geometry'
-import { flattenSegment, flattenSegments, FlattenedSegment } from './segment_flattener'
-import { isLeft } from '../utils/geometry'
-import { calculateCentroid } from '../utils/geometry'
-import { calculateWindingDirection } from '../utils/polygon'
+import {
+  calculateCentroid,
+  computePointToPointDistance,
+  doesRayIntersectLineSegment,
+  interpolateLine,
+  isLeft
+} from '../utils/geometry'
 import { newId } from '../utils/ids'
-import { plotLinkedSplitSegments, plotFaceCoords } from './plot_segments'
-import { calculateReflectedControlPoint } from '../bezier/helpers'
-import { splitCubicBezierBetween, splitQuadraticBezierBetween } from '../bezier/split'
-import { Plotter } from '../intersections/plotter'
-import { writeToJsonFile } from '../utils/debug'
-import { buildTopologicalGraph, buildGraphForLibrary } from './topology'
-import { makeHalfEdges, HalfEdge } from './dcel/dcel'
+import { calculateWindingDirection } from '../utils/polygon'
+import { HalfEdge, makeHalfEdges } from './dcel/dcel'
 import { VertexCollection } from './dcel/vertex_collection'
+import { plotLinkedSplitSegments } from './plot_segments'
+import { FlattenedSegment } from './segment_flattener'
+import { plotFaces } from './plot_segments'
+import { writeToJsonFile } from '../utils/debug'
+import { findMinimalFaces } from './dcel/dcel'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -197,6 +200,29 @@ export class ProcessedPathV2 {
   }
 }
 
+function computeKey(p: Point): string {
+  // Rounds coordinates to the nearest epsilon grid to ensure uniqueness within tolerance
+  const scale = 1 / EPS_INTERSECTION
+  return `X${Math.round(p.x * scale)}Y${Math.round(p.y * scale)}`
+}
+
+function extractTopologicalEdges(pieces: SplitSegment[]): SplitSegment[] {
+  const vertexToVertex = new Map<string, SplitSegment>()
+
+  for (const piece of pieces) {
+    const start = piece.geometry.start
+    const end = piece.geometry.end
+    const key = `${computeKey(start)}>${computeKey(end)}`
+
+    // Only keep one edge per vertex pair
+    if (!vertexToVertex.has(key)) {
+      vertexToVertex.set(key, piece)
+    }
+  }
+
+  return Array.from(vertexToVertex.values())
+}
+
 export function processPath(path: PathElement): ProcessedPathV2 {
   // Approach here will be, I think:
   // 1. Separate paths into subpaths.
@@ -225,6 +251,12 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   // Compute intersections between segments.
   const intersections = computeIntersections(subpaths)
+  const trimmedIntersections = intersections.filter((intersection) => {
+    const t1InMiddle = intersection.intersection.t1 > 0 && intersection.intersection.t1 < 1
+    const t2InMiddle = intersection.intersection.t2 > 0 && intersection.intersection.t2 < 1
+
+    return t1InMiddle || t2InMiddle
+  })
 
   // Now we need to split segments at intersection points... should maybe
   // factor out the flattening (as in flatMap) as we do this twice. Note that we track
@@ -234,8 +266,18 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   // -----------------------------------------------------------------------------------
   // DCEL
+  const topologicalEdges = extractTopologicalEdges(linkedSegmentPieces)
   const vertexCollection = new VertexCollection(EPS_INTERSECTION)
-  const halfEdges = makeHalfEdges(linkedSegmentPieces, vertexCollection)
+  const halfEdges = makeHalfEdges(topologicalEdges, vertexCollection)
+
+  console.log('\n=== DEBUGGING NEXT POINTERS ===')
+  halfEdges.forEach((edge, i) => {
+    const nextIdx = edge.next ? halfEdges.indexOf(edge.next) : -1
+    const twinIdx = halfEdges.indexOf(edge.twin!)
+    console.log(
+      `Edge ${i}: (${edge.tail.x},${edge.tail.y})->(${edge.head.x},${edge.head.y}) twin:${twinIdx} next:${nextIdx}`
+    )
+  })
 
   // Now we need to sort our outgoing edges.
   vertexCollection.finalizeRotation()
@@ -256,127 +298,32 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   vertexCollection.dump()
 
   // Walk faces???
-  const faces: HalfEdge[][] = []
-  const seen = new Set<HalfEdge>()
-  for (const seed of halfEdges) {
-    if (seen.has(seed)) continue
-    const loop: HalfEdge[] = []
-    let e = seed
-    do {
-      seen.add(e)
-      loop.push(e)
-      e = e.next!
-    } while (e !== seed)
-    faces.push(loop)
-  }
-  let x = 1
-
+  const faces = findMinimalFaces(halfEdges)
   // -----------------------------------------------------------------------------------
-  // Connect segments.
-  const epsilonTop = 0.001
-  const graph = buildTopologicalGraph(linkedSegmentPieces, epsilonTop)
 
-  // Now get the faces.
-  const flattenedEdgeMap = new Map<string, Point[]>()
-
-  for (const edge of graph.edges.values()) {
-    // 1. Get the array of tiny line segments from your existing function.
-    const tinySegments: FlattenedSegment[] = flattenSegment(edge.sourceSegment, epsilonTop)
-
-    // 2. Now, convert this array of segments into a single array of points (a polyline).
-    const polyline: Point[] = []
-    if (tinySegments.length > 0) {
-      // Start the polyline with the first segment's start point.
-      polyline.push(tinySegments[0].geometry.start)
-      // Then, add the end point of every segment in order.
-      for (const seg of tinySegments) {
-        polyline.push(seg.geometry.end)
+  // Get debug list of face geometries.
+  const faceGeometries = []
+  for (const face of faces) {
+    const faceGeometryElements = face.map((e) => {
+      return {
+        type: e.geometry.type,
+        start: e.geometryReversed
+          ? { x: e.geometry.payload.end.x, y: e.geometry.payload.end.y }
+          : { x: e.geometry.payload.start.x, y: e.geometry.payload.start.y },
+        end: e.geometryReversed
+          ? { x: e.geometry.payload.start.x, y: e.geometry.payload.start.y }
+          : { x: e.geometry.payload.end.x, y: e.geometry.payload.end.y }
       }
-    }
-
-    // 3. Store the correctly typed polyline (Point[]) in the map.
-    flattenedEdgeMap.set(edge.id, polyline)
+    })
+    faceGeometries.push(faceGeometryElements)
   }
-  // Build the graph for edges.
-  const outGraph = buildGraphForLibrary(flattenedEdgeMap)
-  const muhFaces = getFaces(outGraph)
+  writeToJsonFile(faceGeometries, 'face_geometries.json')
 
-  // -----------------------------------------------------------------------------------
+  plotFaces(faces)
 
   plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
 
-  // The above is _almost_ a DCEL, but I think we can get a quicker win
-  // by flattening (as in sampling) here, then building a planar graph, and doing our
-  // fill-rule logic with that.
-  const epsilon = 0.001
-  const flattenedSegments = flattenSegments(linkedSegmentPieces, epsilon)
-
-  // Planar graph structure.
-  const planarGraph = buildPlanarGraphFromFlattenedSegments(flattenedSegments, linkedSegmentPieces)
-  const faceForest = getFaces(planarGraph)
-
-  plotFaceOutlines(faceForest, planarGraph, new Plotter())
-
-  // DEBUG.
-  writeToJsonFile(flattenedSegments, 'flattened_segments.json')
-  writeToJsonFile(planarGraph, 'planar_graph.json')
-
   return new ProcessedPathV2([], [], [])
-}
-
-function plotFaceOutlines(
-  faceForest: DiscoveryResult,
-  planarGraph: PlanarGraph,
-  plotter: Plotter
-): void {
-  const colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan']
-  let iColor = 0
-
-  plotter.setBounds(0, 0, 100, 100)
-  // A helper function to process each face in the tree structure
-  function processFace(faceNode: any) {
-    const cycle: number[] = faceNode.cycle
-
-    // A valid face must have at least 3 points in its cycle
-    if (cycle && cycle.length >= 3) {
-      // Draw a line for each edge of the cycle
-      for (let i = 0; i < cycle.length - 1; i++) {
-        const nodeIndex1 = cycle[i]
-        const nodeIndex2 = cycle[i + 1]
-
-        // Look up the coordinates from the main nodes array
-        const coords1 = planarGraph.nodes[nodeIndex1]
-        const coords2 = planarGraph.nodes[nodeIndex2]
-
-        if (coords1 && coords2) {
-          const p1: Point = { x: coords1[0], y: coords1[1] }
-          const p2: Point = { x: coords2[0], y: coords2[1] }
-
-          // Use your plotter to draw the line
-          plotter.plotLine({ start: p1, end: p2 }, colors[iColor], 2)
-        }
-      }
-
-      plotter.save('faces_outlines.png')
-      iColor = (iColor + 1) % colors.length // Cycle through colors
-    }
-
-    // Recursively process any child faces (holes)
-    if (faceNode.children && faceNode.children.length > 0) {
-      for (const child of faceNode.children) {
-        processFace(child)
-      }
-    }
-  }
-
-  // Start the process for each root of the forest
-  for (const root of faceForest.forest) {
-    processFace(root)
-  }
-
-  plotter.save('faces_outlines.png')
-
-  let x = 1
 }
 
 function splitSubpaths(commands: PathCommand[]): Subpath[] {

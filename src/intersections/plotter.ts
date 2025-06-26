@@ -146,19 +146,19 @@ export class Plotter {
     this.ctx.stroke()
 
     // Draw control points and lines (optional)
-    this.ctx.strokeStyle = color
-    this.ctx.lineWidth = 1
-    this.ctx.setLineDash([5, 5])
-    this.ctx.beginPath()
-    this.ctx.moveTo(start.x, start.y)
-    this.ctx.lineTo(control1.x, control1.y)
-    this.ctx.moveTo(end.x, end.y)
-    this.ctx.lineTo(control2.x, control2.y)
-    this.ctx.stroke()
+    // this.ctx.strokeStyle = color
+    // this.ctx.lineWidth = 1
+    // this.ctx.setLineDash([5, 5])
+    // this.ctx.beginPath()
+    // this.ctx.moveTo(start.x, start.y)
+    // this.ctx.lineTo(control1.x, control1.y)
+    // this.ctx.moveTo(end.x, end.y)
+    // this.ctx.lineTo(control2.x, control2.y)
+    // this.ctx.stroke()
 
-    this.ctx.fillStyle = color
-    this.ctx.fillRect(control1.x - 2, control1.y - 2, 4, 4)
-    this.ctx.fillRect(control2.x - 2, control2.y - 2, 4, 4)
+    // this.ctx.fillStyle = color
+    // this.ctx.fillRect(control1.x - 2, control1.y - 2, 4, 4)
+    // this.ctx.fillRect(control2.x - 2, control2.y - 2, 4, 4)
 
     if (label) {
       this.ctx.fillStyle = color

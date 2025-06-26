@@ -98,6 +98,31 @@ export class Bezier {
     }
   }
 
+  get reversed(): Bezier {
+    if (this.type === BezierType.Quadratic) {
+      const { start, _quadraticControl, end } = this
+      if (!_quadraticControl) {
+        throw new Error('Invalid quadratic Bezier: missing control point')
+      }
+      return Bezier.quadratic({
+        start: end,
+        control: _quadraticControl,
+        end: start
+      })
+    } else {
+      const { start, _cubicControl1: c1, _cubicControl2: c2, end } = this
+      if (!c1 || !c2) {
+        throw new Error('Invalid cubic Bezier: missing control points')
+      }
+      return Bezier.cubic({
+        start: end,
+        control1: c2,
+        control2: c1,
+        end: start
+      })
+    }
+  }
+
   // Convert to cubic form.
   asCubic(): BezierPointsCubic {
     if (this.type === BezierType.Cubic) {

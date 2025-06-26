@@ -31,6 +31,7 @@ import { FlattenedSegment } from './segment_flattener'
 import { plotFaces } from './plot_segments'
 import { writeToJsonFile } from '../utils/debug'
 import { findMinimalFaces } from './dcel/dcel'
+import { processSegments } from './flatboi'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -251,18 +252,18 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   // Compute intersections between segments.
   const intersections = computeIntersections(subpaths)
-  const trimmedIntersections = intersections.filter((intersection) => {
-    const t1InMiddle = intersection.intersection.t1 > 0 && intersection.intersection.t1 < 1
-    const t2InMiddle = intersection.intersection.t2 > 0 && intersection.intersection.t2 < 1
-
-    return t1InMiddle || t2InMiddle
-  })
 
   // Now we need to split segments at intersection points... should maybe
   // factor out the flattening (as in flatMap) as we do this twice. Note that we track
   // everything for linking via subpath ID, so the flatmap is safe.
   const allSegments = subpaths.flatMap((sp) => sp.segments || [])
   const linkedSegmentPieces = splitSegments(allSegments, intersections)
+
+  // -----------------------------------------------------------------------------------
+  // Flattened idea.
+  processSegments(linkedSegmentPieces)
+
+  throw new Error('STOPPING')
 
   // -----------------------------------------------------------------------------------
   // DCEL

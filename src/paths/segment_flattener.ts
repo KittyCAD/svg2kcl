@@ -84,9 +84,6 @@ function flattenArc(arc: Arc, tol: number, parentId: string, out: FlattenedSegme
   }
 }
 
-/**
- * Flattens a single segment into one or more line segments
- */
 export function flattenSegment(segment: SplitSegment, tolerance: number): FlattenedSegment[] {
   const result: FlattenedSegment[] = []
   const parentId = segment.id

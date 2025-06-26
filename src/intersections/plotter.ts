@@ -72,21 +72,29 @@ export class Plotter {
     this.ctx.lineWidth = 2
     this.ctx.setLineDash([])
 
+    // Draw the bounding box
     this.ctx.beginPath()
-    this.ctx.moveTo(this.margin, this.transformY(0))
-    this.ctx.lineTo(this.width - this.margin, this.transformY(0))
-    this.ctx.moveTo(this.transformX(0), this.margin)
-    this.ctx.lineTo(this.transformX(0), this.height - this.margin)
+    this.ctx.moveTo(this.margin, this.height - this.margin) // Bottom left
+    this.ctx.lineTo(this.width - this.margin, this.height - this.margin) // Bottom right
+    this.ctx.lineTo(this.width - this.margin, this.margin) // Top right
+    this.ctx.lineTo(this.margin, this.margin) // Top left
+    this.ctx.lineTo(this.margin, this.height - this.margin) // Back to bottom left
     this.ctx.stroke()
 
-    this.ctx.strokeStyle = '#000000'
-    this.ctx.lineWidth = 2
-    this.ctx.beginPath()
-    this.ctx.moveTo(this.margin, this.height - this.margin)
-    this.ctx.lineTo(this.width - this.margin, this.height - this.margin)
-    this.ctx.moveTo(this.margin, this.margin)
-    this.ctx.lineTo(this.margin, this.height - this.margin)
-    this.ctx.stroke()
+    // Draw X and Y axes only if they're visible in the current bounds
+    if (this.minX <= 0 && this.maxX >= 0) {
+      this.ctx.beginPath()
+      this.ctx.moveTo(this.transformX(0), this.margin)
+      this.ctx.lineTo(this.transformX(0), this.height - this.margin)
+      this.ctx.stroke()
+    }
+
+    if (this.minY <= 0 && this.maxY >= 0) {
+      this.ctx.beginPath()
+      this.ctx.moveTo(this.margin, this.transformY(0))
+      this.ctx.lineTo(this.width - this.margin, this.transformY(0))
+      this.ctx.stroke()
+    }
 
     this.ctx.fillStyle = '#333'
     this.ctx.font = '12px Arial'

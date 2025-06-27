@@ -135,6 +135,7 @@ export function plotFaceOutlines(faceForest: DiscoveryResult, planarGraph: Plana
   const plotter = new Plotter()
   const colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan']
   let iColor = 0
+  let nFaces = 0
 
   plotter.setBounds(0, 0, 100, 100)
   // A helper function to process each face in the tree structure
@@ -143,6 +144,7 @@ export function plotFaceOutlines(faceForest: DiscoveryResult, planarGraph: Plana
 
     // A valid face must have at least 3 points in its cycle
     if (cycle && cycle.length >= 3) {
+      nFaces++
       // Draw a line for each edge of the cycle
       for (let i = 0; i < cycle.length - 1; i++) {
         const nodeIndex1 = cycle[i]
@@ -177,6 +179,8 @@ export function plotFaceOutlines(faceForest: DiscoveryResult, planarGraph: Plana
   for (const root of faceForest.forest) {
     processFace(root)
   }
+
+  plotter.addTitle(`Faces Outlines (${nFaces} faces)`)
 
   plotter.save('faces_outlines.png')
 }

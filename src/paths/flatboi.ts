@@ -351,8 +351,8 @@ export function buildVertexGraph(
         Math.pow(quantizedEnd.y - quantizedStart.y, 2)
     )
 
-    // For very short segments or lines, just create a direct edge
-    if (segment.type === 'Line' || directDistance < EPS_FLATTEN * 3) {
+    // For very short segments just create a direct edge
+    if (directDistance < EPS_FLATTEN * 3) {
       segmentVerticesList.push(startIdx, endIdx)
       segmentEdgesList.push([startIdx, endIdx])
     } else {
@@ -471,29 +471,13 @@ function plotFaces(
   plotter.setBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax)
 
   // Define colors for different levels
-  const colors = [
-    'blue', // Level 0 (root cycles)
-    'red', // Level 1
-    'green', // Level 2
-    'purple', // Level 3
-    'orange', // Level 4
-    'brown', // Level 5
-    'pink' // Level 6+
-  ]
+  const colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'black', 'gray']
 
   let totalFaces = 0
 
   // Recursively plot each face tree in the forest
-  faces.forest.forEach((rootFace, forestIndex) => {
-    totalFaces += plotFaceRecursive(
-      rootFace,
-      allVertices,
-      plotter,
-      colors,
-      0, // depth level
-      forestIndex,
-      filename
-    )
+  faces.forest.forEach((rootFace) => {
+    totalFaces += plotFaceRecursive(rootFace, allVertices, plotter, colors, filename)
   })
 
   // Add title with face count
@@ -537,38 +521,37 @@ function plotFaceRecursive(
   allVertices: Point[],
   plotter: Plotter,
   colors: string[],
-  depth: number,
-  faceIndex: number,
-  filename: string
+  filename: string,
+  faceCount: number = 0 // Add faceCount as a parameter with a default value
 ): number {
-  let faceCount = 0
+  let currentFaceCount = faceCount // Use a local variable to track the current face count
 
   // Plot the current face's cycle if it has vertices
   if (face.cycle && face.cycle.length > 0) {
-    const color = colors[Math.min(depth, colors.length - 1)]
+    const colorIndex = currentFaceCount % colors.length
+    const color = colors[colorIndex]
     const lineWidth = 1
 
     plotCycle(face.cycle, allVertices, plotter, color, lineWidth)
     plotter.save(filename)
-    faceCount++
+    currentFaceCount++ // Increment the local face count
   }
 
   // Recursively plot children
   if (face.children && face.children.length > 0) {
     face.children.forEach((child, childIndex) => {
-      faceCount += plotFaceRecursive(
+      currentFaceCount = plotFaceRecursive(
         child,
         allVertices,
         plotter,
         colors,
-        depth + 1,
-        childIndex,
-        filename
+        filename,
+        currentFaceCount // Pass the updated faceCount to the child
       )
     })
   }
 
-  return faceCount
+  return currentFaceCount // Return the updated face count
 }
 
 function plotCycle(
@@ -597,7 +580,7 @@ function plotCycle(
 
     // Create a line object for the plotter
     const line = { start, end }
-    plotter.plotLine(line, color, lineWidth)
+    // plotter.plotLine(line, color, lineWidth)
   }
 
   // Optionally plot vertices of the cycle

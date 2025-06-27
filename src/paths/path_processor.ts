@@ -33,6 +33,7 @@ import { PathElement } from '../types/elements'
 import { FragmentMap, PathFragmentType } from '../types/fragments'
 import { PathCommand, PathCommandEnriched, PathCommandType, Subpath } from '../types/paths'
 import { PathRegion } from '../types/regions'
+import { writeToJsonFile } from '../utils/debug'
 import {
   computePointToPointDistance,
   findIntersectionsBetweenSubpaths,
@@ -94,6 +95,11 @@ export class PathProcessor {
 
     // Get regions from faces.
     const regions = buildRegions(planarGraph, faceForest, fragments, fragmentMap)
+
+    // Plot the regions.
+    const regionPoints = regions.map((region) => getRegionPoints(region, fragmentMap))
+
+    writeToJsonFile(regionPoints, 'regions_v1.json')
 
     // Now, for each region, compute the evenodd/nonzero 'insideness'.
     const processedRegions = determineInsideness(regions, fragments, fragmentMap, this.fillRule)

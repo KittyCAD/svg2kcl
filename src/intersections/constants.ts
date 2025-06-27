@@ -2,7 +2,7 @@
 export const EPS_INTERSECTION = 1e-6
 
 // Line-Arc intersection.
-export const EPS_ANGLE_INTERSECTION = 1e-6 // Angle difference (radians) small enough to treat as zero.
+export const EPS_ANGLE_INTERSECTION = 1e-4 // Angle difference (radians) small enough to treat as zero.
 
 // Bezier-Bezier intersection.
 export const MAX_RECURSION_DEPTH = 50

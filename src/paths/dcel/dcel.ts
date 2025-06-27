@@ -160,7 +160,7 @@ export function findMinimalFaces(halfEdges: HalfEdge[]): HalfEdge[][] {
     } while (currentEdge && currentEdge !== startEdge && face.length < 1000) // Safety limit
 
     // Only keep valid faces (should close the loop)
-    if (currentEdge === startEdge && face.length >= 3) {
+    if (currentEdge === startEdge && face.length >= 2) {
       faces.push(face)
     } else if (face.length > 0) {
       // Something went wrong - log for debugging

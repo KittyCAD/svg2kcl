@@ -5,6 +5,7 @@ import { EPS_INTERSECTION } from '../../intersections/constants'
 import { debug } from 'console'
 import { SegmentType } from '../path_processor_v2'
 import { normalizeAngle } from '../../utils/geometry'
+import { EPS_ANGLE_INTERSECTION } from '../../intersections/constants'
 
 export interface Vertex {
   id: string
@@ -39,61 +40,48 @@ export class VertexCollection {
 
   finalizeRotation(): void {
     for (const v of this.map.values()) {
-      // Sort outgoing edges ACW around the vertex and link them.
-      const deg = v.outgoing.length
+      const outgoing = v.outgoing
+      const deg = outgoing.length
       if (deg < 2) continue
 
-      v.outgoing.sort((eA, eB) => {
-        // Convert angles from [-π, π] to [0, 2π] range
-        const a = normalizeAngle(edgeAngle(eA))
-        const b = normalizeAngle(edgeAngle(eB))
-
-        // Primary sort: by angle
-        const angleDiff = a - b
-        if (Math.abs(angleDiff) > 1e-10) {
-          return angleDiff
+      // Build key tuples
+      const keyed = outgoing.map((e) => {
+        const ang = normalizeAngle(edgeAngle(e))
+        const prio =
+          {
+            [SegmentType.Line]: 0,
+            [SegmentType.QuadraticBezier]: 1,
+            [SegmentType.CubicBezier]: 2,
+            [SegmentType.Arc]: 3
+          }[e.geometry.type] ?? 99
+        return {
+          edge: e,
+          angle: ang,
+          prio,
+          rev: e.geometryReversed ? 1 : 0,
+          x: e.head.x,
+          y: e.head.y
         }
-
-        // Tie-breaker 1: prefer certain geometry types
-        const geomPriority = {
-          [SegmentType.Line]: 0,
-          [SegmentType.QuadraticBezier]: 1,
-          [SegmentType.CubicBezier]: 2,
-          [SegmentType.Arc]: 3
-        }
-        const geomDiff =
-          (geomPriority[eA.geometry.type] || 99) - (geomPriority[eB.geometry.type] || 99)
-        if (geomDiff !== 0) {
-          return geomDiff
-        }
-
-        // Tie-breaker 2: prefer forward over reverse
-        const revDiff = (eA.geometryReversed ? 1 : 0) - (eB.geometryReversed ? 1 : 0)
-        if (revDiff !== 0) {
-          return revDiff
-        }
-
-        // Tie-breaker 3: use destination point coordinates for stability
-        const headDiffX = eA.head.x - eB.head.x
-        if (Math.abs(headDiffX) > 1e-10) {
-          return headDiffX
-        }
-
-        const headDiffY = eA.head.y - eB.head.y
-        return headDiffY
       })
 
+      // Sort by (angle, prio, rev, x, y)
+      keyed.sort((a, b) => {
+        const da = a.angle - b.angle
+        if (Math.abs(da) > EPS_ANGLE_INTERSECTION) return da
+        if (a.prio !== b.prio) return a.prio - b.prio
+        if (a.rev !== b.rev) return a.rev - b.rev
+        if (a.x !== b.x) return a.x - b.x
+        return a.y - b.y
+      })
+
+      // Reassign & relink
+      v.outgoing = keyed.map((k) => k.edge)
       for (let i = 0; i < deg; ++i) {
-        const e = v.outgoing[i]
-        const eAfter = v.outgoing[(i + 1) % deg]
-        e.twin!.next = eAfter
+        const curr = v.outgoing[i]
+        const next = v.outgoing[(i + 1) % deg]
+        curr.twin!.next = next
       }
     }
-
-    debugEdgeAngles(
-      Array.from(this.map.values()).flatMap((v) => v.outgoing),
-      this
-    )
   }
 
   size(): number {

@@ -30,6 +30,8 @@ import { VertexCollection } from './dcel/vertex_collection'
 import { computeQuantizedPointAndKey, processSegments } from './flatboi'
 import { plotFaces, plotLinkedSplitSegments } from './plot_segments'
 import { FlattenedSegment } from './segment_flattener'
+import { HalfEdge } from './dcel/dcel'
+import { normalizeAngle } from '../utils/geometry'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -281,9 +283,18 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   // -----------------------------------------------------------------------------------
   // DCEL
+  processDcel(linkedSegmentPieces)
+
+  // -----------------------------------------------------------------------------------
+
+  return new ProcessedPathV2([], [], [])
+}
+
+function processDcel(linkedSegmentPieces: SplitSegment[]): HalfEdge[][] {
   const topologicalEdges = extractTopologicalEdges(linkedSegmentPieces)
+  const prunedTopologicalEdges = pruneExactDuplicates(topologicalEdges)
   const vertexCollection = new VertexCollection(EPS_INTERSECTION)
-  const halfEdges = makeHalfEdges(topologicalEdges, vertexCollection)
+  const halfEdges = makeHalfEdges(prunedTopologicalEdges, vertexCollection)
 
   console.log('\n=== DEBUGGING NEXT POINTERS ===')
   halfEdges.forEach((edge, i) => {
@@ -294,22 +305,64 @@ export function processPath(path: PathElement): ProcessedPathV2 {
     )
   })
 
+  // DEBUG
+  const v9050 = Array.from(vertexCollection.vertices()).find(
+    (v) => Math.abs(v.x - 90) < 1e-3 && Math.abs(v.y - 50) < 1e-3
+  )
+
+  if (v9050) {
+    console.log('\n[BEFORE SORT] Outgoing @ (90,50):')
+    v9050.outgoing.forEach((e, i) => {
+      const ang = (edgeAngle(e) * 180) / Math.PI
+      console.log(
+        `  ${i}: halfEdgeIdx=${halfEdges.indexOf(e)}, ` +
+          `tail=(${e.tail.x},${e.tail.y}), head=(${e.head.x},${e.head.y}), ` +
+          `angle=${ang.toFixed(2)}°, geom=${e.geometry.type}, rev=${e.geometryReversed}`
+      )
+    })
+  }
+
   // Now we need to sort our outgoing edges.
   vertexCollection.finalizeRotation()
 
-  const vertex90_50 = Array.from(vertexCollection.vertices()).find(
-    (v) => Math.abs(v.x - 90) < 0.001 && Math.abs(v.y - 50) < 0.001
-  )
-
-  if (vertex90_50) {
-    console.log(`\nVertex (90,50) outgoing edges in sorted order:`)
-    vertex90_50.outgoing.forEach((edge, i) => {
-      const angle = (edgeAngle(edge) * 180) / Math.PI
-      const nextEdge = edge.twin?.next
-      const nextIdx = nextEdge ? halfEdges.indexOf(nextEdge) : -1
+  if (v9050) {
+    console.log('\n[SORT DEBUG] Normalized angles & tie-break keys @ (90,50):')
+    const priority = {
+      [SegmentType.Line]: 0,
+      [SegmentType.QuadraticBezier]: 1,
+      [SegmentType.CubicBezier]: 2,
+      [SegmentType.Arc]: 3
+    }
+    v9050.outgoing.forEach((e, i) => {
+      const rawAngle = edgeAngle(e)
+      const normAngle = (normalizeAngle(rawAngle) * 180) / Math.PI
+      const geomPrio = priority[e.geometry.type] ?? 99
+      const revFlag = e.geometryReversed ? 1 : 0
       console.log(
-        `  ${i}: Edge[${halfEdges.indexOf(edge)}] → (${edge.head.x},${edge.head.y}) ` +
-          `angle=${angle.toFixed(2)}° twin.next=${nextIdx}`
+        `  idx ${i}: halfEdgeIdx=${halfEdges.indexOf(e)}, ` +
+          `head=(${e.head.x},${e.head.y}), ` +
+          `angle(raw)=${((rawAngle * 180) / Math.PI).toFixed(2)}°, ` +
+          `angle(norm)=${normAngle.toFixed(2)}°, ` +
+          `prio=${geomPrio}, rev=${revFlag}`
+      )
+    })
+  }
+
+  // MORE DEBUG
+  if (v9050) {
+    console.log('\n[AFTER SORT] Outgoing @ (90,50):')
+    v9050.outgoing.forEach((e, i) => {
+      const ang = (edgeAngle(e) * 180) / Math.PI
+      const idx = halfEdges.indexOf(e)
+      const twinIdx = halfEdges.indexOf(e.twin!)
+      const nextEdge = e.twin!.next
+      const nextIdx = nextEdge ? halfEdges.indexOf(nextEdge) : -1
+
+      console.log(
+        `  ${i}: halfEdgeIdx=${idx}, ` +
+          `tail=(${e.tail.x},${e.tail.y}), head=(${e.head.x},${e.head.y}), ` +
+          `angle=${ang.toFixed(2)}°, geom=${e.geometry.type}, rev=${e.geometryReversed}, ` +
+          `twin=${twinIdx}, twin.next=${nextIdx}`
       )
     })
   }
@@ -353,9 +406,42 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
 
-  // -----------------------------------------------------------------------------------
+  return faces
+}
 
-  return new ProcessedPathV2([], [], [])
+function pruneExactDuplicates(pieces: SplitSegment[]): SplitSegment[] {
+  const seen = new Map<string, SplitSegment>()
+
+  for (const piece of pieces) {
+    const { start, end } = piece.geometry
+
+    // Quantize & stringify endpoints
+    const a = `${start.x.toFixed(3)},${start.y.toFixed(3)}`
+    const b = `${end.x.toFixed(3)},${end.y.toFixed(3)}`
+    // Directed key so reversed (A->B vs B->A) stay separate if geometry differs
+    const endpointKey = `${a}|${b}`
+
+    // Now append a 'geometry signature' so only identical curves collide
+    let geomKey = piece.type as string
+    if (piece.type === SegmentType.QuadraticBezier) {
+      const c = (piece.geometry as Bezier).quadraticControl
+      geomKey += `|ctrl:${c.x.toFixed(3)},${c.y.toFixed(3)}`
+    } else if (piece.type === SegmentType.CubicBezier) {
+      const { control1, control2 } = piece.geometry as any
+      geomKey +=
+        `|c1:${control1.x.toFixed(3)},${control1.y.toFixed(3)}` +
+        `|c2:${control2.x.toFixed(3)},${control2.y.toFixed(3)}`
+    }
+    // Arcs could include radius/flags in geomKey similarly...
+
+    const key = `${endpointKey}|${geomKey}`
+
+    if (!seen.has(key)) {
+      seen.set(key, piece)
+    }
+  }
+
+  return Array.from(seen.values())
 }
 
 function splitSubpaths(commands: PathCommand[]): Subpath[] {

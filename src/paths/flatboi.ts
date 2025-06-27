@@ -2,9 +2,15 @@ import { Segment, SplitSegment } from './path_processor_v2'
 import { flattenSegment } from './segment_flattener'
 import { EPS_INTERSECTION } from '../intersections/constants'
 import { Point } from '../types/base'
-import { CycleTree, DiscoveryResult, PlanarFaceTree } from 'planar-face-discovery'
+import {
+  CycleTree,
+  DiscoveryResult,
+  DiscoveryResultType,
+  PlanarFaceTree
+} from 'planar-face-discovery'
 import { Plotter } from '../intersections/plotter'
 import { SegmentIntersection } from './path_processor_v2'
+import { writeToJsonFile } from '../utils/debug'
 
 const EPS_FLATTEN = 0.001
 const QUANTIZATION_FACTOR = 1 / EPS_INTERSECTION
@@ -155,7 +161,34 @@ export function processSegments(segments: SplitSegment[], intersections: Segment
   }
 
   // Now we should have actual segments for each face.
+  const facePoints = getFacePoints(faces, allVertices)
+
+  // Write out.
+  writeToJsonFile(facePoints, 'regions_v2.json')
   let x = 1
+}
+
+function getFacePoints(faces: DiscoveryResult, allVertices: Point[]): Point[][] {
+  const facePoints: Point[][] = []
+
+  for (const face of faces.forest) {
+    if (face.cycle && face.cycle.length > 0) {
+      const points = face.cycle.map((vertexIndex) => allVertices[vertexIndex])
+      facePoints.push(points)
+    }
+
+    // Recursively get points from children
+    if (face.children && face.children.length > 0) {
+      const childPoints = getFacePoints(
+        { type: DiscoveryResultType.RESULT, forest: face.children },
+        allVertices
+      )
+
+      facePoints.push(...childPoints)
+    }
+  }
+
+  return facePoints
 }
 
 function findMidpointIntersection(p1: Point, q1: Point, p2: Point, q2: Point): Point | null {

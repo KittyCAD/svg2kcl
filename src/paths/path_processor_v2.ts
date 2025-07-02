@@ -279,13 +279,16 @@ export function processPath(path: PathElement): ProcessedPathV2 {
 
   // -----------------------------------------------------------------------------------
   // Flattened idea.
-  processSegments(linkedSegmentPieces, intersections)
+  // processSegments(linkedSegmentPieces, intersections)
 
   // -----------------------------------------------------------------------------------
   // DCEL
-  processDcel(linkedSegmentPieces)
+  const dcelFaces = processDcel(linkedSegmentPieces)
 
   // -----------------------------------------------------------------------------------
+
+  // Now we need to actually build the hierarchy of regions.
+  let x = 1
 
   return new ProcessedPathV2([], [], [])
 }

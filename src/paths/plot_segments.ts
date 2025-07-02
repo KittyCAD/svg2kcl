@@ -293,3 +293,94 @@ export function plotFaces(faces: HalfEdge[][], filename = 'faces.png'): void {
   plotter.save(filename)
   console.log(`Saved face preview to ${filename}`)
 }
+
+export function plotFacesAndPoints(
+  faces: HalfEdge[][],
+  points: Point[],
+  filename = 'faces.png'
+): void {
+  /* 1 ── gather all vertices for a bounding box ----------------------- */
+  const pts: Point[] = []
+  for (const loop of faces) {
+    loop.forEach((e) => {
+      pts.push({ x: e.tail.x, y: e.tail.y })
+      // Bezier control points also matter for the bbox:
+      if (
+        e.geometry.type === SegmentType.QuadraticBezier ||
+        e.geometry.type === SegmentType.CubicBezier
+      ) {
+        const bz = e.geometry.payload as Bezier
+        if (bz.control1) pts.push(bz.control1)
+        if (bz.control2) pts.push(bz.control2)
+      }
+    })
+  }
+  const xs = pts.map((p) => p.x)
+  const ys = pts.map((p) => p.y)
+  const pad = 10
+  const [minX, maxX] = [Math.min(...xs) - pad, Math.max(...xs) + pad]
+  const [minY, maxY] = [Math.min(...ys) - pad, Math.max(...ys) + pad]
+
+  /* 2 ── color palette & Plotter ------------------------------------ */
+  const palette = [
+    '#e6194b',
+    '#3cb44b',
+    '#ffe119',
+    '#4363d8',
+    '#f58231',
+    '#911eb4',
+    '#46f0f0',
+    '#f032e6',
+    '#bcf60c',
+    '#fabebe',
+    '#008080',
+    '#e6beff',
+    '#9a6324',
+    '#fffac8',
+    '#800000',
+    '#aaffc3',
+    '#808000',
+    '#ffd8b1'
+  ]
+  const plotter = new Plotter(1200, 900, 40)
+  plotter.setBounds(minX, minY, maxX, maxY)
+
+  /* 3 ── draw each face ---------------------------------------------- */
+  faces.forEach((loop, idx) => {
+    const color = palette[idx % palette.length]
+
+    loop.forEach((edge) => {
+      switch (edge.geometry.type) {
+        case SegmentType.Line: {
+          const g = edge.geometry.payload as Line
+          plotter.plotLine(g, color, 2)
+          break
+        }
+
+        case SegmentType.QuadraticBezier:
+        case SegmentType.CubicBezier: {
+          let bz = edge.geometry.payload as Bezier
+          if (edge.geometryReversed) {
+            bz = bz.reversed
+          }
+
+          if (edge.geometryReversed) {
+            // If the edge is reversed, we need to reverse the Bezier.
+            plotter.plotBezier(bz, color, 2)
+          } else {
+            plotter.plotBezier(bz, color, 2)
+          }
+        }
+      }
+    })
+    plotter.save(filename)
+  })
+
+  /* 4 ── plot points ----------------------------------------------- */
+  points.forEach((point) => {
+    plotter.plotPoint(point, '#000000', 1)
+  })
+
+  plotter.save(filename)
+  console.log(`Saved face preview to ${filename}`)
+}

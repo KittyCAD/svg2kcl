@@ -28,10 +28,11 @@ import { calculateWindingDirection } from '../utils/polygon'
 import { findMinimalFaces, makeHalfEdges, edgeAngle } from './dcel/dcel'
 import { VertexCollection } from './dcel/vertex_collection'
 import { computeQuantizedPointAndKey, processSegments } from './flatboi'
-import { plotFaces, plotLinkedSplitSegments } from './plot_segments'
+import { plotFaces, plotFacesAndPoints, plotLinkedSplitSegments } from './plot_segments'
 import { FlattenedSegment } from './segment_flattener'
 import { HalfEdge } from './dcel/dcel'
 import { normalizeAngle } from '../utils/geometry'
+import { computeInteriorPoint } from './regions_v2'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -288,7 +289,15 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // -----------------------------------------------------------------------------------
 
   // Now we need to actually build the hierarchy of regions.
-  let x = 1
+  // 1: Get an interior point for each face.
+  let interiorPoints: Point[] = []
+  for (const face of dcelFaces) {
+    const interiorPoint = computeInteriorPoint(face, 0.1)
+    interiorPoints.push(interiorPoint)
+  }
+
+  // Plot faces and points.
+  plotFacesAndPoints(dcelFaces, interiorPoints, '02_faces_and_points.png')
 
   return new ProcessedPathV2([], [], [])
 }
@@ -404,9 +413,6 @@ function processDcel(linkedSegmentPieces: SplitSegment[]): HalfEdge[][] {
     faceGeometries.push(faceGeometryElements)
   }
   writeToJsonFile(faceGeometries, 'face_geometries.json')
-
-  plotFaces(faces)
-
   plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
 
   return faces

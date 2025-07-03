@@ -323,7 +323,7 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   plotFacesAndPoints(dcelFaces, interiorPoints, '02_faces_and_points.png')
 
   // Now do the winding number and crossing number calculations.
-  const regions = evaluateFaces(dcelFaces, interiorPoints, 100)
+  const regions = evaluateFaces(interiorPoints, linkedSegmentPieces)
 
   // Get hierarchy.
   const processedFaces = resolveContainmentHierarchyV2(
@@ -349,7 +349,7 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   }))
   writeToJsonFile(jsonSafeResultB, 'cleanedProcessedFaces.json')
 
-  const result = createProcessedPathV2(linkedSegmentPieces, processedFaces)
+  const result = createProcessedPathV2(linkedSegmentPieces, cleanedProcessedFaces)
 
   return result
 }

@@ -55,6 +55,7 @@ export function buildEdgeGeometry(seg: SplitSegment): EdgeGeometry {
       return {
         type: seg.type,
         payload: line,
+        segmentID: seg.id,
         tangent: () => ({ x: dx, y: dy }) // constant for a line
       }
     }
@@ -65,6 +66,7 @@ export function buildEdgeGeometry(seg: SplitSegment): EdgeGeometry {
       return {
         type: seg.type,
         payload: bezier,
+        segmentID: seg.id,
         tangent: (t: number) => bezier.tangent(t) // Bezier helper already exists
       }
     }

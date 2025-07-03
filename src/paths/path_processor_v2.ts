@@ -28,11 +28,17 @@ import { calculateWindingDirection } from '../utils/polygon'
 import { findMinimalFaces, makeHalfEdges, edgeAngle } from './dcel/dcel'
 import { VertexCollection } from './dcel/vertex_collection'
 import { computeQuantizedPointAndKey, processSegments } from './flatboi'
-import { plotFaces, plotFacesAndPoints, plotLinkedSplitSegments } from './plot_segments'
+import { plotFacesAndPoints, plotLinkedSplitSegments } from './plot_segments'
 import { FlattenedSegment } from './segment_flattener'
 import { HalfEdge } from './dcel/dcel'
 import { normalizeAngle } from '../utils/geometry'
-import { computeInteriorPoint } from './regions_v2'
+import {
+  cleanupFaceHierarchy,
+  computeInteriorPoint,
+  evaluateFaces,
+  resolveContainmentHierarchyV2
+} from './regions_v2'
+import type { ProcessedFace } from './regions_v2'
 
 export enum SegmentType {
   // We'll support lines, circular arcs, and Bézier curves only.
@@ -175,31 +181,48 @@ const BEZIER_COMMANDS = [...QUADRATIC_BEZIER_COMMANDS, ...CUBIC_BEZIER_COMMANDS]
 
 const ARC_COMMANDS = [PathCommandType.EllipticalArcAbsolute, PathCommandType.EllipticalArcRelative]
 
+export interface FaceRegion {
+  id: string
+  segmentIds: string[]
+  segmentReversed: boolean[]
+  isHole: boolean
+  parentRegionId?: string
+  childRegionIds: string[]
+  area: number
+  interiorPoint: Point
+  face: HalfEdge[]
+}
+
+// Simple segment map type
+export type SegmentMap = Map<string, SplitSegment>
+
 export class ProcessedPathV2 {
-  public readonly segments: Segment[]
-  public readonly segmentsFlattened: FlattenedSegment[]
-
-  private readonly flattenedMap = new Map<string, FlattenedSegment>()
-  private readonly originalMap = new Map<string, Segment>()
-
   constructor(
-    originals: Segment[],
-    flats: FlattenedSegment[],
-    public readonly regions: RegionAnnotated[]
-  ) {
-    this.segments = originals
-    this.segmentsFlattened = flats
+    public readonly segments: Segment[],
+    public readonly segmentMap: SegmentMap,
+    public readonly regions: FaceRegion[]
+  ) {}
 
-    originals.forEach((s) => this.originalMap.set(s.id, s))
-    flats.forEach((f) => this.flattenedMap.set(f.id, f))
+  public getSegment(id: string): SplitSegment {
+    const segment = this.segmentMap.get(id)
+    if (!segment) {
+      throw new Error(`Segment ${id} not found.`)
+    }
+    return segment
   }
+}
 
-  public getSegment(id: string): Segment | undefined {
-    return this.originalMap.get(id)
-  }
-  public getSegmentFlattened(id: string): FlattenedSegment | undefined {
-    return this.flattenedMap.get(id)
-  }
+export interface FaceRegion {
+  id: string
+  segmentIds: string[]
+  segmentReversed: boolean[]
+  isHole: boolean
+  parentRegionId?: string
+  childRegionIds: string[]
+  // Additional metadata
+  area: number
+  interiorPoint: Point
+  face: HalfEdge[]
 }
 
 function extractTopologicalEdges(pieces: SplitSegment[]): SplitSegment[] {
@@ -299,7 +322,97 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // Plot faces and points.
   plotFacesAndPoints(dcelFaces, interiorPoints, '02_faces_and_points.png')
 
-  return new ProcessedPathV2([], [], [])
+  // Now do the winding number and crossing number calculations.
+  const regions = evaluateFaces(dcelFaces, interiorPoints, 100)
+
+  // Get hierarchy.
+  const processedFaces = resolveContainmentHierarchyV2(dcelFaces, regions, interiorPoints)
+
+  // Now we can remove redundant faces.
+  const cleanedProcessedFaces = cleanupFaceHierarchy(processedFaces)
+
+  const result = createProcessedPathV2(linkedSegmentPieces, cleanedProcessedFaces)
+
+  // Remove head and tail fields from face so we can write out.
+  // const jsonSafeResult = {
+  //   ...result,
+  //   regions: result.regions.map(({ face, ...rest }) => rest)
+  // }
+  // writeToJsonFile(jsonSafeResult, 'processed_path_v2.json')
+
+  return result
+}
+
+function convertToFaceRegions(
+  processedFaces: ProcessedFace[],
+  generateId: (index: number) => string = (i) => `region_${i}`
+): FaceRegion[] {
+  // Create regions with string IDs
+  const regions: FaceRegion[] = processedFaces.map((face, index) => {
+    // Extract segment IDs and reversed flags from the face
+    const segmentIds: string[] = []
+    const segmentReversed: boolean[] = []
+
+    for (const halfEdge of face.face) {
+      segmentIds.push(halfEdge.geometry.segmentID)
+      segmentReversed.push(halfEdge.geometryReversed)
+    }
+
+    return {
+      id: generateId(index),
+      segmentIds,
+      segmentReversed,
+      isHole: face.isHole,
+      parentRegionId: undefined, // Will be set below
+      childRegionIds: [],
+      area: face.area,
+      interiorPoint: face.interiorPoint,
+      face: face.face
+    }
+  })
+
+  // Build ID mapping from face index to region ID
+  const indexToIdMap = new Map<number, string>()
+  regions.forEach((region, index) => {
+    indexToIdMap.set(index, region.id)
+  })
+
+  // Set parent-child relationships using string IDs
+  for (let i = 0; i < processedFaces.length; i++) {
+    const face = processedFaces[i]
+    const region = regions[i]
+
+    // Set parent
+    if (face.parentFaceIndex !== undefined) {
+      const parentId = indexToIdMap.get(face.parentFaceIndex)
+      if (parentId) {
+        region.parentRegionId = parentId
+      }
+    }
+
+    // Set children
+    region.childRegionIds = face.childFaceIndices
+      .map((childIndex) => indexToIdMap.get(childIndex))
+      .filter((id) => id !== undefined) as string[]
+  }
+
+  return regions
+}
+
+export function createProcessedPathV2(
+  linkedSegmentPieces: SplitSegment[],
+  cleanedProcessedFaces: ProcessedFace[]
+): ProcessedPathV2 {
+  // Create segment map
+  const segmentMap = new Map<string, SplitSegment>()
+  linkedSegmentPieces.forEach((segment) => {
+    segmentMap.set(segment.id, segment)
+  })
+
+  // Convert processed faces to regions
+  const regions = convertToFaceRegions(cleanedProcessedFaces)
+
+  return new ProcessedPathV2(linkedSegmentPieces, segmentMap, regions)
 }
 
 function processDcel(linkedSegmentPieces: SplitSegment[]): HalfEdge[][] {

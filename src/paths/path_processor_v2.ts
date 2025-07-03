@@ -349,7 +349,7 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   }))
   writeToJsonFile(jsonSafeResultB, 'cleanedProcessedFaces.json')
 
-  const result = createProcessedPathV2(linkedSegmentPieces, cleanedProcessedFaces)
+  const result = createProcessedPathV2(linkedSegmentPieces, processedFaces)
 
   return result
 }

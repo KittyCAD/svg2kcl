@@ -281,13 +281,14 @@ function isInteriorPointInside(interiorPoint: Point, containerFace: ProcessedFac
 
 function determineIfHole(region: FaceInsideness, fillRule: FillRule): boolean {
   // Determine if this face should be considered a hole based on the fill rule
-  if (fillRule === FillRule.NonZero) {
-    return !region.nonZeroInside
-  } else if (fillRule === FillRule.EvenOdd) {
-    return !region.evenOddInside
-  } else {
-    throw new Error(`Unsupported fill rule: ${fillRule}`)
-  }
+  return false
+  // if (fillRule === FillRule.NonZero) {
+  //   return !region.nonZeroInside
+  // } else if (fillRule === FillRule.EvenOdd) {
+  //   return !region.evenOddInside
+  // } else {
+  //   throw new Error(`Unsupported fill rule: ${fillRule}`)
+  // }
 }
 
 function calculateFaceArea(face: HalfEdge[]): number {

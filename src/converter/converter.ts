@@ -527,11 +527,9 @@ export class Converter {
 
   private convertPathToKclOpsV2(path: PathElement): KclOperation[] {
     const processed: ProcessedPathV2 = processPath(path)
-
     // Get a map to lookup segments by ID.
     const originalMap = new Map<string, Segment>()
     processed.segments.forEach((s) => originalMap.set(s.id, s))
-
     const out: KclOperation[] = []
 
     for (const region of processed.regions) {
@@ -540,62 +538,44 @@ export class Converter {
       for (let i = 0; i < region.segmentIds.length; i++) {
         const segmentId = region.segmentIds[i]
         const exact = originalMap.get(segmentId)
-
         if (!exact) {
           console.warn(`Missing original segment ${segmentId}`)
           continue
         }
 
         const rev = region.segmentReversed?.[i] ?? false
-        const isCubic = exact.type === SegmentType.CubicBezier
 
-        if (!isCubic) {
-          const line = exact.geometry as Line
-          const p0 = rev ? line.end : line.start
-          const p1 = rev ? line.start : line.end
-
-          if (i === 0) {
-            cmds.push({
-              type: PathCommandType.MoveAbsolute,
-              parameters: [p0.x, p0.y],
-              startPositionAbsolute: { ...p0 },
-              endPositionAbsolute: { ...p0 }
-            })
-          }
-
-          cmds.push({
-            type: PathCommandType.LineAbsolute,
-            parameters: [p1.x, p1.y],
-            startPositionAbsolute: { ...p0 },
-            endPositionAbsolute: { ...p1 }
-          })
-          continue
-        }
-
-        const bez = exact.geometry as Bezier
-        const p0 = rev ? bez.end : bez.start
-        const c1 = rev ? bez.control2 : bez.control1
-        const c2 = rev ? bez.control1 : bez.control2
-        const p3 = rev ? bez.start : bez.end
-
+        // Add move command for first segment
         if (i === 0) {
+          const startPoint = this.getSegmentStartPoint(exact, rev)
           cmds.push({
             type: PathCommandType.MoveAbsolute,
-            parameters: [p0.x, p0.y],
-            startPositionAbsolute: { ...p0 },
-            endPositionAbsolute: { ...p0 }
+            parameters: [startPoint.x, startPoint.y],
+            startPositionAbsolute: { ...startPoint },
+            endPositionAbsolute: { ...startPoint }
           })
         }
 
-        cmds.push({
-          type: PathCommandType.CubicBezierAbsolute,
-          parameters: [c1.x, c1.y, c2.x, c2.y, p3.x, p3.y],
-          startPositionAbsolute: { ...p0 },
-          endPositionAbsolute: { ...p3 }
-        })
+        // Handle each segment type
+        switch (exact.type) {
+          case SegmentType.Line:
+            this.addLineCommand(cmds, exact.geometry as Line, rev)
+            break
+
+          case SegmentType.QuadraticBezier:
+            this.addQuadraticCommand(cmds, exact.geometry as Bezier, rev)
+            break
+
+          case SegmentType.CubicBezier:
+            this.addCubicCommand(cmds, exact.geometry as Bezier, rev)
+            break
+
+          default:
+            console.warn(`Unsupported segment type: ${exact.type}`)
+        }
       }
 
-      // Close.
+      // Close the path
       cmds.push({
         type: PathCommandType.StopAbsolute,
         parameters: [],
@@ -615,7 +595,74 @@ export class Converter {
         out.push(...kclOps)
       }
     }
+
     return out
+  }
+
+  private getSegmentStartPoint(segment: Segment, reversed: boolean): Point {
+    switch (segment.type) {
+      case SegmentType.Line:
+        const line = segment.geometry as Line
+        return reversed ? line.end : line.start
+
+      case SegmentType.QuadraticBezier:
+      case SegmentType.CubicBezier:
+        const bezier = segment.geometry as Bezier
+        return reversed ? bezier.end : bezier.start
+
+      default:
+        throw new Error(`Unsupported segment type: ${segment.type}`)
+    }
+  }
+
+  private addLineCommand(cmds: PathCommand[], line: Line, reversed: boolean): void {
+    const p0 = reversed ? line.end : line.start
+    const p1 = reversed ? line.start : line.end
+
+    cmds.push({
+      type: PathCommandType.LineAbsolute,
+      parameters: [p1.x, p1.y],
+      startPositionAbsolute: { ...p0 },
+      endPositionAbsolute: { ...p1 }
+    })
+  }
+
+  private addQuadraticCommand(cmds: PathCommand[], bezier: Bezier, reversed: boolean): void {
+    const effectiveBezier = reversed ? bezier.reversed : bezier
+    const cubic = effectiveBezier.asCubic()
+
+    cmds.push({
+      type: PathCommandType.CubicBezierAbsolute,
+      parameters: [
+        cubic.control1.x,
+        cubic.control1.y,
+        cubic.control2.x,
+        cubic.control2.y,
+        cubic.end.x,
+        cubic.end.y
+      ],
+      startPositionAbsolute: { ...cubic.start },
+      endPositionAbsolute: { ...cubic.end }
+    })
+  }
+
+  private addCubicCommand(cmds: PathCommand[], bezier: Bezier, reversed: boolean): void {
+    const effectiveBezier = reversed ? bezier.reversed : bezier
+    const cubic = effectiveBezier.asCubic()
+
+    cmds.push({
+      type: PathCommandType.CubicBezierAbsolute,
+      parameters: [
+        cubic.control1.x,
+        cubic.control1.y,
+        cubic.control2.x,
+        cubic.control2.y,
+        cubic.end.x,
+        cubic.end.y
+      ],
+      startPositionAbsolute: { ...cubic.start },
+      endPositionAbsolute: { ...cubic.end }
+    })
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {

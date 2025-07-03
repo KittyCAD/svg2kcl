@@ -1,10 +1,12 @@
-import { Point } from '../types/base'
+import { FillRule, Point } from '../types/base'
 import { HalfEdge } from './dcel/dcel'
 import { SegmentType } from './path_processor_v2'
 import { sampleCubicBezier, sampleQuadraticBezier } from '../utils/bezier'
 import { Bezier } from '../bezier/core'
 import { isPointInsidePolygon } from '../utils/polygon'
 import { calculatePolygonArea } from '../utils/geometry'
+
+const N_SAMPLES = 200
 
 // ============================================================================
 // INTERIOR POINT COMPUTATION
@@ -16,7 +18,7 @@ export function computeInteriorPoint(halfEdges: HalfEdge[], epsilon: number): Po
 
   for (const edge of halfEdges) {
     // Sample points along the segment.
-    const points = sampleHalfEdge(edge, 10)
+    const points = sampleHalfEdge(edge, N_SAMPLES)
     coarsePolygon.push(...points.slice(0, -1)) // Avoid duplicating the last point.
 
     // Compute midpoint.
@@ -46,8 +48,9 @@ export function computeInteriorPoint(halfEdges: HalfEdge[], epsilon: number): Po
   // We will return the midpoint of the longest half-edge.
   let best: Point = coarsePolygon[0]
   let maxLen2 = -Infinity
+  const nSamplesBackup = 20
   for (const e of halfEdges) {
-    const [s, t] = sampleHalfEdge(e, 10)
+    const [s, t] = sampleHalfEdge(e, nSamplesBackup)
     const len2 = (t.x - s.x) ** 2 + (t.y - s.y) ** 2
     if (len2 > maxLen2) {
       maxLen2 = len2
@@ -203,7 +206,8 @@ export interface ProcessedFace extends FaceInsideness {
 export function resolveContainmentHierarchyV2(
   dcelFaces: HalfEdge[][],
   regions: FaceInsideness[],
-  interiorPoints: Point[]
+  interiorPoints: Point[],
+  fillRule: FillRule
 ): ProcessedFace[] {
   if (dcelFaces.length !== regions.length || dcelFaces.length !== interiorPoints.length) {
     throw new Error('dcelFaces, regions, and interiorPoints arrays must have the same length')
@@ -217,104 +221,73 @@ export function resolveContainmentHierarchyV2(
     interiorPoint: interiorPoints[index],
     childFaceIndices: [],
     area: calculateFaceArea(dcelFaces[index]),
-    isHole: determineIfHole(region)
+    isHole: determineIfHole(region, fillRule)
   }))
 
-  // Sort by area in descending order for hierarchy building
+  // Sort by area in ascending order (smallest first)
   const facesWithIndices = processedFaces.map((face, originalIndex) => ({
     face,
     originalIndex,
     area: face.area
   }))
 
-  facesWithIndices.sort((a, b) => b.area - a.area)
+  facesWithIndices.sort((a, b) => a.area - b.area)
 
-  // Build containment hierarchy for non-hole faces
+  // Work from smallest to largest
   for (let i = 0; i < facesWithIndices.length; i++) {
     const current = facesWithIndices[i]
 
-    // Skip if this is a hole - handle holes separately
-    if (current.face.isHole) {
+    // Skip if already has a parent
+    if (current.face.parentFaceIndex !== undefined) {
       continue
     }
 
-    // Check all smaller faces to see if they're contained within current
+    // Find the smallest face that contains this one
+    let smallestContainer: { face: ProcessedFace; originalIndex: number } | null = null
+    let smallestContainerArea = Infinity
+
     for (let j = i + 1; j < facesWithIndices.length; j++) {
-      const smaller = facesWithIndices[j]
+      const potential = facesWithIndices[j]
 
-      // Skip if already has a parent or is a hole
-      if (smaller.face.parentFaceIndex !== undefined || smaller.face.isHole) {
-        continue
-      }
-
-      // Check if smaller face is contained within current face
-      if (isFaceContainedInFace(smaller.face, current.face)) {
-        // Find the most immediate parent (smallest containing face)
-        let mostImmediateParent = current
-        let mostImmediateParentArea = current.area
-
-        // Check all potential parents between current and smaller
-        for (let k = i + 1; k < j; k++) {
-          const potentialParent = facesWithIndices[k]
-
-          // Skip holes or faces that already have parents
-          if (potentialParent.face.isHole || potentialParent.face.parentFaceIndex !== undefined) {
-            continue
-          }
-
-          // If this potential parent contains the smaller face and is contained by current
-          if (
-            isFaceContainedInFace(smaller.face, potentialParent.face) &&
-            isFaceContainedInFace(potentialParent.face, current.face) &&
-            potentialParent.area < mostImmediateParentArea
-          ) {
-            mostImmediateParent = potentialParent
-            mostImmediateParentArea = potentialParent.area
-          }
+      // Check if current face's interior point is inside potential container
+      if (isInteriorPointInside(current.face.interiorPoint, potential.face)) {
+        if (potential.area < smallestContainerArea) {
+          smallestContainer = { face: potential.face, originalIndex: potential.originalIndex }
+          smallestContainerArea = potential.area
         }
-
-        // Set parent-child relationship
-        smaller.face.parentFaceIndex = mostImmediateParent.originalIndex
-        mostImmediateParent.face.childFaceIndices.push(smaller.originalIndex)
-      }
-    }
-  }
-
-  // Handle holes - find the smallest non-hole face that contains each hole
-  for (const { face: hole, originalIndex: holeIndex } of facesWithIndices) {
-    if (!hole.isHole) {
-      continue
-    }
-
-    let smallestContainingFace: { face: ProcessedFace; originalIndex: number } | null = null
-    let smallestArea = Infinity
-
-    for (const { face: potentialParent, originalIndex: parentIndex, area } of facesWithIndices) {
-      // Skip if potential parent is a hole or is the same face
-      if (potentialParent.isHole || parentIndex === holeIndex) {
-        continue
-      }
-
-      if (isFaceContainedInFace(hole, potentialParent) && area < smallestArea) {
-        smallestContainingFace = { face: potentialParent, originalIndex: parentIndex }
-        smallestArea = area
       }
     }
 
-    if (smallestContainingFace) {
-      hole.parentFaceIndex = smallestContainingFace.originalIndex
-      smallestContainingFace.face.childFaceIndices.push(holeIndex)
+    // Set parent-child relationship
+    if (smallestContainer) {
+      current.face.parentFaceIndex = smallestContainer.originalIndex
+      smallestContainer.face.childFaceIndices.push(current.originalIndex)
     }
   }
 
   return processedFaces
 }
 
-function determineIfHole(region: FaceInsideness): boolean {
-  // A face is typically a hole if:
-  // 1. It has a negative winding number (clockwise orientation in a counter-clockwise system)
-  // 2. It's inside according to nonZeroInside but has specific winding characteristics
-  return region.windingNumber < 0 || (region.nonZeroInside && region.windingNumber === 0)
+function isInteriorPointInside(interiorPoint: Point, containerFace: ProcessedFace): boolean {
+  // Convert container face to polygon
+  const containerPolygon: Point[] = []
+  for (const halfEdge of containerFace.face) {
+    const points = sampleHalfEdge(halfEdge, N_SAMPLES)
+    containerPolygon.push(...points.slice(0, -1))
+  }
+
+  return isPointInsidePolygon(interiorPoint, containerPolygon)
+}
+
+function determineIfHole(region: FaceInsideness, fillRule: FillRule): boolean {
+  // Determine if this face should be considered a hole based on the fill rule
+  if (fillRule === FillRule.NonZero) {
+    return !region.nonZeroInside
+  } else if (fillRule === FillRule.EvenOdd) {
+    return !region.evenOddInside
+  } else {
+    throw new Error(`Unsupported fill rule: ${fillRule}`)
+  }
 }
 
 function calculateFaceArea(face: HalfEdge[]): number {
@@ -323,29 +296,12 @@ function calculateFaceArea(face: HalfEdge[]): number {
 
   for (const halfEdge of face) {
     // Sample the half edge to get points along the curve
-    const points = sampleHalfEdge(halfEdge, 10)
+    const points = sampleHalfEdge(halfEdge, N_SAMPLES)
     // Add all but the last point to avoid duplication
     polygon.push(...points.slice(0, -1))
   }
 
   return Math.abs(calculatePolygonArea(polygon))
-}
-
-function isFaceContainedInFace(innerFace: ProcessedFace, outerFace: ProcessedFace): boolean {
-  // Use the interior point of the inner face to test containment
-  const testPoint = innerFace.interiorPoint
-
-  // Convert outer face to polygon for point-in-polygon test
-  const outerPolygon: Point[] = []
-
-  for (const halfEdge of outerFace.face) {
-    // Sample the half edge to get points along the curve
-    const points = sampleHalfEdge(halfEdge, 20) // Higher sampling for better accuracy
-    // Add all but the last point to avoid duplication
-    outerPolygon.push(...points.slice(0, -1))
-  }
-
-  return isPointInsidePolygon(testPoint, outerPolygon)
 }
 
 // ============================================================================
@@ -355,7 +311,7 @@ function isFaceContainedInFace(innerFace: ProcessedFace, outerFace: ProcessedFac
 export function cleanupFaceHierarchy(processedFaces: ProcessedFace[]): ProcessedFace[] {
   const facesToRemove = new Set<number>()
 
-  // Build a map of each face's children for fast lookup
+  // Build children map
   const childrenMap = new Map<number, ProcessedFace[]>()
   for (const face of processedFaces) {
     if (face.parentFaceIndex !== undefined) {
@@ -366,39 +322,34 @@ export function cleanupFaceHierarchy(processedFaces: ProcessedFace[]): Processed
     }
   }
 
-  // Look for redundant nested faces
+  // Remove redundant faces based on correct fill logic
   for (const face of processedFaces) {
     if (facesToRemove.has(face.faceIndex)) continue
 
     const parentFace = processedFaces.find((f) => f.faceIndex === face.parentFaceIndex)
     if (!parentFace) continue
 
-    // If parent and child have the same fill status (both holes or both filled regions)
-    if (face.isHole === parentFace.isHole) {
-      const facePoints = getFacePoints(face)
-      const parentPoints = getFacePoints(parentFace)
+    // Remove redundant faces:
+    // - Solid inside solid (merge)
+    // - Hole inside hole (cancel out)
+    const shouldRemove = (face.isHole && parentFace.isHole) || (!face.isHole && !parentFace.isHole)
 
-      // Check if the child is completely inside the parent
-      if (isPolygonInsidePolygon(facePoints, parentPoints)) {
-        // If both are filled regions or both are holes, remove the child (face)
-        facesToRemove.add(face.faceIndex)
+    if (shouldRemove) {
+      facesToRemove.add(face.faceIndex)
 
-        // If the child had children, reassign them to the parent
-        const children = childrenMap.get(face.faceIndex) || []
-        for (const child of children) {
-          child.parentFaceIndex = parentFace.faceIndex
-
-          // Update the parent's children list
-          if (!parentFace.childFaceIndices.includes(child.faceIndex)) {
-            parentFace.childFaceIndices.push(child.faceIndex)
-          }
+      // Reassign children to grandparent
+      const children = childrenMap.get(face.faceIndex) || []
+      for (const child of children) {
+        child.parentFaceIndex = parentFace.faceIndex
+        if (!parentFace.childFaceIndices.includes(child.faceIndex)) {
+          parentFace.childFaceIndices.push(child.faceIndex)
         }
+      }
 
-        // Remove this face from its parent's children list
-        const parentChildIndex = parentFace.childFaceIndices.indexOf(face.faceIndex)
-        if (parentChildIndex !== -1) {
-          parentFace.childFaceIndices.splice(parentChildIndex, 1)
-        }
+      // Remove from parent's children list
+      const parentChildIndex = parentFace.childFaceIndices.indexOf(face.faceIndex)
+      if (parentChildIndex !== -1) {
+        parentFace.childFaceIndices.splice(parentChildIndex, 1)
       }
     }
   }
@@ -433,7 +384,7 @@ function getFacePoints(face: ProcessedFace): Point[] {
 
   for (const halfEdge of face.face) {
     // Sample the half edge to get points along the curve
-    const edgePoints = sampleHalfEdge(halfEdge, 20) // Higher sampling for better accuracy
+    const edgePoints = sampleHalfEdge(halfEdge, N_SAMPLES)
     // Add all but the last point to avoid duplication
     points.push(...edgePoints.slice(0, -1))
   }

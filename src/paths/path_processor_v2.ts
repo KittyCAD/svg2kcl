@@ -326,19 +326,30 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   const regions = evaluateFaces(dcelFaces, interiorPoints, 100)
 
   // Get hierarchy.
-  const processedFaces = resolveContainmentHierarchyV2(dcelFaces, regions, interiorPoints)
+  const processedFaces = resolveContainmentHierarchyV2(
+    dcelFaces,
+    regions,
+    interiorPoints,
+    path.fillRule
+  )
+
+  const jsonSafeResultA = processedFaces.map((faceObj) => ({
+    ...faceObj,
+    face: faceObj.face.map(({ head, tail, next, twin, ...rest }) => rest)
+  }))
+  writeToJsonFile(jsonSafeResultA, 'processedFaces.json')
 
   // Now we can remove redundant faces.
   const cleanedProcessedFaces = cleanupFaceHierarchy(processedFaces)
 
-  const result = createProcessedPathV2(linkedSegmentPieces, cleanedProcessedFaces)
-
   // Remove head and tail fields from face so we can write out.
-  // const jsonSafeResult = {
-  //   ...result,
-  //   regions: result.regions.map(({ face, ...rest }) => rest)
-  // }
-  // writeToJsonFile(jsonSafeResult, 'processed_path_v2.json')
+  const jsonSafeResultB = cleanedProcessedFaces.map((faceObj) => ({
+    ...faceObj,
+    face: faceObj.face.map(({ head, tail, next, twin, ...rest }) => rest)
+  }))
+  writeToJsonFile(jsonSafeResultB, 'cleanedProcessedFaces.json')
+
+  const result = createProcessedPathV2(linkedSegmentPieces, cleanedProcessedFaces)
 
   return result
 }

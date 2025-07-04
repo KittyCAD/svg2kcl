@@ -374,11 +374,14 @@ export function plotFacesAndPoints(
       }
     })
     plotter.save(filename)
+    let x = 1
   })
 
   /* 4 ── plot points ----------------------------------------------- */
   points.forEach((point) => {
-    plotter.plotPoint(point, '#000000', 1)
+    plotter.plotPoint(point, '#000000', 5)
+    plotter.save(filename)
+    let x = 1
   })
 
   plotter.save(filename)

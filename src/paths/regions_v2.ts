@@ -5,9 +5,10 @@ import { sampleCubicBezier, sampleQuadraticBezier } from '../utils/bezier'
 import { Bezier } from '../bezier/core'
 import { isPointInsidePolygon } from '../utils/polygon'
 import { calculatePolygonArea } from '../utils/geometry'
-import { SplitSegment } from './path_processor_v2'
+import { Segment } from './path_processor_v2'
+import { plotFacesAndPoints } from './plot_segments'
 
-const N_SAMPLES = 200
+const N_SAMPLES = 1000
 
 // ============================================================================
 // INTERIOR POINT COMPUTATION
@@ -19,7 +20,7 @@ export function computeInteriorPoint(halfEdges: HalfEdge[], epsilon: number): Po
 
   for (const edge of halfEdges) {
     // Sample points along the segment.
-    const points = sampleHalfEdge(edge, N_SAMPLES)
+    const points = sampleHalfEdge(edge, 100)
     coarsePolygon.push(...points.slice(0, -1)) // Avoid duplicating the last point.
 
     // Compute midpoint.
@@ -41,9 +42,18 @@ export function computeInteriorPoint(halfEdges: HalfEdge[], epsilon: number): Po
 
     // Offset midpoint inward by epsilon.
     candidates.push({ x: mx + nx * inStep, y: my + ny * inStep })
+    // candidates.push({ x: mx - nx * inStep, y: my - ny * inStep }) // Opposite direction.
   }
 
-  for (const c of candidates) if (isPointInsidePolygon(c, coarsePolygon)) return c
+  // plotFacesAndPoints([halfEdges], candidates, 'test.png')
+
+  for (const c of candidates) {
+    if (isPointInsidePolygon(c, coarsePolygon)) {
+      return c
+    }
+  }
+
+  // We need to plot the polygon and the candidate points to debug why no point is inside.
 
   // This is a fallback if no candidate point is inside the polygon.
   // We will return the midpoint of the longest half-edge.
@@ -66,29 +76,64 @@ export function computeInteriorPoint(halfEdges: HalfEdge[], epsilon: number): Po
 // ============================================================================
 
 export function sampleHalfEdge(halfEdge: HalfEdge, numSamples: number): Point[] {
-  const { geometry } = halfEdge
+  const { geometry, geometryReversed } = halfEdge
+  let output: Point[] = []
   switch (geometry.type) {
     case SegmentType.Line: {
       const line = geometry.payload
-      return sampleLine(line.start, line.end, numSamples)
+
+      if (geometryReversed) {
+        output = sampleLine(line.end, line.start, numSamples)
+      } else {
+        output = sampleLine(line.start, line.end, numSamples)
+      }
+      break
     }
     case SegmentType.QuadraticBezier: {
       const bezier = geometry.payload as Bezier
-      return sampleQuadraticBezier(bezier.start, bezier.quadraticControl, bezier.end, numSamples)
+      if (geometryReversed) {
+        output = sampleQuadraticBezier(
+          bezier.reversed.start,
+          bezier.reversed.quadraticControl,
+          bezier.reversed.end,
+          numSamples
+        )
+      } else {
+        output = sampleQuadraticBezier(
+          bezier.start,
+          bezier.quadraticControl,
+          bezier.end,
+          numSamples
+        )
+      }
+      break
     }
     case SegmentType.CubicBezier: {
       const bezier = geometry.payload as Bezier
-      return sampleCubicBezier(
-        bezier.start,
-        bezier.control1,
-        bezier.control2,
-        bezier.end,
-        numSamples
-      )
+      if (geometryReversed) {
+        output = sampleCubicBezier(
+          bezier.reversed.start,
+          bezier.reversed.control1,
+          bezier.reversed.control2,
+          bezier.reversed.end,
+          numSamples
+        )
+      } else {
+        output = sampleCubicBezier(
+          bezier.start,
+          bezier.control1,
+          bezier.control2,
+          bezier.end,
+          numSamples
+        )
+      }
+      break
     }
     default:
       throw new Error(`Unsupported segment type for sampling: ${geometry.type}`)
   }
+
+  return output
 }
 
 export function sampleLine(start: Point, end: Point, numSamples: number): Point[] {
@@ -157,13 +202,9 @@ function sampleFaceSegments(face: HalfEdge[], samples: number): [Point, Point][]
   return segs
 }
 
-function buildSegmentsByFace(dcelFaces: HalfEdge[][], samples: number): [Point, Point][][] {
-  return dcelFaces.map((face) => sampleFaceSegments(face, samples))
-}
-
 export function evaluateFaces(
   interiorPoints: Point[],
-  originalSegments: SplitSegment[], // Add this parameter
+  originalSegments: Segment[],
   samples = N_SAMPLES
 ): FaceInsideness[] {
   // Sample the ORIGINAL path segments, not the face boundaries
@@ -194,7 +235,7 @@ export function evaluateFaces(
 }
 
 // Helper function to sample original segments
-function sampleOriginalSegment(segment: SplitSegment, numSamples: number): Point[] {
+function sampleOriginalSegment(segment: Segment, numSamples: number): Point[] {
   switch (segment.type) {
     case SegmentType.Line: {
       const line = segment.geometry as any // Line type
@@ -351,6 +392,7 @@ export function resolveContainmentHierarchyV2(
 
   return processedFaces
 }
+
 function isInteriorPointInside(interiorPoint: Point, containerFace: ProcessedFace): boolean {
   // Convert container face to polygon
   const containerPolygon: Point[] = []
@@ -364,10 +406,10 @@ function isInteriorPointInside(interiorPoint: Point, containerFace: ProcessedFac
 
 function determineIfHole(region: FaceInsideness, fillRule: FillRule): boolean {
   if (fillRule === FillRule.NonZero) {
-    // For non-zero rule: odd winding numbers = filled, even = holes
-    return region.windingNumber % 2 === 0
+    // Zero winding = unfilled (hole), non-zero = filled
+    return region.windingNumber === 0
   } else if (fillRule === FillRule.EvenOdd) {
-    // For even-odd rule: odd crossings = filled, even = holes
+    // Even crossings = unfilled (hole), odd = filled
     return region.crossingCount % 2 === 0
   } else {
     throw new Error(`Unsupported fill rule: ${fillRule}`)
@@ -464,86 +506,6 @@ export function cleanupFaceHierarchy(processedFaces: ProcessedFace[]): Processed
   }
 
   return cleanedFaces
-}
-
-function getFacePoints(face: ProcessedFace): Point[] {
-  const points: Point[] = []
-
-  for (const halfEdge of face.face) {
-    // Sample the half edge to get points along the curve
-    const edgePoints = sampleHalfEdge(halfEdge, N_SAMPLES)
-    // Add all but the last point to avoid duplication
-    points.push(...edgePoints.slice(0, -1))
-  }
-
-  return points
-}
-
-function isPolygonInsidePolygon(innerPolygon: Point[], outerPolygon: Point[]): boolean {
-  // Check if all vertices of the inner polygon are inside the outer polygon
-  for (const point of innerPolygon) {
-    if (!isPointInsidePolygon(point, outerPolygon)) {
-      return false
-    }
-  }
-
-  // Additional check: ensure no edges of inner polygon intersect with outer polygon
-  return !doPolygonsIntersect(innerPolygon, outerPolygon)
-}
-
-function doPolygonsIntersect(poly1: Point[], poly2: Point[]): boolean {
-  // Check if any edge of poly1 intersects with any edge of poly2
-  for (let i = 0; i < poly1.length; i++) {
-    const p1 = poly1[i]
-    const p2 = poly1[(i + 1) % poly1.length]
-
-    for (let j = 0; j < poly2.length; j++) {
-      const p3 = poly2[j]
-      const p4 = poly2[(j + 1) % poly2.length]
-
-      if (doLineSegmentsIntersect(p1, p2, p3, p4)) {
-        return true
-      }
-    }
-  }
-
-  return false
-}
-
-function doLineSegmentsIntersect(p1: Point, p2: Point, p3: Point, p4: Point): boolean {
-  // Check if line segments p1-p2 and p3-p4 intersect
-  const d1 = orientation(p3, p4, p1)
-  const d2 = orientation(p3, p4, p2)
-  const d3 = orientation(p1, p2, p3)
-  const d4 = orientation(p1, p2, p4)
-
-  // General case: segments intersect if they have different orientations
-  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
-    return true
-  }
-
-  // Special cases: segments are collinear and overlap
-  if (d1 === 0 && onSegment(p3, p1, p4)) return true
-  if (d2 === 0 && onSegment(p3, p2, p4)) return true
-  if (d3 === 0 && onSegment(p1, p3, p2)) return true
-  if (d4 === 0 && onSegment(p1, p4, p2)) return true
-
-  return false
-}
-
-function orientation(p: Point, q: Point, r: Point): number {
-  // Calculate the orientation of the ordered triplet (p, q, r)
-  return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
-}
-
-function onSegment(p: Point, q: Point, r: Point): boolean {
-  // Check if point q lies on segment pr (assuming p, q, r are collinear)
-  return (
-    q.x <= Math.max(p.x, r.x) &&
-    q.x >= Math.min(p.x, r.x) &&
-    q.y <= Math.max(p.y, r.y) &&
-    q.y >= Math.min(p.y, r.y)
-  )
 }
 
 // ============================================================================

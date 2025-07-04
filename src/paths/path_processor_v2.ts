@@ -315,7 +315,7 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // 1: Get an interior point for each face.
   let interiorPoints: Point[] = []
   for (const face of dcelFaces) {
-    const interiorPoint = computeInteriorPoint(face, 0.1)
+    const interiorPoint = computeInteriorPoint(face, 0.001)
     interiorPoints.push(interiorPoint)
   }
 
@@ -323,7 +323,7 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   plotFacesAndPoints(dcelFaces, interiorPoints, '02_faces_and_points.png')
 
   // Now do the winding number and crossing number calculations.
-  const regions = evaluateFaces(interiorPoints, linkedSegmentPieces)
+  const regions = evaluateFaces(interiorPoints, allSegments)
 
   // Get hierarchy.
   const processedFaces = resolveContainmentHierarchyV2(

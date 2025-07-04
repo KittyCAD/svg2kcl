@@ -23,13 +23,14 @@ export function computeInteriorPoint(halfEdges: HalfEdge[], epsilon: number): Po
     const points = sampleHalfEdge(edge, 100)
     coarsePolygon.push(...points.slice(0, -1)) // Avoid duplicating the last point.
 
-    // Compute midpoint.
-    const mx = (points[0].x + points[1].x) / 2
-    const my = (points[0].y + points[1].y) / 2
+    // Use the middle sample point instead of the midpoint between the first two samples.
+    const midIdx = Math.floor(points.length / 2)
+    const mx = points[midIdx].x
+    const my = points[midIdx].y
 
     // Compute tangent vector and normalize it.
-    const dx = points[1].x - points[0].x
-    const dy = points[1].y - points[0].y
+    const dx = points[Math.min(midIdx + 1, points.length - 1)].x - points[Math.max(midIdx - 1, 0)].x
+    const dy = points[Math.min(midIdx + 1, points.length - 1)].y - points[Math.max(midIdx - 1, 0)].y
     const len = Math.hypot(dx, dy)
     if (len === 0) continue
 

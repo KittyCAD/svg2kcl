@@ -347,6 +347,9 @@ export function plotFacesAndPoints(
 
   /* 3 ── draw each face ---------------------------------------------- */
   faces.forEach((loop, idx) => {
+    // plotter.clear()
+    // plotter.setBounds(0, 0, 100, 100)
+
     const color = palette[idx % palette.length]
 
     loop.forEach((edge) => {
@@ -373,8 +376,8 @@ export function plotFacesAndPoints(
         }
       }
     })
-    plotter.save(filename)
-    let x = 1
+    //  Save each face after plotting with its own file.
+    plotter.save(`${filename.replace('.png', `_${idx}.png`)}`)
   })
 
   /* 4 ── plot points ----------------------------------------------- */

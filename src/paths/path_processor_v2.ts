@@ -315,10 +315,16 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // 1: Get an interior point for each face.
   let interiorPoints: Point[] = []
   for (const face of dcelFaces) {
-    const interiorPoint = computeInteriorPoint(face, 0.001)
+    const interiorPoint = computeInteriorPoint(face, 0.0001)
     interiorPoints.push(interiorPoint)
   }
 
+  const jsonSafeResultFaces = dcelFaces.map((face) =>
+    face.map((e) => ({
+      ...e.geometry
+    }))
+  )
+  writeToJsonFile(jsonSafeResultFaces, 'dcelFaces.json')
   // Plot faces and points.
   plotFacesAndPoints(dcelFaces, interiorPoints, '02_faces_and_points.png')
 
@@ -340,7 +346,7 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   writeToJsonFile(jsonSafeResultA, 'processedFaces.json')
 
   // Now we can remove redundant faces.
-  const cleanedProcessedFaces = cleanupFaceHierarchy(processedFaces)
+  const cleanedProcessedFaces = cleanupFaceHierarchy(processedFaces) // Topological redundancy.
 
   // Remove head and tail fields from face so we can write out.
   const jsonSafeResultB = cleanedProcessedFaces.map((faceObj) => ({

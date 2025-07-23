@@ -309,31 +309,34 @@ export function processPath(path: PathElement): ProcessedPathV2 {
   // DCEL
   const dcelFaces = processDcel(linkedSegmentPieces)
 
+  // Deduplicate faces.
+  const uniqueDcelFaces = deduplicateFaces(dcelFaces)
+
   // -----------------------------------------------------------------------------------
 
   // Now we need to actually build the hierarchy of regions.
   // 1: Get an interior point for each face.
   let interiorPoints: Point[] = []
-  for (const face of dcelFaces) {
+  for (const face of uniqueDcelFaces) {
     const interiorPoint = computeInteriorPoint(face, 0.0001)
     interiorPoints.push(interiorPoint)
   }
 
-  const jsonSafeResultFaces = dcelFaces.map((face) =>
+  const jsonSafeResultFaces = uniqueDcelFaces.map((face) =>
     face.map((e) => ({
       ...e.geometry
     }))
   )
   writeToJsonFile(jsonSafeResultFaces, 'dcelFaces.json')
   // Plot faces and points.
-  plotFacesAndPoints(dcelFaces, interiorPoints, '02_faces_and_points.png')
+  plotFacesAndPoints(uniqueDcelFaces, interiorPoints, '02_faces_and_points.png')
 
   // Now do the winding number and crossing number calculations.
   const regions = evaluateFaces(interiorPoints, allSegments)
 
   // Get hierarchy.
   const processedFaces = resolveContainmentHierarchyV2(
-    dcelFaces,
+    uniqueDcelFaces,
     regions,
     interiorPoints,
     path.fillRule
@@ -546,6 +549,50 @@ function processDcel(linkedSegmentPieces: SplitSegment[]): HalfEdge[][] {
   plotLinkedSplitSegments(linkedSegmentPieces, '01_linked_split_segments.png')
 
   return faces
+}
+
+function calculateFaceArea(face: HalfEdge[]): number {
+  const polygon: Point[] = face.map((edge) => ({ x: edge.tail.x, y: edge.tail.y }))
+  let area = 0
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i]
+    const p2 = polygon[(i + 1) % polygon.length]
+    area += p1.x * p2.y - p2.x * p1.y
+  }
+  return area / 2.0
+}
+
+function getCanonicalFaceKey(face: HalfEdge[]): string {
+  const segmentIds = face.map((edge) => edge.geometry.segmentID)
+  // Sort to make the key independent of traversal start point and direction
+  segmentIds.sort()
+  return segmentIds.join(',')
+}
+
+export function deduplicateFaces(dcelFaces: HalfEdge[][]): HalfEdge[][] {
+  const uniqueFaces = new Map<string, { face: HalfEdge[]; area: number }>()
+
+  for (const face of dcelFaces) {
+    // A face must have at least 2 edges to form a meaningful loop (e.g., a line segment touched on both sides).
+    // A geometric polygon requires at least 3.
+    if (face.length < 2) {
+      continue
+    }
+
+    const key = getCanonicalFaceKey(face)
+    const existingEntry = uniqueFaces.get(key)
+    const newArea = Math.abs(calculateFaceArea(face))
+
+    if (!existingEntry || newArea < existingEntry.area) {
+      // If we haven't seen this set of segments before, or if this new face
+      // is smaller than the one we've already stored (meaning it's the interior
+      // face and the other was the exterior), store/replace it.
+      uniqueFaces.set(key, { face, area: newArea })
+    }
+  }
+
+  // Return just the face arrays from our map.
+  return Array.from(uniqueFaces.values()).map((entry) => entry.face)
 }
 
 function pruneExactDuplicates(pieces: SplitSegment[]): SplitSegment[] {

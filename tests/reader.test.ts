@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { SvgReader, SvgReadError } from '../src/reader/base'

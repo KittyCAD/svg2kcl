@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import { getLineBezierIntersection, Line } from '../../src/intersections/intersections'
 import { Bezier } from '../../src/bezier/core'
 

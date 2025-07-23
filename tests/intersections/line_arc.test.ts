@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import { getLineArcIntersection, Line, Arc } from '../../src/intersections/intersections'
 
 const hLine = (y: number, x0 = -10, x1 = 10): Line => ({

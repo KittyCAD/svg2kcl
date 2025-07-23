@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import { getArcArcIntersection, Arc } from '../../src/intersections/intersections'
 
 const fullCircle = (center: { x: number; y: number }, radius: number): Arc => ({

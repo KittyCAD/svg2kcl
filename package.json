@@ -14,7 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "canvas": "^2.11.2",
+    "@napi-rs/canvas": "^0.1.73",
     "fast-xml-parser": "^4.5.1",
     "flo-poly": "^7.0.0",
     "jsdom": "^24.1.0",

@@ -1,253 +1,287 @@
-import { Canvas, CanvasRenderingContext2D, createCanvas } from 'canvas'
-import fs from 'fs'
-import { Point } from '../types/base'
-import { Arc, Intersection, Line } from './intersections'
-import { Bezier } from '../bezier/core'
+import type { Canvas, CanvasRenderingContext2D } from "@napi-rs/canvas";
+import { createCanvas } from "@napi-rs/canvas";
+import fs from "fs";
+import type { Bezier } from "../bezier/core";
+import type { Point } from "../types/base";
+import type { Arc, Intersection, Line } from "./intersections";
 
 export class Plotter {
-  private canvas: Canvas
-  private ctx: CanvasRenderingContext2D
-  private width: number
-  private height: number
-  private margin: number
-  private scaleX: number = 1
-  private scaleY: number = 1
-  private minX: number
-  private minY: number
-  private maxX: number
-  private maxY: number
+	private canvas: Canvas;
+	private ctx: CanvasRenderingContext2D;
+	private width: number;
+	private height: number;
+	private margin: number;
+	private scaleX: number = 1;
+	private scaleY: number = 1;
+	private minX: number;
+	private minY: number;
+	private maxX: number;
+	private maxY: number;
 
-  constructor(width = 800, height = 600, margin = 50) {
-    this.canvas = createCanvas(width, height)
-    this.ctx = this.canvas.getContext('2d')
-    this.width = width
-    this.height = height
-    this.margin = margin
+	constructor(width = 800, height = 600, margin = 50) {
+		this.canvas = createCanvas(width, height);
+		this.ctx = this.canvas.getContext("2d");
+		this.width = width;
+		this.height = height;
+		this.margin = margin;
 
-    this.minX = 0
-    this.minY = 0
-    this.maxX = 10
-    this.maxY = 10
-    this.updateScale()
+		this.minX = 0;
+		this.minY = 0;
+		this.maxX = 10;
+		this.maxY = 10;
+		this.updateScale();
 
-    this.setupCanvas()
-  }
+		this.setupCanvas();
+	}
 
-  private setupCanvas(): void {
-    this.ctx.fillStyle = 'white'
-    this.ctx.fillRect(0, 0, this.width, this.height)
-  }
+	private setupCanvas(): void {
+		this.ctx.fillStyle = "white";
+		this.ctx.fillRect(0, 0, this.width, this.height);
+	}
 
-  setBounds(minX: number, minY: number, maxX: number, maxY: number): void {
-    this.minX = Math.floor(minX)
-    this.minY = Math.floor(minY)
-    this.maxX = Math.ceil(maxX)
-    this.maxY = Math.ceil(maxY)
-    this.updateScale()
-    this.drawAxes()
-  }
+	setBounds(minX: number, minY: number, maxX: number, maxY: number): void {
+		this.minX = Math.floor(minX);
+		this.minY = Math.floor(minY);
+		this.maxX = Math.ceil(maxX);
+		this.maxY = Math.ceil(maxY);
+		this.updateScale();
+		this.drawAxes();
+	}
 
-  private updateScale(): void {
-    this.scaleX = (this.width - 2 * this.margin) / (this.maxX - this.minX)
-    this.scaleY = (this.height - 2 * this.margin) / (this.maxY - this.minY)
-  }
+	private updateScale(): void {
+		this.scaleX = (this.width - 2 * this.margin) / (this.maxX - this.minX);
+		this.scaleY = (this.height - 2 * this.margin) / (this.maxY - this.minY);
+	}
 
-  private transformX(x: number): number {
-    return this.margin + (x - this.minX) * this.scaleX
-  }
+	private transformX(x: number): number {
+		return this.margin + (x - this.minX) * this.scaleX;
+	}
 
-  private transformY(y: number): number {
-    return this.height - this.margin - (y - this.minY) * this.scaleY
-  }
+	private transformY(y: number): number {
+		return this.height - this.margin - (y - this.minY) * this.scaleY;
+	}
 
-  private transformPoint(point: Point): Point {
-    return {
-      x: this.transformX(point.x),
-      y: this.transformY(point.y)
-    }
-  }
+	private transformPoint(point: Point): Point {
+		return {
+			x: this.transformX(point.x),
+			y: this.transformY(point.y),
+		};
+	}
 
-  drawAxes(): void {
-    this.ctx.strokeStyle = '#000000'
-    this.ctx.lineWidth = 2
-    this.ctx.setLineDash([])
+	drawAxes(): void {
+		this.ctx.strokeStyle = "#000000";
+		this.ctx.lineWidth = 2;
+		this.ctx.setLineDash([]);
 
-    // Draw the bounding box
-    this.ctx.beginPath()
-    this.ctx.moveTo(this.margin, this.height - this.margin) // Bottom left
-    this.ctx.lineTo(this.width - this.margin, this.height - this.margin) // Bottom right
-    this.ctx.lineTo(this.width - this.margin, this.margin) // Top right
-    this.ctx.lineTo(this.margin, this.margin) // Top left
-    this.ctx.lineTo(this.margin, this.height - this.margin) // Back to bottom left
-    this.ctx.stroke()
+		// Draw the bounding box
+		this.ctx.beginPath();
+		this.ctx.moveTo(this.margin, this.height - this.margin); // Bottom left
+		this.ctx.lineTo(this.width - this.margin, this.height - this.margin); // Bottom right
+		this.ctx.lineTo(this.width - this.margin, this.margin); // Top right
+		this.ctx.lineTo(this.margin, this.margin); // Top left
+		this.ctx.lineTo(this.margin, this.height - this.margin); // Back to bottom left
+		this.ctx.stroke();
 
-    // Draw X and Y axes only if they're visible in the current bounds
-    if (this.minX <= 0 && this.maxX >= 0) {
-      this.ctx.beginPath()
-      this.ctx.moveTo(this.transformX(0), this.margin)
-      this.ctx.lineTo(this.transformX(0), this.height - this.margin)
-      this.ctx.stroke()
-    }
+		// Draw X and Y axes only if they're visible in the current bounds
+		if (this.minX <= 0 && this.maxX >= 0) {
+			this.ctx.beginPath();
+			this.ctx.moveTo(this.transformX(0), this.margin);
+			this.ctx.lineTo(this.transformX(0), this.height - this.margin);
+			this.ctx.stroke();
+		}
 
-    if (this.minY <= 0 && this.maxY >= 0) {
-      this.ctx.beginPath()
-      this.ctx.moveTo(this.margin, this.transformY(0))
-      this.ctx.lineTo(this.width - this.margin, this.transformY(0))
-      this.ctx.stroke()
-    }
+		if (this.minY <= 0 && this.maxY >= 0) {
+			this.ctx.beginPath();
+			this.ctx.moveTo(this.margin, this.transformY(0));
+			this.ctx.lineTo(this.width - this.margin, this.transformY(0));
+			this.ctx.stroke();
+		}
 
-    this.ctx.fillStyle = '#333'
-    this.ctx.font = '12px Arial'
-    this.ctx.textAlign = 'center'
-    this.ctx.textBaseline = 'top'
-    // X axis min
-    this.ctx.fillText(this.minX.toString(), this.margin, this.height - this.margin + 5)
-    // X axis max
-    this.ctx.fillText(this.maxX.toString(), this.width - this.margin, this.height - this.margin + 5)
-    this.ctx.textAlign = 'right'
-    this.ctx.textBaseline = 'middle'
-    // Y axis min
-    this.ctx.fillText(this.minY.toString(), this.margin - 5, this.height - this.margin)
-    // Y axis max
-    this.ctx.fillText(this.maxY.toString(), this.margin - 5, this.margin)
-    this.ctx.textAlign = 'left'
-    this.ctx.textBaseline = 'alphabetic'
-  }
+		this.ctx.fillStyle = "#333";
+		this.ctx.font = "12px Arial";
+		this.ctx.textAlign = "center";
+		this.ctx.textBaseline = "top";
+		// X axis min
+		this.ctx.fillText(
+			this.minX.toString(),
+			this.margin,
+			this.height - this.margin + 5,
+		);
+		// X axis max
+		this.ctx.fillText(
+			this.maxX.toString(),
+			this.width - this.margin,
+			this.height - this.margin + 5,
+		);
+		this.ctx.textAlign = "right";
+		this.ctx.textBaseline = "middle";
+		// Y axis min
+		this.ctx.fillText(
+			this.minY.toString(),
+			this.margin - 5,
+			this.height - this.margin,
+		);
+		// Y axis max
+		this.ctx.fillText(this.maxY.toString(), this.margin - 5, this.margin);
+		this.ctx.textAlign = "left";
+		this.ctx.textBaseline = "alphabetic";
+	}
 
-  plotLine(line: Line, color = 'blue', lineWidth = 2, label?: string): void {
-    const start = this.transformPoint(line.start)
-    const end = this.transformPoint(line.end)
+	plotLine(line: Line, color = "blue", lineWidth = 2, label?: string): void {
+		const start = this.transformPoint(line.start);
+		const end = this.transformPoint(line.end);
 
-    this.ctx.strokeStyle = color
-    this.ctx.lineWidth = lineWidth
-    this.ctx.setLineDash([])
+		this.ctx.strokeStyle = color;
+		this.ctx.lineWidth = lineWidth;
+		this.ctx.setLineDash([]);
 
-    this.ctx.beginPath()
-    this.ctx.moveTo(start.x, start.y)
-    this.ctx.lineTo(end.x, end.y)
-    this.ctx.stroke()
+		this.ctx.beginPath();
+		this.ctx.moveTo(start.x, start.y);
+		this.ctx.lineTo(end.x, end.y);
+		this.ctx.stroke();
 
-    if (label) {
-      this.ctx.fillStyle = color
-      this.ctx.font = '12px Arial'
-      const midPoint = {
-        x: (start.x + end.x) / 2,
-        y: (start.y + end.y) / 2 - 10
-      }
-      this.ctx.fillText(label, midPoint.x, midPoint.y)
-    }
-  }
+		if (label) {
+			this.ctx.fillStyle = color;
+			this.ctx.font = "12px Arial";
+			const midPoint = {
+				x: (start.x + end.x) / 2,
+				y: (start.y + end.y) / 2 - 10,
+			};
+			this.ctx.fillText(label, midPoint.x, midPoint.y);
+		}
+	}
 
-  plotBezier(bezier: Bezier, color = 'green', lineWidth = 2, label?: string): void {
-    const start = this.transformPoint(bezier.start)
-    const control1 = this.transformPoint(bezier.control1)
-    const control2 = this.transformPoint(bezier.control2)
-    const end = this.transformPoint(bezier.end)
+	plotBezier(
+		bezier: Bezier,
+		color = "green",
+		lineWidth = 2,
+		label?: string,
+	): void {
+		const start = this.transformPoint(bezier.start);
+		const control1 = this.transformPoint(bezier.control1);
+		const control2 = this.transformPoint(bezier.control2);
+		const end = this.transformPoint(bezier.end);
 
-    this.ctx.strokeStyle = color
-    this.ctx.lineWidth = lineWidth
-    this.ctx.setLineDash([])
+		this.ctx.strokeStyle = color;
+		this.ctx.lineWidth = lineWidth;
+		this.ctx.setLineDash([]);
 
-    this.ctx.beginPath()
-    this.ctx.moveTo(start.x, start.y)
-    this.ctx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y)
-    this.ctx.stroke()
+		this.ctx.beginPath();
+		this.ctx.moveTo(start.x, start.y);
+		this.ctx.bezierCurveTo(
+			control1.x,
+			control1.y,
+			control2.x,
+			control2.y,
+			end.x,
+			end.y,
+		);
+		this.ctx.stroke();
 
-    // Draw control points and lines (optional)
-    // this.ctx.strokeStyle = color
-    // this.ctx.lineWidth = 1
-    // this.ctx.setLineDash([5, 5])
-    // this.ctx.beginPath()
-    // this.ctx.moveTo(start.x, start.y)
-    // this.ctx.lineTo(control1.x, control1.y)
-    // this.ctx.moveTo(end.x, end.y)
-    // this.ctx.lineTo(control2.x, control2.y)
-    // this.ctx.stroke()
+		// Draw control points and lines (optional)
+		// this.ctx.strokeStyle = color
+		// this.ctx.lineWidth = 1
+		// this.ctx.setLineDash([5, 5])
+		// this.ctx.beginPath()
+		// this.ctx.moveTo(start.x, start.y)
+		// this.ctx.lineTo(control1.x, control1.y)
+		// this.ctx.moveTo(end.x, end.y)
+		// this.ctx.lineTo(control2.x, control2.y)
+		// this.ctx.stroke()
 
-    // this.ctx.fillStyle = color
-    // this.ctx.fillRect(control1.x - 2, control1.y - 2, 4, 4)
-    // this.ctx.fillRect(control2.x - 2, control2.y - 2, 4, 4)
+		// this.ctx.fillStyle = color
+		// this.ctx.fillRect(control1.x - 2, control1.y - 2, 4, 4)
+		// this.ctx.fillRect(control2.x - 2, control2.y - 2, 4, 4)
 
-    if (label) {
-      this.ctx.fillStyle = color
-      this.ctx.font = '12px Arial'
-      this.ctx.fillText(label, start.x + 5, start.y - 5)
-    }
-  }
+		if (label) {
+			this.ctx.fillStyle = color;
+			this.ctx.font = "12px Arial";
+			this.ctx.fillText(label, start.x + 5, start.y - 5);
+		}
+	}
 
-  plotArc(arc: Arc, color = 'purple', lineWidth = 2, label?: string): void {
-    const center = this.transformPoint(arc.center)
-    const rx = Math.abs(arc.radius * this.scaleX)
-    const ry = Math.abs(arc.radius * this.scaleY)
+	plotArc(arc: Arc, color = "purple", lineWidth = 2, label?: string): void {
+		const center = this.transformPoint(arc.center);
+		const rx = Math.abs(arc.radius * this.scaleX);
+		const ry = Math.abs(arc.radius * this.scaleY);
 
-    this.ctx.strokeStyle = color
-    this.ctx.lineWidth = lineWidth
-    this.ctx.setLineDash([])
+		this.ctx.strokeStyle = color;
+		this.ctx.lineWidth = lineWidth;
+		this.ctx.setLineDash([]);
 
-    // Convert from normal coordinates to canvas coordinates (flip Y-axis).
-    const start = -arc.startAngle
-    const end = -arc.startAngle - arc.sweepAngle // Note: subtract because we flipped
-    const anticlockwise = arc.sweepAngle > 0 // Flip the CW logic too.
+		// Convert from normal coordinates to canvas coordinates (flip Y-axis).
+		const start = -arc.startAngle;
+		const end = -arc.startAngle - arc.sweepAngle; // Note: subtract because we flipped
+		const anticlockwise = arc.sweepAngle > 0; // Flip the CW logic too.
 
-    this.ctx.beginPath()
-    this.ctx.ellipse(center.x, center.y, rx, ry, 0, start, end, anticlockwise)
-    this.ctx.stroke()
+		this.ctx.beginPath();
+		this.ctx.ellipse(center.x, center.y, rx, ry, 0, start, end, anticlockwise);
+		this.ctx.stroke();
 
-    if (label) {
-      this.ctx.fillStyle = color
-      this.ctx.font = '12px Arial'
-      this.ctx.fillText(label, center.x + rx + 5, center.y)
-    }
-  }
+		if (label) {
+			this.ctx.fillStyle = color;
+			this.ctx.font = "12px Arial";
+			this.ctx.fillText(label, center.x + rx + 5, center.y);
+		}
+	}
 
-  plotIntersections(intersections: Intersection[], color = 'red', radius = 4): void {
-    this.ctx.fillStyle = color
+	plotIntersections(
+		intersections: Intersection[],
+		color = "red",
+		radius = 4,
+	): void {
+		this.ctx.fillStyle = color;
 
-    intersections.forEach((intersection, index) => {
-      const point = this.transformPoint(intersection.point)
+		intersections.forEach((intersection, index) => {
+			const point = this.transformPoint(intersection.point);
 
-      this.ctx.beginPath()
-      this.ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI)
-      this.ctx.fill()
+			this.ctx.beginPath();
+			this.ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+			this.ctx.fill();
 
-      // Add intersection number
-      this.ctx.fillStyle = 'white'
-      this.ctx.font = 'bold 10px Arial'
-      this.ctx.textAlign = 'center'
-      this.ctx.fillText((index + 1).toString(), point.x, point.y + 3)
-      this.ctx.fillStyle = color
-    })
-  }
+			// Add intersection number
+			this.ctx.fillStyle = "white";
+			this.ctx.font = "bold 10px Arial";
+			this.ctx.textAlign = "center";
+			this.ctx.fillText((index + 1).toString(), point.x, point.y + 3);
+			this.ctx.fillStyle = color;
+		});
+	}
 
-  plotPoint(point: Point, color = 'black', radius = 5, label?: string): void {
-    const transformedPoint = this.transformPoint(point)
+	plotPoint(point: Point, color = "black", radius = 5, label?: string): void {
+		const transformedPoint = this.transformPoint(point);
 
-    this.ctx.fillStyle = color
-    this.ctx.beginPath()
-    this.ctx.arc(transformedPoint.x, transformedPoint.y, radius, 0, 2 * Math.PI)
-    this.ctx.fill()
+		this.ctx.fillStyle = color;
+		this.ctx.beginPath();
+		this.ctx.arc(
+			transformedPoint.x,
+			transformedPoint.y,
+			radius,
+			0,
+			2 * Math.PI,
+		);
+		this.ctx.fill();
 
-    if (label) {
-      this.ctx.fillStyle = color
-      this.ctx.font = '12px Arial'
-      this.ctx.fillText(label, transformedPoint.x + 5, transformedPoint.y - 5)
-    }
-  }
+		if (label) {
+			this.ctx.fillStyle = color;
+			this.ctx.font = "12px Arial";
+			this.ctx.fillText(label, transformedPoint.x + 5, transformedPoint.y - 5);
+		}
+	}
 
-  addTitle(title: string): void {
-    this.ctx.fillStyle = 'black'
-    this.ctx.font = 'bold 16px Arial'
-    this.ctx.textAlign = 'center'
-    this.ctx.fillText(title, this.width / 2, 30)
-  }
+	addTitle(title: string): void {
+		this.ctx.fillStyle = "black";
+		this.ctx.font = "bold 16px Arial";
+		this.ctx.textAlign = "center";
+		this.ctx.fillText(title, this.width / 2, 30);
+	}
 
-  save(filename: string): void {
-    const buffer = this.canvas.toBuffer('image/png')
-    fs.writeFileSync(filename, buffer)
-    let x = 1
-  }
+	save(filename: string): void {
+		const buffer = this.canvas.toBuffer("image/png");
+		fs.writeFileSync(filename, buffer);
+	}
 
-  clear(): void {
-    this.setupCanvas()
-  }
+	clear(): void {
+		this.setupCanvas();
+	}
 }

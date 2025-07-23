@@ -13,16 +13,13 @@ sketch003 = startSketchOn(XY)
   |> line(end = [80, 0])
 
 sketch004 = startSketchOn(XY)
-  |> startProfile(at = [20, -80])
-  |> line(endAbsolute = [50, -80])
+  |> startProfile(at = [50, -80])
   |> bezierCurve(
          control1 = [-10, -6.667],
          control2 = [-20, -6.667],
          end = [-30, 0]
      )
-  |> close()
-  startSketchOn(XY)
-  |> startProfile(at = [50, -80])
+  |> line(endAbsolute = [50, -80])
   |> bezierCurve(
          control1 = [10, 6.667],
          control2 = [20, 6.667],

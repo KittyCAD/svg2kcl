@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import { promises as fsPromises } from 'node:fs'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -7,8 +7,6 @@ import { KclOptions } from '../src/types/kcl'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-
-jest.setTimeout(30000)
 
 const options: KclOptions = {
   centerOnViewBox: false

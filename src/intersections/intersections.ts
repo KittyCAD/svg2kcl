@@ -22,6 +22,8 @@ import { Plotter } from './plotter'
 import { warn } from 'console'
 import { Bezier } from '../bezier/core'
 
+const DEBUG_PLOT = false
+
 // Saves us a few sqrt calls in the line intersection check.
 const EPS_INTERSECTION_SQUARED = Math.pow(EPS_INTERSECTION, 2)
 
@@ -75,21 +77,23 @@ export function getLineLineIntersection(line1: Line, line2: Line): Intersection[
 
     // Plotter.
     // --------------------------------------------------------------------------
-    const xMin = Math.min(line1.start.x, line1.end.x, line2.start.x, line2.end.x)
-    const xMax = Math.max(line1.start.x, line1.end.x, line2.start.x, line2.end.x)
-    const yMin = Math.min(line1.start.y, line1.end.y, line2.start.y, line2.end.y)
-    const yMax = Math.max(line1.start.y, line1.end.y, line2.start.y, line2.end.y)
+    if (DEBUG_PLOT) {
+      const xMin = Math.min(line1.start.x, line1.end.x, line2.start.x, line2.end.x)
+      const xMax = Math.max(line1.start.x, line1.end.x, line2.start.x, line2.end.x)
+      const yMin = Math.min(line1.start.y, line1.end.y, line2.start.y, line2.end.y)
+      const yMax = Math.max(line1.start.y, line1.end.y, line2.start.y, line2.end.y)
 
-    const plotter = new Plotter()
-    plotter.clear()
-    plotter.setBounds(xMin, yMin, xMax, yMax)
+      const plotter = new Plotter()
+      plotter.clear()
+      plotter.setBounds(xMin, yMin, xMax, yMax)
 
-    plotter.plotLine(line1, 'blue')
-    plotter.plotLine(line2, 'red')
+      plotter.plotLine(line1, 'blue')
+      plotter.plotLine(line2, 'red')
 
-    plotter.plotPoint(point, 'black')
+      plotter.plotPoint(point, 'black')
 
-    plotter.save('image.png')
+      plotter.save('image.png')
+    }
     // --------------------------------------------------------------------------
 
     return [{ point, t1, t2 }]
@@ -172,27 +176,29 @@ export function getLineBezierIntersection(line: Line, bezier: Bezier): Intersect
 
   // Plotter.
   // --------------------------------------------------------------------------
-  const bezierBounds = getBezierBounds(bezier)
-  const xMin = Math.min(line.start.x, line.end.x, bezierBounds.xMin)
-  const xMax = Math.max(line.start.x, line.end.x, bezierBounds.xMax)
-  const yMin = Math.min(line.start.y, line.end.y, bezierBounds.yMin)
-  const yMax = Math.max(line.start.y, line.end.y, bezierBounds.yMax)
+  if (DEBUG_PLOT) {
+    const bezierBounds = getBezierBounds(bezier)
+    const xMin = Math.min(line.start.x, line.end.x, bezierBounds.xMin)
+    const xMax = Math.max(line.start.x, line.end.x, bezierBounds.xMax)
+    const yMin = Math.min(line.start.y, line.end.y, bezierBounds.yMin)
+    const yMax = Math.max(line.start.y, line.end.y, bezierBounds.yMax)
 
-  const plotter = new Plotter()
-  plotter.clear()
-  plotter.setBounds(xMin, yMin, xMax, yMax)
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(xMin, yMin, xMax, yMax)
 
-  plotter.plotLine(line, 'blue')
-  plotter.plotBezier(bezier, 'red')
+    plotter.plotLine(line, 'blue')
+    plotter.plotBezier(bezier, 'red')
 
-  intersections.forEach((intersection) => {
-    plotter.plotPoint(intersection.point, 'black')
-  })
+    intersections.forEach((intersection) => {
+      plotter.plotPoint(intersection.point, 'black')
+    })
 
-  // Note intersection count.
-  plotter.addTitle(`Intersections: ${intersections.length}`)
+    // Note intersection count.
+    plotter.addTitle(`Intersections: ${intersections.length}`)
 
-  plotter.save('image.png')
+    plotter.save('image.png')
+  }
   // --------------------------------------------------------------------------
 
   return intersections
@@ -278,39 +284,41 @@ export function getLineArcIntersection(line: Line, arc: Arc): Intersection[] {
 
   // Plotter.
   // --------------------------------------------------------------------------
-  const arcBounds = {
-    xMin: arc.center.x - arc.radius,
-    xMax: arc.center.x + arc.radius,
-    yMin: arc.center.y - arc.radius,
-    yMax: arc.center.y + arc.radius
+  if (DEBUG_PLOT) {
+    const arcBounds = {
+      xMin: arc.center.x - arc.radius,
+      xMax: arc.center.x + arc.radius,
+      yMin: arc.center.y - arc.radius,
+      yMax: arc.center.y + arc.radius
+    }
+    const lineBounds = {
+      xMin: Math.min(line.start.x, line.end.x),
+      xMax: Math.max(line.start.x, line.end.x),
+      yMin: Math.min(line.start.y, line.end.y),
+      yMax: Math.max(line.start.y, line.end.y)
+    }
+
+    const xMin = Math.min(arcBounds.xMin, lineBounds.xMin)
+    const xMax = Math.max(arcBounds.xMax, lineBounds.xMax)
+    const yMin = Math.min(arcBounds.yMin, lineBounds.yMin)
+    const yMax = Math.max(arcBounds.yMax, lineBounds.yMax)
+
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(xMin, yMin, xMax, yMax)
+
+    plotter.plotLine(line, 'blue')
+    plotter.plotArc(arc, 'red')
+
+    intersections.forEach((intersection) => {
+      plotter.plotPoint(intersection.point, 'black')
+    })
+
+    // Note intersection count.
+    plotter.addTitle(`Intersections: ${intersections.length}`)
+
+    plotter.save('image.png')
   }
-  const lineBounds = {
-    xMin: Math.min(line.start.x, line.end.x),
-    xMax: Math.max(line.start.x, line.end.x),
-    yMin: Math.min(line.start.y, line.end.y),
-    yMax: Math.max(line.start.y, line.end.y)
-  }
-
-  const xMin = Math.min(arcBounds.xMin, lineBounds.xMin)
-  const xMax = Math.max(arcBounds.xMax, lineBounds.xMax)
-  const yMin = Math.min(arcBounds.yMin, lineBounds.yMin)
-  const yMax = Math.max(arcBounds.yMax, lineBounds.yMax)
-
-  const plotter = new Plotter()
-  plotter.clear()
-  plotter.setBounds(xMin, yMin, xMax, yMax)
-
-  plotter.plotLine(line, 'blue')
-  plotter.plotArc(arc, 'red')
-
-  intersections.forEach((intersection) => {
-    plotter.plotPoint(intersection.point, 'black')
-  })
-
-  // Note intersection count.
-  plotter.addTitle(`Intersections: ${intersections.length}`)
-
-  plotter.save('image.png')
   // --------------------------------------------------------------------------
 
   return intersections
@@ -434,29 +442,31 @@ export function getBezierBezierIntersection(bezier1: Bezier, bezier2: Bezier): I
 
   // Plotter.
   // --------------------------------------------------------------------------
-  const bezierBounds1 = getBezierBounds(bezier1)
-  const bezierBounds2 = getBezierBounds(bezier2)
+  if (DEBUG_PLOT) {
+    const bezierBounds1 = getBezierBounds(bezier1)
+    const bezierBounds2 = getBezierBounds(bezier2)
 
-  const xMin = Math.min(bezierBounds1.xMin, bezierBounds2.xMin)
-  const xMax = Math.max(bezierBounds1.xMax, bezierBounds2.xMax)
-  const yMin = Math.min(bezierBounds1.yMin, bezierBounds2.yMin)
-  const yMax = Math.max(bezierBounds1.yMax, bezierBounds2.yMax)
+    const xMin = Math.min(bezierBounds1.xMin, bezierBounds2.xMin)
+    const xMax = Math.max(bezierBounds1.xMax, bezierBounds2.xMax)
+    const yMin = Math.min(bezierBounds1.yMin, bezierBounds2.yMin)
+    const yMax = Math.max(bezierBounds1.yMax, bezierBounds2.yMax)
 
-  const plotter = new Plotter()
-  plotter.clear()
-  plotter.setBounds(xMin, yMin, xMax, yMax)
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(xMin, yMin, xMax, yMax)
 
-  plotter.plotBezier(bezier1, 'blue')
-  plotter.plotBezier(bezier2, 'red')
+    plotter.plotBezier(bezier1, 'blue')
+    plotter.plotBezier(bezier2, 'red')
 
-  intersections.forEach((intersection) => {
-    plotter.plotPoint(intersection.point, 'black')
-  })
+    intersections.forEach((intersection) => {
+      plotter.plotPoint(intersection.point, 'black')
+    })
 
-  // Note intersection count.
-  plotter.addTitle(`Intersections: ${intersections.length}`)
+    // Note intersection count.
+    plotter.addTitle(`Intersections: ${intersections.length}`)
 
-  plotter.save('image.png')
+    plotter.save('image.png')
+  }
   // --------------------------------------------------------------------------
 
   return intersections
@@ -534,15 +544,17 @@ export function getBezierSelfIntersection(bezier: Bezier): Intersection[] {
 
   // Plotter.
   // --------------------------------------------------------------------------
-  const bb = getBezierBounds(bezier)
-  const plotter = new Plotter()
-  plotter.clear()
-  plotter.setBounds(bb.xMin, bb.yMin, bb.xMax, bb.yMax)
-  plotter.plotBezier(bezier, 'blue')
-  plotter.plotPoint(s1, 'black')
-  plotter.plotPoint(s2, 'red')
-  plotter.addTitle('Self-intersection')
-  plotter.save('image.png')
+  if (DEBUG_PLOT) {
+    const bb = getBezierBounds(bezier)
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(bb.xMin, bb.yMin, bb.xMax, bb.yMax)
+    plotter.plotBezier(bezier, 'blue')
+    plotter.plotPoint(s1, 'black')
+    plotter.plotPoint(s2, 'red')
+    plotter.addTitle('Self-intersection')
+    plotter.save('image.png')
+  }
   // ------------------------------------------------------------------
 
   return [{ point: s1, t1: u, t2: v }]
@@ -668,30 +680,32 @@ export function getBezierArcIntersection(bezier: Bezier, arc: Arc): Intersection
 
   // Plotter.
   // --------------------------------------------------------------------------
-  const bezierBounds = getBezierBounds(bezier)
-  const arcBounds = {
-    xMin: arc.center.x - arc.radius,
-    xMax: arc.center.x + arc.radius,
-    yMin: arc.center.y - arc.radius,
-    yMax: arc.center.y + arc.radius
+  if (DEBUG_PLOT) {
+    const bezierBounds = getBezierBounds(bezier)
+    const arcBounds = {
+      xMin: arc.center.x - arc.radius,
+      xMax: arc.center.x + arc.radius,
+      yMin: arc.center.y - arc.radius,
+      yMax: arc.center.y + arc.radius
+    }
+
+    const xMin = Math.min(bezierBounds.xMin, arcBounds.xMin)
+    const xMax = Math.max(bezierBounds.xMax, arcBounds.xMax)
+    const yMin = Math.min(bezierBounds.yMin, arcBounds.yMin)
+    const yMax = Math.max(bezierBounds.yMax, arcBounds.yMax)
+
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(xMin, yMin, xMax, yMax)
+
+    plotter.plotBezier(bezier, 'blue')
+    plotter.plotArc(arc, 'red')
+
+    intersections.forEach(({ point }) => plotter.plotPoint(point, 'black'))
+
+    plotter.addTitle(`Intersections: ${intersections.length}`)
+    plotter.save('image.png')
   }
-
-  const xMin = Math.min(bezierBounds.xMin, arcBounds.xMin)
-  const xMax = Math.max(bezierBounds.xMax, arcBounds.xMax)
-  const yMin = Math.min(bezierBounds.yMin, arcBounds.yMin)
-  const yMax = Math.max(bezierBounds.yMax, arcBounds.yMax)
-
-  const plotter = new Plotter()
-  plotter.clear()
-  plotter.setBounds(xMin, yMin, xMax, yMax)
-
-  plotter.plotBezier(bezier, 'blue')
-  plotter.plotArc(arc, 'red')
-
-  intersections.forEach(({ point }) => plotter.plotPoint(point, 'black'))
-
-  plotter.addTitle(`Intersections: ${intersections.length}`)
-  plotter.save('image.png')
   // ------------------------------------------------------------------------
 
   return intersections
@@ -809,37 +823,39 @@ export function getArcArcIntersection(arc1: Arc, arc2: Arc): Intersection[] {
 
   // Plotter.
   // --------------------------------------------------------------------------
-  const arc1Bounds = {
-    xMin: arc1.center.x - arc1.radius,
-    xMax: arc1.center.x + arc1.radius,
-    yMin: arc1.center.y - arc1.radius,
-    yMax: arc1.center.y + arc1.radius
+  if (DEBUG_PLOT) {
+    const arc1Bounds = {
+      xMin: arc1.center.x - arc1.radius,
+      xMax: arc1.center.x + arc1.radius,
+      yMin: arc1.center.y - arc1.radius,
+      yMax: arc1.center.y + arc1.radius
+    }
+    const arc2Bounds = {
+      xMin: arc2.center.x - arc2.radius,
+      xMax: arc2.center.x + arc2.radius,
+      yMin: arc2.center.y - arc2.radius,
+      yMax: arc2.center.y + arc2.radius
+    }
+
+    const xMin = Math.min(arc1Bounds.xMin, arc2Bounds.xMin)
+    const xMax = Math.max(arc1Bounds.xMax, arc2Bounds.xMax)
+    const yMin = Math.min(arc1Bounds.yMin, arc2Bounds.yMin)
+    const yMax = Math.max(arc1Bounds.yMax, arc2Bounds.yMax)
+
+    const plotter = new Plotter()
+    plotter.clear()
+    plotter.setBounds(xMin, yMin, xMax, yMax)
+
+    plotter.plotArc(arc1, 'blue')
+    plotter.plotArc(arc2, 'red')
+
+    intersections.forEach((intersection) => {
+      plotter.plotPoint(intersection.point, 'black')
+    })
+
+    plotter.addTitle(`Intersections: ${intersections.length}`)
+    plotter.save('image.png')
   }
-  const arc2Bounds = {
-    xMin: arc2.center.x - arc2.radius,
-    xMax: arc2.center.x + arc2.radius,
-    yMin: arc2.center.y - arc2.radius,
-    yMax: arc2.center.y + arc2.radius
-  }
-
-  const xMin = Math.min(arc1Bounds.xMin, arc2Bounds.xMin)
-  const xMax = Math.max(arc1Bounds.xMax, arc2Bounds.xMax)
-  const yMin = Math.min(arc1Bounds.yMin, arc2Bounds.yMin)
-  const yMax = Math.max(arc1Bounds.yMax, arc2Bounds.yMax)
-
-  const plotter = new Plotter()
-  plotter.clear()
-  plotter.setBounds(xMin, yMin, xMax, yMax)
-
-  plotter.plotArc(arc1, 'blue')
-  plotter.plotArc(arc2, 'red')
-
-  intersections.forEach((intersection) => {
-    plotter.plotPoint(intersection.point, 'black')
-  })
-
-  plotter.addTitle(`Intersections: ${intersections.length}`)
-  plotter.save('image.png')
   // --------------------------------------------------------------------------
 
   return intersections

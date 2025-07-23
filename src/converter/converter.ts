@@ -533,17 +533,29 @@ export class Converter {
     const out: KclOperation[] = []
 
     for (const region of processed.regions) {
+      // Get the segments and their reversal flags for the current region
+      let segmentIds = [...region.segmentIds]
+      let segmentReversed = [...region.segmentReversed]
+
+      if (region.isHole && region.isACW) {
+        // To reverse the path, we reverse the segment order AND flip each reversal flag.
+        segmentIds.reverse()
+        // FIX: Re-assign the result of .map() back to the variable.
+        segmentReversed = segmentReversed.reverse().map((flag) => !flag)
+      }
+
       const cmds: PathCommand[] = []
 
-      for (let i = 0; i < region.segmentIds.length; i++) {
-        const segmentId = region.segmentIds[i]
+      // FIX: Loop over the potentially modified `segmentIds` array.
+      for (let i = 0; i < segmentIds.length; i++) {
+        const segmentId = segmentIds[i]
         const exact = originalMap.get(segmentId)
+        const rev = segmentReversed[i]
+
         if (!exact) {
           console.warn(`Missing original segment ${segmentId}`)
           continue
         }
-
-        const rev = region.segmentReversed?.[i] ?? false
 
         // Add move command for first segment
         if (i === 0) {
@@ -576,17 +588,19 @@ export class Converter {
       }
 
       // Close the path
-      cmds.push({
-        type: PathCommandType.StopAbsolute,
-        parameters: [],
-        startPositionAbsolute: { ...cmds[cmds.length - 1].endPositionAbsolute },
-        endPositionAbsolute: { ...cmds[0].startPositionAbsolute }
-      })
+      if (cmds.length > 0) {
+        cmds.push({
+          type: PathCommandType.StopAbsolute,
+          parameters: [],
+          startPositionAbsolute: { ...cmds[cmds.length - 1].endPositionAbsolute },
+          endPositionAbsolute: { ...cmds[0].endPositionAbsolute } // Use endPosition of the move cmd
+        })
+      }
 
       const kclOps = this.convertPathCommandsToKclOps(cmds, path.transform!)
 
       if (region.isHole) {
-        if (out.length) {
+        if (out.length > 0) {
           out.push({ type: KclOperationType.Hole, params: { operations: kclOps } })
         } else {
           console.warn(`Orphan hole region ${region.id}`)

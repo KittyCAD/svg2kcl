@@ -189,6 +189,7 @@ export interface FaceRegion {
   parentRegionId?: string
   childRegionIds: string[]
   area: number
+  isACW: boolean
   interiorPoint: Point
   face: HalfEdge[]
 }
@@ -378,6 +379,10 @@ function convertToFaceRegions(
       segmentReversed.push(halfEdge.geometryReversed)
     }
 
+    // Get signed area and determine if the face is anti-clockwise.
+    const signedArea = calculateFaceArea(face.face)
+    const isACW = signedArea > 0
+
     return {
       id: generateId(index),
       segmentIds,
@@ -385,7 +390,8 @@ function convertToFaceRegions(
       isHole: face.isHole,
       parentRegionId: undefined, // Will be set below
       childRegionIds: [],
-      area: face.area,
+      area: Math.abs(signedArea),
+      isACW: isACW,
       interiorPoint: face.interiorPoint,
       face: face.face
     }

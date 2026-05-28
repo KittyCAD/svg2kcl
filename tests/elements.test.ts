@@ -29,6 +29,9 @@ describe('SVG Basic Elements to KCL Conversion', () => {
     expect(actualKcl).toContain('sketch(on = XY)')
     expect(actualKcl).toContain('fixed([')
     expect(actualKcl).toContain('arc(start =')
+    expect(actualKcl.match(/^sketch\d+ = sketch/gm)).toHaveLength(1)
+    expect(actualKcl).toContain('region001 = region(')
+    expect(actualKcl).toContain('region002 = region(')
     expect(actualKcl).not.toMatch(legacyKclSyntax)
   })
 
@@ -66,6 +69,21 @@ describe('SVG Basic Elements to KCL Conversion', () => {
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
+  })
+
+  it('should keep fill=none path subpaths open in one sketch', async () => {
+    const inputPath = path.join(dataDir, 'fill_none_open_path.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+    const expectedKclPath = path.join(dataDir, 'fill_none_open_path.kcl')
+
+    await convertSvgToKcl(inputPath, outputPath, options)
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
+
+    expect(actualKcl.trim()).toBe(expectedKcl.trim())
+    expect(actualKcl.match(/^sketch\d+ = sketch/gm)).toHaveLength(1)
+    expect(actualKcl).not.toContain('coincident([')
+    expect(actualKcl).not.toContain('region(')
   })
 
   it('should correctly convert basic_polygon.svg to KCL', async () => {

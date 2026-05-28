@@ -15,27 +15,22 @@ sketch001 = sketch(on = XY) {
   fixed([seg004.end, [10, -10]])
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
+  seg005 = circle(start = [var 85, var -25], center = [var 70, var -25])
+  fixed([seg005.center, [70, -25]])
+  fixed([seg005.start, [85, -25]])
+  horizontal([seg005.center, seg005.start])
+  seg006 = line(start = [var 10, var -50], end = [var 90, var -50])
+  fixed([seg006.start, [10, -50]])
+  fixed([seg006.end, [90, -50]])
+  seg007 = line(start = [var 10, var -70], end = [var 50, var -90])
+  fixed([seg007.start, [10, -70]])
+  fixed([seg007.end, [50, -90]])
+  seg008 = line(start = [var 50, var -90], end = [var 90, var -70])
+  fixed([seg008.start, [50, -90]])
+  fixed([seg008.end, [90, -70]])
+  coincident([seg007.end, seg008.start])
 }
 
-sketch002 = sketch(on = XY) {
-  seg001 = circle(start = [var 85, var -25], center = [var 70, var -25])
-  fixed([seg001.center, [70, -25]])
-  fixed([seg001.start, [85, -25]])
-  horizontal([seg001.center, seg001.start])
-}
+region001 = region(point = [25, -10.15], sketch = sketch001)
 
-sketch003 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -50], end = [var 90, var -50])
-  fixed([seg001.start, [10, -50]])
-  fixed([seg001.end, [90, -50]])
-}
-
-sketch004 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -70], end = [var 50, var -90])
-  fixed([seg001.start, [10, -70]])
-  fixed([seg001.end, [50, -90]])
-  seg002 = line(start = [var 50, var -90], end = [var 90, var -70])
-  fixed([seg002.start, [50, -90]])
-  fixed([seg002.end, [90, -70]])
-  coincident([seg001.end, seg002.start])
-}
+region002 = region(point = [70, -25], sketch = sketch001)

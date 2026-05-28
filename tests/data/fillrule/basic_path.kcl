@@ -29,10 +29,14 @@ sketch001 = sketch(on = XY) {
   seg007 = line(start = [var 75, var -45], end = [var 90, var -50])
   fixed([seg007.start, [75, -45]])
   fixed([seg007.end, [90, -50]])
-  seg008 = controlPointSpline(points = [
-    [90, -50],
-    [85, -50],
-    [80, -48.333],
-    [75, -45]
-  ])
+  seg008 = arc(start = [var 75, var -45], end = [var 90, var -50], center = [var 90, var -22.5])
+  fixed([seg008.start, [75, -45]])
+  fixed([seg008.end, [90, -50]])
+  fixed([seg008.center, [90, -22.5]])
+  coincident([seg007.end, seg008.end])
+  coincident([seg008.start, seg007.start])
 }
+
+region001 = region(point = [50, -10.4], sketch = sketch001)
+
+region002 = region(point = [82.498, -47.504], sketch = sketch001)

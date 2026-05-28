@@ -27,19 +27,40 @@ type SegmentRef = {
   name: string
   pathEnd: Point2d
   pathStart: Point2d
+  samplePoints: Point2d[]
   startAnchor?: string
+}
+
+type RegionRef = {
+  name: string
+  point: Point2d
+}
+
+type NativeArc = {
+  center: Point2d
+  endTangentSketch: Point2d
+  isCounterClockwise: boolean
+  midpoint: Point2d
+  pathEnd: Point2d
+  pathStart: Point2d
 }
 
 type SketchState = {
   currentPoint: Point2d | null
+  currentLoopPoints: Point2d[]
+  currentLoopRegionSafe: boolean
   firstSegment: SegmentRef | null
   lastSegment: SegmentRef | null
+  regionCounter: number
+  regions: RegionRef[]
   segmentCounter: number
 }
 
 const INVERT_Y = true
 
 export class Formatter {
+  private usesExperimentalSpline = false
+
   private formatNumber(value: number): string {
     return `${Number(value.toFixed(3))}`
   }
@@ -97,6 +118,38 @@ export class Formatter {
     return [pointA[0] + pointB[0], pointA[1] + pointB[1]]
   }
 
+  private subtractPoints(pointA: Point2d, pointB: Point2d): Point2d {
+    return [pointA[0] - pointB[0], pointA[1] - pointB[1]]
+  }
+
+  private dot(pointA: Point2d, pointB: Point2d): number {
+    return pointA[0] * pointB[0] + pointA[1] * pointB[1]
+  }
+
+  private cross(pointA: Point2d, pointB: Point2d): number {
+    return pointA[0] * pointB[1] - pointA[1] * pointB[0]
+  }
+
+  private length(vector: Point2d): number {
+    return Math.hypot(vector[0], vector[1])
+  }
+
+  private getLineIntersection(
+    pointA: Point2d,
+    directionA: Point2d,
+    pointB: Point2d,
+    directionB: Point2d
+  ): Point2d | null {
+    const denominator = this.cross(directionA, directionB)
+    if (Math.abs(denominator) < 1e-9) {
+      return null
+    }
+
+    const delta = this.subtractPoints(pointB, pointA)
+    const t = this.cross(delta, directionB) / denominator
+    return [pointA[0] + t * directionA[0], pointA[1] + t * directionA[1]]
+  }
+
   private rotateVector(vector: Point2d, angleRadians: number): Point2d {
     const [x, y] = vector
     const cos = Math.cos(angleRadians)
@@ -117,6 +170,19 @@ export class Formatter {
     return `seg${String(state.segmentCounter).padStart(3, '0')}`
   }
 
+  private nextRegionName(state: SketchState): string {
+    state.regionCounter += 1
+    return `region${String(state.regionCounter).padStart(3, '0')}`
+  }
+
+  private resetPathState(state: SketchState): void {
+    state.currentPoint = null
+    state.currentLoopPoints = []
+    state.currentLoopRegionSafe = true
+    state.firstSegment = null
+    state.lastSegment = null
+  }
+
   private appendSegment(state: SketchState, segment: SegmentRef, lines: string[]): void {
     if (state.lastSegment?.endAnchor && segment.startAnchor) {
       lines.push(`coincident([${state.lastSegment.endAnchor}, ${segment.startAnchor}])`)
@@ -126,6 +192,110 @@ export class Formatter {
 
     state.lastSegment = segment
     state.currentPoint = segment.pathEnd
+
+    if (state.currentLoopPoints.length === 0) {
+      state.currentLoopPoints.push(segment.pathStart)
+    }
+    state.currentLoopPoints.push(...segment.samplePoints.slice(1))
+  }
+
+  private getRegionPoint(points: Point2d[]): Point2d {
+    const uniquePoints = points.filter((point, index) => {
+      const previous = points[index - 1]
+      return !previous || Math.hypot(point[0] - previous[0], point[1] - previous[1]) > 1e-6
+    })
+
+    if (uniquePoints.length === 0) {
+      return [0, 0]
+    }
+
+    let twiceArea = 0
+    let centroidX = 0
+    let centroidY = 0
+
+    for (let i = 0; i < uniquePoints.length; i++) {
+      const current = uniquePoints[i]
+      const next = uniquePoints[(i + 1) % uniquePoints.length]
+      const cross = current[0] * next[1] - next[0] * current[1]
+      twiceArea += cross
+      centroidX += (current[0] + next[0]) * cross
+      centroidY += (current[1] + next[1]) * cross
+    }
+
+    if (Math.abs(twiceArea) > 1e-6) {
+      const centroid: Point2d = [centroidX / (3 * twiceArea), centroidY / (3 * twiceArea)]
+      const edgeCandidate = this.getInteriorEdgePoint(uniquePoints, centroid)
+      if (edgeCandidate) {
+        return edgeCandidate
+      }
+      return centroid
+    }
+
+    const sum = uniquePoints.reduce(
+      (accumulator, point) => {
+        return [accumulator[0] + point[0], accumulator[1] + point[1]] as Point2d
+      },
+      [0, 0] as Point2d
+    )
+    return [sum[0] / uniquePoints.length, sum[1] / uniquePoints.length]
+  }
+
+  private getInteriorEdgePoint(points: Point2d[], centroid: Point2d): Point2d | null {
+    const insetFractions = [0.01, 0.03, 0.05, 0.1, 0.2, 0.5]
+
+    for (let index = 0; index < points.length; index++) {
+      const current = points[index]
+      const next = points[(index + 1) % points.length]
+      if (Math.hypot(next[0] - current[0], next[1] - current[1]) < 1e-6) {
+        continue
+      }
+
+      const midpoint: Point2d = [(current[0] + next[0]) / 2, (current[1] + next[1]) / 2]
+      for (const fraction of insetFractions) {
+        const candidate: Point2d = [
+          midpoint[0] + (centroid[0] - midpoint[0]) * fraction,
+          midpoint[1] + (centroid[1] - midpoint[1]) * fraction
+        ]
+        if (this.isPointInsidePolygon(candidate, points)) {
+          return candidate
+        }
+      }
+    }
+
+    return null
+  }
+
+  private isPointInsidePolygon(point: Point2d, polygon: Point2d[]): boolean {
+    let inside = false
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const current = polygon[i]
+      const previous = polygon[j]
+      const crossesY = current[1] > point[1] !== previous[1] > point[1]
+      if (!crossesY) {
+        continue
+      }
+
+      const intersectionX =
+        ((previous[0] - current[0]) * (point[1] - current[1])) / (previous[1] - current[1]) +
+        current[0]
+      if (point[0] < intersectionX) {
+        inside = !inside
+      }
+    }
+
+    return inside
+  }
+
+  private addCurrentRegion(state: SketchState): void {
+    if (!state.currentLoopRegionSafe || state.currentLoopPoints.length < 3) {
+      return
+    }
+
+    state.regions.push({
+      name: this.nextRegionName(state),
+      point: this.getRegionPoint(state.currentLoopPoints)
+    })
   }
 
   private emitLine(state: SketchState, start: Point2d, end: Point2d, lines: string[]): void {
@@ -146,10 +316,134 @@ export class Formatter {
         name,
         pathEnd: end,
         pathStart: start,
+        samplePoints: [start, end],
         startAnchor: `${name}.start`
       },
       lines
     )
+  }
+
+  private emitNativeArc(state: SketchState, arc: NativeArc, lines: string[]): void {
+    const arcStart = arc.isCounterClockwise ? arc.pathStart : arc.pathEnd
+    const arcEnd = arc.isCounterClockwise ? arc.pathEnd : arc.pathStart
+    const name = this.nextSegmentName(state)
+
+    lines.push(
+      `${name} = arc(start = ${this.formatVarPoint(arcStart)}, end = ${this.formatVarPoint(
+        arcEnd
+      )}, center = ${this.formatVarPoint(arc.center)})`
+    )
+    lines.push(`fixed([${name}.start, ${this.formatPoint(arcStart)}])`)
+    lines.push(`fixed([${name}.end, ${this.formatPoint(arcEnd)}])`)
+    lines.push(`fixed([${name}.center, ${this.formatPoint(arc.center)}])`)
+    this.appendSegment(
+      state,
+      {
+        endAnchor: arc.isCounterClockwise ? `${name}.end` : `${name}.start`,
+        endTangentSketch: arc.endTangentSketch,
+        name,
+        pathEnd: arc.pathEnd,
+        pathStart: arc.pathStart,
+        samplePoints: [arc.pathStart, arc.midpoint, arc.pathEnd],
+        startAnchor: arc.isCounterClockwise ? `${name}.start` : `${name}.end`
+      },
+      lines
+    )
+  }
+
+  private getCircularArcFromBezier(
+    start: Point2d,
+    control1: Point2d,
+    control2: Point2d,
+    end: Point2d
+  ): NativeArc | null {
+    const sketchStart = this.toSketchPoint(start)
+    const sketchControl1 = this.toSketchPoint(control1)
+    const sketchControl2 = this.toSketchPoint(control2)
+    const sketchEnd = this.toSketchPoint(end)
+    const startTangent = this.subtractPoints(sketchControl1, sketchStart)
+    const endTangent = this.subtractPoints(sketchEnd, sketchControl2)
+    const startHandleLength = this.length(startTangent)
+    const endHandleLength = this.length(endTangent)
+
+    if (startHandleLength < 1e-6 || endHandleLength < 1e-6) {
+      return null
+    }
+
+    const startNormal: Point2d = [-startTangent[1], startTangent[0]]
+    const endNormal: Point2d = [-endTangent[1], endTangent[0]]
+    const center = this.getLineIntersection(sketchStart, startNormal, sketchEnd, endNormal)
+    if (!center) {
+      return null
+    }
+
+    const startRadius = this.subtractPoints(sketchStart, center)
+    const endRadius = this.subtractPoints(sketchEnd, center)
+    const radius = this.length(startRadius)
+    const endRadiusLength = this.length(endRadius)
+    if (radius < 1e-6 || Math.abs(radius - endRadiusLength) / radius > 0.03) {
+      return null
+    }
+
+    const ccwStartTangent: Point2d = [-startRadius[1], startRadius[0]]
+    const isCounterClockwise = this.dot(startTangent, ccwStartTangent) > 0
+    let signedAngle = Math.atan2(this.cross(startRadius, endRadius), this.dot(startRadius, endRadius))
+    if (isCounterClockwise && signedAngle < 0) {
+      signedAngle += Math.PI * 2
+    } else if (!isCounterClockwise && signedAngle > 0) {
+      signedAngle -= Math.PI * 2
+    }
+
+    const sweepAngle = Math.abs(signedAngle)
+    if (sweepAngle < 0.01 || sweepAngle > Math.PI + 0.01) {
+      return null
+    }
+
+    const expectedHandleLength = (4 / 3) * Math.tan(sweepAngle / 4) * radius
+    const maxHandleError = Math.max(
+      Math.abs(startHandleLength - expectedHandleLength),
+      Math.abs(endHandleLength - expectedHandleLength)
+    )
+    if (maxHandleError / expectedHandleLength > 0.2) {
+      return null
+    }
+
+    const midpoint = this.getBezierPoint(sketchStart, sketchControl1, sketchControl2, sketchEnd, 0.5)
+    if (Math.abs(this.length(this.subtractPoints(midpoint, center)) - radius) / radius > 0.02) {
+      return null
+    }
+
+    const midpointRadius = this.rotateVector(startRadius, signedAngle / 2)
+    const midpointOnArc = this.toModelPoint(this.addPoints(center, midpointRadius))
+
+    return {
+      center: this.toModelPoint(center),
+      endTangentSketch: endTangent,
+      isCounterClockwise,
+      midpoint: midpointOnArc,
+      pathEnd: end,
+      pathStart: start
+    }
+  }
+
+  private getBezierPoint(
+    start: Point2d,
+    control1: Point2d,
+    control2: Point2d,
+    end: Point2d,
+    t: number
+  ): Point2d {
+    const mt = 1 - t
+    return [
+      mt ** 3 * start[0] +
+        3 * mt ** 2 * t * control1[0] +
+        3 * mt * t ** 2 * control2[0] +
+        t ** 3 * end[0],
+      mt ** 3 * start[1] +
+        3 * mt ** 2 * t * control1[1] +
+        3 * mt * t ** 2 * control2[1] +
+        t ** 3 * end[1]
+    ]
   }
 
   private emitBezierCurve(
@@ -165,7 +459,15 @@ export class Formatter {
     const control1 = this.addPoints(start, params.control1)
     const control2 = this.addPoints(start, params.control2)
     const end = this.addPoints(start, params.end)
+    const arc = this.getCircularArcFromBezier(start, control1, control2, end)
+    if (arc) {
+      this.emitNativeArc(state, arc, lines)
+      return
+    }
+
     const name = this.nextSegmentName(state)
+    this.usesExperimentalSpline = true
+    state.currentLoopRegionSafe = false
 
     lines.push(`${name} = controlPointSpline(points = [`)
     lines.push(`  ${this.formatPoint(start)},`)
@@ -182,7 +484,8 @@ export class Formatter {
         ],
         name,
         pathEnd: end,
-        pathStart: start
+        pathStart: start,
+        samplePoints: [start, control1, control2, end]
       },
       lines
     )
@@ -211,10 +514,11 @@ export class Formatter {
     const endSketchPoint: Point2d = [center[0] + endVector[0], center[1] + endVector[1]]
     const pathEnd = this.toModelPoint(endSketchPoint)
     const centerPoint = this.toModelPoint(center)
+    const midpointSketch = this.addPoints(center, this.rotateVector(startVector, angleRadians / 2))
+    const midpoint = this.toModelPoint(midpointSketch)
     const isCounterClockwise = angleRadians > 0
     const arcStart = isCounterClockwise ? pathStart : pathEnd
     const arcEnd = isCounterClockwise ? pathEnd : pathStart
-    const name = this.nextSegmentName(state)
     const radiusVectorAtEnd: Point2d = [
       endSketchPoint[0] - center[0],
       endSketchPoint[1] - center[1]
@@ -224,23 +528,15 @@ export class Formatter {
         ? [-radiusVectorAtEnd[1], radiusVectorAtEnd[0]]
         : [radiusVectorAtEnd[1], -radiusVectorAtEnd[0]]
 
-    lines.push(
-      `${name} = arc(start = ${this.formatVarPoint(arcStart)}, end = ${this.formatVarPoint(
-        arcEnd
-      )}, center = ${this.formatVarPoint(centerPoint)})`
-    )
-    lines.push(`fixed([${name}.start, ${this.formatPoint(arcStart)}])`)
-    lines.push(`fixed([${name}.end, ${this.formatPoint(arcEnd)}])`)
-    lines.push(`fixed([${name}.center, ${this.formatPoint(centerPoint)}])`)
-    this.appendSegment(
+    this.emitNativeArc(
       state,
       {
-        endAnchor: isCounterClockwise ? `${name}.end` : `${name}.start`,
+        center: centerPoint,
         endTangentSketch,
-        name,
+        isCounterClockwise,
+        midpoint,
         pathEnd,
-        pathStart,
-        startAnchor: isCounterClockwise ? `${name}.start` : `${name}.end`
+        pathStart
       },
       lines
     )
@@ -266,7 +562,11 @@ export class Formatter {
     lines.push(`fixed([${name}.center, ${this.formatPoint(center)}])`)
     lines.push(`fixed([${name}.start, ${this.formatPoint(start)}])`)
     lines.push(`horizontal([${name}.center, ${name}.start])`)
-    state.currentPoint = start
+    state.regions.push({
+      name: this.nextRegionName(state),
+      point: center
+    })
+    this.resetPathState(state)
   }
 
   private closeLoop(state: SketchState, lines: string[]): void {
@@ -284,6 +584,8 @@ export class Formatter {
     if (state.firstSegment?.startAnchor && state.lastSegment?.endAnchor) {
       lines.push(`coincident([${state.lastSegment.endAnchor}, ${state.firstSegment.startAnchor}])`)
     }
+
+    this.addCurrentRegion(state)
   }
 
   private formatOperationsIntoSketch(
@@ -298,12 +600,15 @@ export class Formatter {
             throw new FormatterError('Invalid StartSketch parameters')
           }
           state.currentPoint = operation.params.point
+          state.currentLoopPoints = [operation.params.point]
+          state.currentLoopRegionSafe = true
           state.firstSegment = null
           state.lastSegment = null
           break
         }
 
         case KclOperationType.StartSketchOn:
+          this.resetPathState(state)
           break
 
         case KclOperationType.Line: {
@@ -351,8 +656,7 @@ export class Formatter {
 
         case KclOperationType.Close:
           this.closeLoop(state, lines)
-          state.firstSegment = null
-          state.lastSegment = null
+          this.resetPathState(state)
           break
 
         case KclOperationType.Hole: {
@@ -408,48 +712,47 @@ export class Formatter {
     const variable = shape.variable || 'sketch'
     const state: SketchState = {
       currentPoint: null,
+      currentLoopPoints: [],
+      currentLoopRegionSafe: true,
       firstSegment: null,
       lastSegment: null,
+      regionCounter: 0,
+      regions: [],
       segmentCounter: 0
     }
     const bodyLines: string[] = []
 
     this.formatOperationsIntoSketch(shape.operations, bodyLines, state)
 
-    return `${variable} = sketch(on = ${this.getSketchPlane(shape)}) {\n${bodyLines
+    const sketch = `${variable} = sketch(on = ${this.getSketchPlane(shape)}) {\n${bodyLines
       .map((line) => `  ${line}`)
       .join('\n')}\n}`
+    const regions = state.regions.map((region) => {
+      return `${region.name} = region(point = ${this.formatPoint(region.point)}, sketch = ${variable})`
+    })
+
+    return [sketch, ...regions].join('\n\n')
   }
 
   public format(output: KclOutput): string {
-    const kcl = output.shapes.map((shape) => this.formatShape(shape)).join('\n\n')
-    if (this.hasOperationType(output.shapes, KclOperationType.BezierCurve)) {
+    this.usesExperimentalSpline = false
+    const kcl = this.formatCombinedShape(output)
+    if (this.usesExperimentalSpline) {
       return `@settings(experimentalFeatures = allow)\n\n${kcl}`
     }
 
     return kcl
   }
 
-  private hasOperationType(shapes: KclShape[], type: KclOperationType): boolean {
-    return shapes.some((shape) => this.hasOperationTypeInOperations(shape.operations, type))
-  }
+  private formatCombinedShape(output: KclOutput): string {
+    const operations = output.shapes.flatMap((shape) => shape.operations)
+    if (operations.length === 0) {
+      return ''
+    }
 
-  private hasOperationTypeInOperations(operations: KclOperation[], type: KclOperationType): boolean {
-    return operations.some((operation) => {
-      if (operation.type === type) {
-        return true
-      }
-
-      if (
-        operation.type === KclOperationType.Hole &&
-        operation.params &&
-        'operations' in operation.params &&
-        Array.isArray(operation.params.operations)
-      ) {
-        return this.hasOperationTypeInOperations(operation.params.operations, type)
-      }
-
-      return false
+    return this.formatShape({
+      operations,
+      variable: output.shapes[0]?.variable || 'sketch001'
     })
   }
 }

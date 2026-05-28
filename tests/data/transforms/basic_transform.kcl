@@ -16,3 +16,5 @@ sketch001 = sketch(on = XY) {
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
 }
+
+region001 = region(point = [70, -60.1], sketch = sketch001)

@@ -451,20 +451,22 @@ export class Converter {
   // --------------------------------------------------
   private convertPathCommandsToKclOps(
     commands: PathCommand[],
-    transform: Transform
+    transform: Transform,
+    closeOpenPath = true
   ): KclOperation[] {
     const operations: KclOperation[] = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
 
-    commands.forEach((command, index) => {
-      // Handle first command: start sketch.
-      if (index === 0) {
-        operations.push(this.createNewSketchOp(command, transform))
-      }
-
-      // Otherwise, command type determines operation.
+    commands.forEach((command) => {
       switch (command.type) {
+        // Moves.
+        case PathCommandType.MoveAbsolute:
+        case PathCommandType.MoveRelative:
+          operations.push(this.createNewSketchOp(command, transform))
+          this.previousControlPoint = null
+          break
+
         // Lines.
         case PathCommandType.LineAbsolute:
         case PathCommandType.HorizontalLineAbsolute:
@@ -513,7 +515,7 @@ export class Converter {
       }
     })
 
-    if (!operations.some((op) => op.type === KclOperationType.Close)) {
+    if (closeOpenPath && !operations.some((op) => op.type === KclOperationType.Close)) {
       // Call close.
       operations.push({ type: KclOperationType.Close, params: null })
     }
@@ -522,6 +524,10 @@ export class Converter {
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
+    if (path.fill === 'none') {
+      return this.convertPathCommandsToKclOps(path.commands, path.transform!, false)
+    }
+
     // Process path to regions and fragments.
     const processor = new PathProcessor(path)
     const processedPath = processor.processPath()

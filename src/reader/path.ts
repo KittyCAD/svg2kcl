@@ -13,6 +13,7 @@ export class PathReadError extends Error {
 
 export interface RawPathData {
   d: string
+  fill?: string
   fillRule?: FillRule
   transform?: string
 }
@@ -43,10 +44,12 @@ export class PathReader {
         throw new PathReadError(`Invalid fill-rule: ${fillRuleAttr}`)
       }
     }
+    const fill = element.attributes['fill']
     const transform = element.attributes['transform']
 
     return {
       d,
+      fill,
       fillRule,
       transform
     }
@@ -77,6 +80,10 @@ export class PathReader {
       }
     }
 
+    if (styles.fill) {
+      result.fill = styles.fill
+    }
+
     return result
   }
 
@@ -99,6 +106,7 @@ export class PathReader {
     return {
       type: ElementType.Path,
       commands: parsedPath.commands,
+      fill: mergedData.fill,
       fillRule: parsedPath.fillRule,
       transform: transform
     }

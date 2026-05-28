@@ -15,32 +15,29 @@ sketch001 = sketch(on = XY) {
   fixed([seg004.end, [10, -10]])
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
+  seg005 = circle(start = [var 90, var -30], center = [var 70, var -30])
+  fixed([seg005.center, [70, -30]])
+  fixed([seg005.start, [90, -30]])
+  horizontal([seg005.center, seg005.start])
+  seg006 = line(start = [var 10, var -60], end = [var 90, var -60])
+  fixed([seg006.start, [10, -60]])
+  fixed([seg006.end, [90, -60]])
+  seg007 = line(start = [var 50, var -70], end = [var 90, var -90])
+  fixed([seg007.start, [50, -70]])
+  fixed([seg007.end, [90, -90]])
+  seg008 = line(start = [var 90, var -90], end = [var 10, var -90])
+  fixed([seg008.start, [90, -90]])
+  fixed([seg008.end, [10, -90]])
+  coincident([seg007.end, seg008.start])
+  seg009 = line(start = [var 10, var -90], end = [var 50, var -70])
+  fixed([seg009.start, [10, -90]])
+  fixed([seg009.end, [50, -70]])
+  coincident([seg008.end, seg009.start])
+  coincident([seg009.end, seg007.start])
 }
 
-sketch002 = sketch(on = XY) {
-  seg001 = circle(start = [var 90, var -30], center = [var 70, var -30])
-  fixed([seg001.center, [70, -30]])
-  fixed([seg001.start, [90, -30]])
-  horizontal([seg001.center, seg001.start])
-}
+region001 = region(point = [30, -10.2], sketch = sketch001)
 
-sketch003 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -60], end = [var 90, var -60])
-  fixed([seg001.start, [10, -60]])
-  fixed([seg001.end, [90, -60]])
-}
+region002 = region(point = [70, -30], sketch = sketch001)
 
-sketch004 = sketch(on = XY) {
-  seg001 = line(start = [var 50, var -70], end = [var 90, var -90])
-  fixed([seg001.start, [50, -70]])
-  fixed([seg001.end, [90, -90]])
-  seg002 = line(start = [var 90, var -90], end = [var 10, var -90])
-  fixed([seg002.start, [90, -90]])
-  fixed([seg002.end, [10, -90]])
-  coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 10, var -90], end = [var 50, var -70])
-  fixed([seg003.start, [10, -90]])
-  fixed([seg003.end, [50, -70]])
-  coincident([seg002.end, seg003.start])
-  coincident([seg003.end, seg001.start])
-}
+region003 = region(point = [69.8, -80.033], sketch = sketch001)

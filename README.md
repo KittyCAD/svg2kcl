@@ -84,14 +84,19 @@ export interface RectangleElement extends ElementProperties {
 
 - The `KclWriter` class formats `KclOperation` objects into a structured `.kcl` file using the
   `Formatter` class.
-- The `formatAndWrite` method writes the formatted output to disk, assigning each shape a unique
-  variable name (e.g., `sketch001`).
+- The `formatAndWrite` method writes the formatted output to disk, combining SVG geometry into a
+  single sketch variable (e.g., `sketch001`).
 - Generated KCL uses sketch-solve syntax (`sketch(on = XY) { ... }`) with explicit constraints.
   Endpoints from the SVG are emitted as `var` initial guesses and pinned with `fixed(...)` so the
   solver preserves the source geometry.
-- Rounded-rectangle arcs are emitted as native sketch-solve `arc(start, end, center)` segments.
-- SVG Beziers are emitted as sketch-solve `controlPointSpline` segments with experimental features
-  enabled, avoiding the legacy pipe-based `bezierCurve` API.
+- Closed line/arc/circle loops are exposed as `region(point = ..., sketch = sketch001)` selections
+  when the loop geometry is safe for KCL's region solver.
+- Rounded-rectangle arcs, tangential arcs, and SVG cubic curves that match a circular arc are
+  emitted as native sketch-solve `arc(start, end, center)` segments.
+- Non-circular SVG Beziers are emitted as sketch-solve `controlPointSpline` segments with
+  experimental features enabled, avoiding the legacy pipe-based `bezierCurve` API.
+- `fill="none"` paths are preserved as open sketch geometry unless the SVG path explicitly closes
+  the subpath.
 
 ## Path Processing Notes
 

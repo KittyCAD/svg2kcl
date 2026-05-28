@@ -1,0 +1,8 @@
+sketch001 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -10], end = [var 20, var -10])
+  fixed([seg001.start, [10, -10]])
+  fixed([seg001.end, [20, -10]])
+  seg002 = line(start = [var 30, var -10], end = [var 40, var -10])
+  fixed([seg002.start, [30, -10]])
+  fixed([seg002.end, [40, -10]])
+}

@@ -1,36 +1,30 @@
 @settings(experimentalFeatures = allow)
 
 sketch001 = sketch(on = XY) {
-  seg001 = controlPointSpline(points = [
-    [188.462, -392.912],
-    [195.777, -365.496],
-    [208.22, -339.726],
-    [222.719, -315.436]
-  ])
-  seg002 = controlPointSpline(points = [
-    [222.719, -315.436],
-    [284.428, -218.005],
-    [365.367, -127.864],
-    [470.262, -76.411]
-  ])
-  seg003 = controlPointSpline(points = [
-    [470.262, -76.411],
-    [476.536, -73.324],
-    [482.77, -70.128],
-    [489.262, -67.511]
-  ])
-  seg004 = controlPointSpline(points = [
-    [489.262, -67.511],
-    [537.747, -111.324],
-    [583.854, -157.661],
-    [631.362, -202.512]
-  ])
-  seg005 = controlPointSpline(points = [
-    [631.362, -202.512],
-    [576.932, -312.031],
-    [478.446, -392.362],
-    [373.873, -451.748]
-  ])
+  seg001 = arc(start = [var 222.719, var -315.436], end = [var 188.462, var -392.912], center = [var 485.104, var -472.06])
+  fixed([seg001.start, [222.719, -315.436]])
+  fixed([seg001.end, [188.462, -392.912]])
+  fixed([seg001.center, [485.104, -472.06]])
+  seg002 = arc(start = [var 470.262, var -76.411], end = [var 222.719, var -315.436], center = [var 751.911, var -650.603])
+  fixed([seg002.start, [470.262, -76.411]])
+  fixed([seg002.end, [222.719, -315.436]])
+  fixed([seg002.center, [751.911, -650.603]])
+  coincident([seg001.start, seg002.end])
+  seg003 = arc(start = [var 489.262, var -67.511], end = [var 470.262, var -76.411], center = [var 594.923, var -329.715])
+  fixed([seg003.start, [489.262, -67.511]])
+  fixed([seg003.end, [470.262, -76.411]])
+  fixed([seg003.center, [594.923, -329.715]])
+  coincident([seg002.start, seg003.end])
+  seg004 = arc(start = [var 631.362, var -202.512], end = [var 489.262, var -67.511], center = [var -5536.27, var -6735.597])
+  fixed([seg004.start, [631.362, -202.512]])
+  fixed([seg004.end, [489.262, -67.511]])
+  fixed([seg004.center, [-5536.27, -6735.597]])
+  coincident([seg003.start, seg004.end])
+  seg005 = arc(start = [var 373.873, var -451.748], end = [var 631.362, var -202.512], center = [var 75.43, var 73.785])
+  fixed([seg005.start, [373.873, -451.748]])
+  fixed([seg005.end, [631.362, -202.512]])
+  fixed([seg005.center, [75.43, 73.785]])
+  coincident([seg004.start, seg005.end])
   seg006 = controlPointSpline(points = [
     [373.873, -451.748],
     [341.58, -464.071],
@@ -61,12 +55,10 @@ sketch001 = sketch(on = XY) {
     [203.888, -418.151],
     [188.462, -392.912]
   ])
-  seg011 = controlPointSpline(points = [
-    [475.122, -144.924],
-    [480.755, -145.106],
-    [486.373, -145.829],
-    [491.862, -147.111]
-  ])
+  seg011 = arc(start = [var 491.862, var -147.111], end = [var 475.122, var -144.924], center = [var 472.366, var -230.555])
+  fixed([seg011.start, [491.862, -147.111]])
+  fixed([seg011.end, [475.122, -144.924]])
+  fixed([seg011.center, [472.366, -230.555]])
   seg012 = controlPointSpline(points = [
     [491.862, -147.111],
     [541.332, -156.402],
@@ -85,136 +77,111 @@ sketch001 = sketch(on = XY) {
     [425.341, -139.654],
     [475.122, -144.924]
   ])
-}
-
-sketch002 = sketch(on = XY) {
-  seg001 = controlPointSpline(points = [
+  seg015 = controlPointSpline(points = [
     [464.862, -163.512],
     [498.664, -158.143],
     [534.378, -188.393],
     [530.242, -223.43]
   ])
-  seg002 = controlPointSpline(points = [
+  seg016 = controlPointSpline(points = [
     [530.242, -223.43],
     [527.412, -269.095],
     [463.991, -289.122],
     [432.447, -258.55]
   ])
-  seg003 = controlPointSpline(points = [
+  seg017 = controlPointSpline(points = [
     [432.447, -258.55],
     [396.039, -230.071],
     [419.617, -164.924],
     [464.862, -163.512]
   ])
-}
-
-sketch003 = sketch(on = XY) {
-  seg001 = controlPointSpline(points = [
+  seg018 = controlPointSpline(points = [
     [11.678, -423.562],
     [51.081, -351.094],
     [117.35, -288.426],
     [199.362, -269.112]
   ])
-  seg002 = controlPointSpline(points = [
-    [199.362, -269.112],
-    [209.291, -267.883],
-    [219.416, -266.971],
-    [229.362, -268.612]
-  ])
-  seg003 = controlPointSpline(points = [
-    [229.362, -268.612],
-    [211.502, -298.5],
-    [191.786, -327.614],
-    [179.062, -360.212]
-  ])
-  seg004 = controlPointSpline(points = [
+  seg019 = arc(start = [var 229.362, var -268.612], end = [var 199.362, var -269.112], center = [var 212.183, var -372.716])
+  fixed([seg019.start, [229.362, -268.612]])
+  fixed([seg019.end, [199.362, -269.112]])
+  fixed([seg019.center, [212.183, -372.716]])
+  seg020 = arc(start = [var 229.362, var -268.612], end = [var 179.062, var -360.212], center = [var 766.101, var -589.344])
+  fixed([seg020.start, [229.362, -268.612]])
+  fixed([seg020.end, [179.062, -360.212]])
+  fixed([seg020.center, [766.101, -589.344]])
+  coincident([seg019.start, seg020.start])
+  seg021 = controlPointSpline(points = [
     [179.062, -360.212],
     [114.557, -365.68],
     [59.166, -406.172],
     [17.009, -452.865]
   ])
-  seg005 = controlPointSpline(points = [
+  seg022 = controlPointSpline(points = [
     [17.009, -452.865],
     [-4.154, -486.586],
     [5.374, -437.651],
     [11.678, -423.562]
   ])
-}
-
-sketch004 = sketch(on = XY) {
-  seg001 = controlPointSpline(points = [
-    [105.622, -564.649],
-    [124.481, -543.548],
-    [143.888, -522.946],
-    [163.25, -502.308]
-  ])
-  seg002 = controlPointSpline(points = [
-    [163.25, -502.308],
-    [213.536, -451.651],
-    [256.686, -393.258],
-    [313.962, -350.012]
-  ])
-  seg003 = controlPointSpline(points = [
+  seg023 = arc(start = [var 163.25, var -502.308], end = [var 105.622, var -564.649], center = [var 2723.628, var -2904.432])
+  fixed([seg023.start, [163.25, -502.308]])
+  fixed([seg023.end, [105.622, -564.649]])
+  fixed([seg023.center, [2723.628, -2904.432]])
+  seg024 = arc(start = [var 313.962, var -350.012], end = [var 163.25, var -502.308], center = [var 1223.978, var -1555.267])
+  fixed([seg024.start, [313.962, -350.012]])
+  fixed([seg024.end, [163.25, -502.308]])
+  fixed([seg024.center, [1223.978, -1555.267]])
+  coincident([seg023.start, seg024.end])
+  seg025 = controlPointSpline(points = [
     [313.962, -350.012],
     [336.729, -342.216],
     [338.704, -367.055],
     [325.45, -378.989]
   ])
-  seg004 = controlPointSpline(points = [
-    [325.45, -378.989],
-    [254.796, -443.932],
-    [178.968, -502.848],
-    [105.622, -564.649]
-  ])
-}
-
-sketch005 = sketch(on = XY) {
-  seg001 = controlPointSpline(points = [
+  seg026 = arc(start = [var 105.622, var -564.649], end = [var 325.45, var -378.989], center = [var -4192.032, var 4535.814])
+  fixed([seg026.start, [105.622, -564.649]])
+  fixed([seg026.end, [325.45, -378.989]])
+  fixed([seg026.center, [-4192.032, 4535.814]])
+  coincident([seg026.start, seg023.end])
+  seg027 = controlPointSpline(points = [
     [202.862, -664.712],
     [253.175, -627.508],
     [301.859, -580.026],
     [317.396, -517.312]
   ])
-  seg002 = controlPointSpline(points = [
+  seg028 = controlPointSpline(points = [
     [317.396, -517.312],
     [321.463, -478.205],
     [377.489, -481.272],
     [402.862, -456.712]
   ])
-  seg003 = controlPointSpline(points = [
+  seg029 = controlPointSpline(points = [
     [402.862, -456.712],
     [408.178, -455.73],
     [412.135, -447.74],
     [417.851, -449.519]
   ])
-  seg004 = controlPointSpline(points = [
+  seg030 = controlPointSpline(points = [
     [417.851, -449.519],
     [421.001, -496.041],
     [393.842, -538.941],
     [363.54, -572.212]
   ])
-  seg005 = controlPointSpline(points = [
+  seg031 = controlPointSpline(points = [
     [363.54, -572.212],
     [321.219, -617.257],
     [267.552, -662.16],
     [202.862, -664.712]
   ])
-}
-
-sketch006 = sketch(on = XY) {
-  seg001 = controlPointSpline(points = [
-    [530.388, -49.962],
-    [575.975, -21.387],
-    [629.037, -7.724],
-    [681.856, -0.44]
-  ])
-  seg002 = controlPointSpline(points = [
-    [681.856, -0.44],
-    [676.41, -56.229],
-    [665.606, -111.846],
-    [645.361, -164.262]
-  ])
-  seg003 = controlPointSpline(points = [
+  seg032 = arc(start = [var 681.856, var -0.44], end = [var 530.388, var -49.962], center = [var 733.339, var -373.735])
+  fixed([seg032.start, [681.856, -0.44]])
+  fixed([seg032.end, [530.388, -49.962]])
+  fixed([seg032.center, [733.339, -373.735]])
+  seg033 = arc(start = [var 645.361, var -164.262], end = [var 681.856, var -0.44], center = [var 65.408, var 59.736])
+  fixed([seg033.start, [645.361, -164.262]])
+  fixed([seg033.end, [681.856, -0.44]])
+  fixed([seg033.center, [65.408, 59.736]])
+  coincident([seg032.start, seg033.end])
+  seg034 = controlPointSpline(points = [
     [645.361, -164.262],
     [607.036, -126.162],
     [568.712, -88.062],

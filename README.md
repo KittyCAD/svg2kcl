@@ -86,6 +86,12 @@ export interface RectangleElement extends ElementProperties {
   `Formatter` class.
 - The `formatAndWrite` method writes the formatted output to disk, assigning each shape a unique
   variable name (e.g., `sketch001`).
+- Generated KCL uses sketch-solve syntax (`sketch(on = XY) { ... }`) with explicit constraints.
+  Endpoints from the SVG are emitted as `var` initial guesses and pinned with `fixed(...)` so the
+  solver preserves the source geometry.
+- Rounded-rectangle arcs are emitted as native sketch-solve `arc(start, end, center)` segments.
+- SVG Beziers are emitted as sketch-solve `controlPointSpline` segments with experimental features
+  enabled, avoiding the legacy pipe-based `bezierCurve` API.
 
 ## Path Processing Notes
 

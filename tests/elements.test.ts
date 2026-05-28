@@ -13,6 +13,7 @@ const options: KclOptions = {
 }
 
 const dataDir = path.join(__dirname, 'data', 'elements')
+const legacyKclSyntax = /startSketchOn|startProfile|subtract2d|bezierCurve|endAbsolute|\|>/
 
 describe('SVG Basic Elements to KCL Conversion', () => {
   it('should correctly convert basic_rectangle.svg to KCL', async () => {
@@ -25,6 +26,10 @@ describe('SVG Basic Elements to KCL Conversion', () => {
     const expectedKcl = await fsPromises.readFile(expectedKclPath, 'utf8')
 
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
+    expect(actualKcl).toContain('sketch(on = XY)')
+    expect(actualKcl).toContain('fixed([')
+    expect(actualKcl).toContain('arc(start =')
+    expect(actualKcl).not.toMatch(legacyKclSyntax)
   })
 
   it('should correctly convert basic_circle.svg to KCL', async () => {

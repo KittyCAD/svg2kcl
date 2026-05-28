@@ -1,52 +1,78 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(endAbsolute = [90, -10])
-  |> line(endAbsolute = [90, -90])
-  |> line(endAbsolute = [10, -90])
-  |> line(endAbsolute = [10, -10])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [60, -60])
-    |> line(endAbsolute = [70, -60])
-    |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve(
-         control1 = [-2.948, -1.965],
-         control2 = [-5.896, -2.193],
-         end = [-8.844, -0.682]
-     )
-    |> bezierCurve(
-         control1 = [-0.409, 1.234],
-         control2 = [-0.795, 2.573],
-         end = [-1.156, 4.015]
-     )
-    |> close())
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [63.745, -70])
-    |> line(endAbsolute = [70, -70])
-    |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve(
-         control1 = [1.22, 0.813],
-         control2 = [2.44, 1.924],
-         end = [3.66, 3.333]
-     )
-    |> line(endAbsolute = [80, -60])
-    |> bezierCurve(
-         control1 = [-3.943, -15.773],
-         control2 = [-10.997, -19.107],
-         end = [-16.255, -10]
-     )
-    |> close())
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [70, -50])
-    |> line(endAbsolute = [80, -50])
-    |> bezierCurve(
-         control1 = [-2.113, -4.227],
-         control2 = [-4.227, -7.56],
-         end = [-6.34, -10]
-     )
-    |> line(endAbsolute = [70, -60])
-    |> line(endAbsolute = [70, -50])
-    |> close())
+@settings(experimentalFeatures = allow)
+
+sketch001 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -10], end = [var 90, var -10])
+  fixed([seg001.start, [10, -10]])
+  fixed([seg001.end, [90, -10]])
+  seg002 = line(start = [var 90, var -10], end = [var 90, var -90])
+  fixed([seg002.start, [90, -10]])
+  fixed([seg002.end, [90, -90]])
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = [var 90, var -90], end = [var 10, var -90])
+  fixed([seg003.start, [90, -90]])
+  fixed([seg003.end, [10, -90]])
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = [var 10, var -90], end = [var 10, var -10])
+  fixed([seg004.start, [10, -90]])
+  fixed([seg004.end, [10, -10]])
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+  seg005 = line(start = [var 60, var -60], end = [var 70, var -60])
+  fixed([seg005.start, [60, -60]])
+  fixed([seg005.end, [70, -60]])
+  seg006 = line(start = [var 70, var -60], end = [var 70, var -63.333])
+  fixed([seg006.start, [70, -60]])
+  fixed([seg006.end, [70, -63.333]])
+  coincident([seg005.end, seg006.start])
+  seg007 = controlPointSpline(points = [
+    [70, -63.333],
+    [67.052, -65.299],
+    [64.104, -65.526],
+    [61.156, -64.015]
+  ])
+  seg008 = controlPointSpline(points = [
+    [61.156, -64.015],
+    [60.747, -62.781],
+    [60.361, -61.442],
+    [60, -60]
+  ])
+  seg009 = line(start = [var 63.745, var -70], end = [var 70, var -70])
+  fixed([seg009.start, [63.745, -70]])
+  fixed([seg009.end, [70, -70]])
+  seg010 = line(start = [var 70, var -70], end = [var 70, var -63.333])
+  fixed([seg010.start, [70, -70]])
+  fixed([seg010.end, [70, -63.333]])
+  coincident([seg009.end, seg010.start])
+  seg011 = controlPointSpline(points = [
+    [70, -63.333],
+    [71.22, -62.52],
+    [72.44, -61.409],
+    [73.66, -60]
+  ])
+  seg012 = line(start = [var 73.66, var -60], end = [var 80, var -60])
+  fixed([seg012.start, [73.66, -60]])
+  fixed([seg012.end, [80, -60]])
+  seg013 = controlPointSpline(points = [
+    [80, -60],
+    [76.057, -75.773],
+    [69.003, -79.107],
+    [63.745, -70]
+  ])
+  seg014 = line(start = [var 70, var -50], end = [var 80, var -50])
+  fixed([seg014.start, [70, -50]])
+  fixed([seg014.end, [80, -50]])
+  seg015 = controlPointSpline(points = [
+    [80, -50],
+    [77.887, -54.227],
+    [75.773, -57.56],
+    [73.66, -60]
+  ])
+  seg016 = line(start = [var 73.66, var -60], end = [var 70, var -60])
+  fixed([seg016.start, [73.66, -60]])
+  fixed([seg016.end, [70, -60]])
+  seg017 = line(start = [var 70, var -60], end = [var 70, var -50])
+  fixed([seg017.start, [70, -60]])
+  fixed([seg017.end, [70, -50]])
+  coincident([seg016.end, seg017.start])
+  coincident([seg017.end, seg014.start])
+}

@@ -1,27 +1,38 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(endAbsolute = [90, -10])
-  |> line(endAbsolute = [90, -90])
-  |> line(endAbsolute = [10, -90])
-  |> line(endAbsolute = [10, -10])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [50, -50])
-    |> line(endAbsolute = [90, -50])
-    |> bezierCurve(
-         control1 = [-10, -30],
-         control2 = [-30, -30],
-         end = [-40, 0]
-     )
-    |> close())
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [75, -45])
-    |> line(endAbsolute = [90, -50])
-    |> bezierCurve(
-         control1 = [-5, 0],
-         control2 = [-10, 1.667],
-         end = [-15, 5]
-     )
-    |> close())
+@settings(experimentalFeatures = allow)
+
+sketch001 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -10], end = [var 90, var -10])
+  fixed([seg001.start, [10, -10]])
+  fixed([seg001.end, [90, -10]])
+  seg002 = line(start = [var 90, var -10], end = [var 90, var -90])
+  fixed([seg002.start, [90, -10]])
+  fixed([seg002.end, [90, -90]])
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = [var 90, var -90], end = [var 10, var -90])
+  fixed([seg003.start, [90, -90]])
+  fixed([seg003.end, [10, -90]])
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = [var 10, var -90], end = [var 10, var -10])
+  fixed([seg004.start, [10, -90]])
+  fixed([seg004.end, [10, -10]])
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+  seg005 = line(start = [var 50, var -50], end = [var 90, var -50])
+  fixed([seg005.start, [50, -50]])
+  fixed([seg005.end, [90, -50]])
+  seg006 = controlPointSpline(points = [
+    [90, -50],
+    [80, -80],
+    [60, -80],
+    [50, -50]
+  ])
+  seg007 = line(start = [var 75, var -45], end = [var 90, var -50])
+  fixed([seg007.start, [75, -45]])
+  fixed([seg007.end, [90, -50]])
+  seg008 = controlPointSpline(points = [
+    [90, -50],
+    [85, -50],
+    [80, -48.333],
+    [75, -45]
+  ])
+}

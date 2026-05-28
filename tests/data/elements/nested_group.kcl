@@ -1,18 +1,41 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(end = [30, 0])
-  |> line(end = [0, -30])
-  |> line(end = [-30, 0])
-  |> close()
+sketch001 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -10], end = [var 40, var -10])
+  fixed([seg001.start, [10, -10]])
+  fixed([seg001.end, [40, -10]])
+  seg002 = line(start = [var 40, var -10], end = [var 40, var -40])
+  fixed([seg002.start, [40, -10]])
+  fixed([seg002.end, [40, -40]])
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = [var 40, var -40], end = [var 10, var -40])
+  fixed([seg003.start, [40, -40]])
+  fixed([seg003.end, [10, -40]])
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = [var 10, var -40], end = [var 10, var -10])
+  fixed([seg004.start, [10, -40]])
+  fixed([seg004.end, [10, -10]])
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+}
 
-sketch002 = startSketchOn(XY)
-  |> circle(center = [70, -25], radius = 15)
+sketch002 = sketch(on = XY) {
+  seg001 = circle(start = [var 85, var -25], center = [var 70, var -25])
+  fixed([seg001.center, [70, -25]])
+  fixed([seg001.start, [85, -25]])
+  horizontal([seg001.center, seg001.start])
+}
 
-sketch003 = startSketchOn(XY)
-  |> startProfile(at = [10, -50])
-  |> line(end = [80, 0])
+sketch003 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -50], end = [var 90, var -50])
+  fixed([seg001.start, [10, -50]])
+  fixed([seg001.end, [90, -50]])
+}
 
-sketch004 = startSketchOn(XY)
-  |> startProfile(at = [10, -70])
-  |> line(end = [40, -20])
-  |> line(end = [40, 20])
+sketch004 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -70], end = [var 50, var -90])
+  fixed([seg001.start, [10, -70]])
+  fixed([seg001.end, [50, -90]])
+  seg002 = line(start = [var 50, var -90], end = [var 90, var -70])
+  fixed([seg002.start, [50, -90]])
+  fixed([seg002.end, [90, -70]])
+  coincident([seg001.end, seg002.start])
+}

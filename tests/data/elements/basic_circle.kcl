@@ -1,5 +1,13 @@
-sketch001 = startSketchOn(XY)
-  |> circle(center = [30, -30], radius = 20)
+sketch001 = sketch(on = XY) {
+  seg001 = circle(start = [var 50, var -30], center = [var 30, var -30])
+  fixed([seg001.center, [30, -30]])
+  fixed([seg001.start, [50, -30]])
+  horizontal([seg001.center, seg001.start])
+}
 
-sketch002 = startSketchOn(XY)
-  |> circle(center = [70, -70], radius = 25)
+sketch002 = sketch(on = XY) {
+  seg001 = circle(start = [var 95, var -70], center = [var 70, var -70])
+  fixed([seg001.center, [70, -70]])
+  fixed([seg001.start, [95, -70]])
+  horizontal([seg001.center, seg001.start])
+}

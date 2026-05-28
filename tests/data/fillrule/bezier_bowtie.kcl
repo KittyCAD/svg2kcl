@@ -1,18 +1,22 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -50])
-  |> bezierCurve(
-         control1 = [10, 30],
-         control2 = [30, 30],
-         end = [40, 0]
-     )
-  |> line(endAbsolute = [10, -50])
-  |> close()
-  startSketchOn(XY)
-  |> startProfile(at = [50, -50])
-  |> line(endAbsolute = [90, -50])
-  |> bezierCurve(
-         control1 = [-10, -30],
-         control2 = [-30, -30],
-         end = [-40, 0]
-     )
-  |> close()
+@settings(experimentalFeatures = allow)
+
+sketch001 = sketch(on = XY) {
+  seg001 = controlPointSpline(points = [
+    [10, -50],
+    [20, -20],
+    [40, -20],
+    [50, -50]
+  ])
+  seg002 = line(start = [var 50, var -50], end = [var 10, var -50])
+  fixed([seg002.start, [50, -50]])
+  fixed([seg002.end, [10, -50]])
+  seg003 = line(start = [var 50, var -50], end = [var 90, var -50])
+  fixed([seg003.start, [50, -50]])
+  fixed([seg003.end, [90, -50]])
+  seg004 = controlPointSpline(points = [
+    [90, -50],
+    [80, -80],
+    [60, -80],
+    [50, -50]
+  ])
+}

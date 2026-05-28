@@ -1,19 +1,46 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(end = [40, 0])
-  |> line(end = [0, -40])
-  |> line(end = [-40, 0])
-  |> close()
+sketch001 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -10], end = [var 50, var -10])
+  fixed([seg001.start, [10, -10]])
+  fixed([seg001.end, [50, -10]])
+  seg002 = line(start = [var 50, var -10], end = [var 50, var -50])
+  fixed([seg002.start, [50, -10]])
+  fixed([seg002.end, [50, -50]])
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = [var 50, var -50], end = [var 10, var -50])
+  fixed([seg003.start, [50, -50]])
+  fixed([seg003.end, [10, -50]])
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = [var 10, var -50], end = [var 10, var -10])
+  fixed([seg004.start, [10, -50]])
+  fixed([seg004.end, [10, -10]])
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+}
 
-sketch002 = startSketchOn(XY)
-  |> circle(center = [70, -30], radius = 20)
+sketch002 = sketch(on = XY) {
+  seg001 = circle(start = [var 90, var -30], center = [var 70, var -30])
+  fixed([seg001.center, [70, -30]])
+  fixed([seg001.start, [90, -30]])
+  horizontal([seg001.center, seg001.start])
+}
 
-sketch003 = startSketchOn(XY)
-  |> startProfile(at = [10, -60])
-  |> line(end = [80, 0])
+sketch003 = sketch(on = XY) {
+  seg001 = line(start = [var 10, var -60], end = [var 90, var -60])
+  fixed([seg001.start, [10, -60]])
+  fixed([seg001.end, [90, -60]])
+}
 
-sketch004 = startSketchOn(XY)
-  |> startProfile(at = [50, -70])
-  |> line(end = [40, -20])
-  |> line(end = [-80, 0])
-  |> close()
+sketch004 = sketch(on = XY) {
+  seg001 = line(start = [var 50, var -70], end = [var 90, var -90])
+  fixed([seg001.start, [50, -70]])
+  fixed([seg001.end, [90, -90]])
+  seg002 = line(start = [var 90, var -90], end = [var 10, var -90])
+  fixed([seg002.start, [90, -90]])
+  fixed([seg002.end, [10, -90]])
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = [var 10, var -90], end = [var 50, var -70])
+  fixed([seg003.start, [10, -90]])
+  fixed([seg003.end, [50, -70]])
+  coincident([seg002.end, seg003.start])
+  coincident([seg003.end, seg001.start])
+}

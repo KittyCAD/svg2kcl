@@ -95,16 +95,15 @@ sketch001 = sketch(on = XY) {
     [419.617, -164.924],
     [464.862, -163.512]
   ])
-  seg018 = controlPointSpline(points = [
-    [11.678, -423.562],
-    [51.081, -351.094],
-    [117.35, -288.426],
-    [199.362, -269.112]
-  ])
+  seg018 = arc(start = [var 199.362, var -269.112], end = [var 11.678, var -423.562], center = [var 268.64, var -563.282])
+  fixed([seg018.start, [199.362, -269.112]])
+  fixed([seg018.end, [11.678, -423.562]])
+  fixed([seg018.center, [268.64, -563.282]])
   seg019 = arc(start = [var 229.362, var -268.612], end = [var 199.362, var -269.112], center = [var 212.183, var -372.716])
   fixed([seg019.start, [229.362, -268.612]])
   fixed([seg019.end, [199.362, -269.112]])
   fixed([seg019.center, [212.183, -372.716]])
+  coincident([seg018.start, seg019.end])
   seg020 = arc(start = [var 229.362, var -268.612], end = [var 179.062, var -360.212], center = [var 766.101, var -589.344])
   fixed([seg020.start, [229.362, -268.612]])
   fixed([seg020.end, [179.062, -360.212]])

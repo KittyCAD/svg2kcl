@@ -381,7 +381,7 @@ export class Formatter {
     const endRadius = this.subtractPoints(sketchEnd, center)
     const radius = this.length(startRadius)
     const endRadiusLength = this.length(endRadius)
-    if (radius < 1e-6 || Math.abs(radius - endRadiusLength) / radius > 0.03) {
+    if (radius < 1e-6 || Math.abs(radius - endRadiusLength) / radius > 0.04) {
       return null
     }
 

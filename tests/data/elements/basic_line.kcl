@@ -1,8 +1,6 @@
 sketch001 = sketch(on = XY) {
   seg001 = line(start = [var 0, var 0], end = [var 80, var -80])
-  fixed([seg001.start, [0, 0]])
-  fixed([seg001.end, [80, -80]])
+  distance([seg001.start, seg001.end]) == 113.137
   seg002 = line(start = [var 20, var -80], end = [var 100, var 0])
-  fixed([seg002.start, [20, -80]])
-  fixed([seg002.end, [100, 0]])
+  distance([seg002.start, seg002.end]) == 113.137
 }

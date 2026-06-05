@@ -1,18 +1,14 @@
 sketch001 = sketch(on = XY) {
   seg001 = line(start = [var 100, var -128.284], end = [var 128.284, var -156.569])
-  fixed([seg001.start, [100, -128.284]])
-  fixed([seg001.end, [128.284, -156.569]])
+  distance([seg001.start, seg001.end]) == 40
   seg002 = line(start = [var 128.284, var -156.569], end = [var 100, var -184.853])
-  fixed([seg002.start, [128.284, -156.569]])
-  fixed([seg002.end, [100, -184.853]])
+  distance([seg002.start, seg002.end]) == 40
   coincident([seg001.end, seg002.start])
   seg003 = line(start = [var 100, var -184.853], end = [var 71.716, var -156.569])
-  fixed([seg003.start, [100, -184.853]])
-  fixed([seg003.end, [71.716, -156.569]])
+  distance([seg003.start, seg003.end]) == 40
   coincident([seg002.end, seg003.start])
   seg004 = line(start = [var 71.716, var -156.569], end = [var 100, var -128.284])
-  fixed([seg004.start, [71.716, -156.569]])
-  fixed([seg004.end, [100, -128.284]])
+  distance([seg004.start, seg004.end]) == 40
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
 }

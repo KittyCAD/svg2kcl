@@ -1,34 +1,26 @@
 sketch001 = sketch(on = XY) {
   seg001 = line(start = [var 0, var -14.142], end = [var 14.142, var -28.284])
-  fixed([seg001.start, [0, -14.142]])
-  fixed([seg001.end, [14.142, -28.284]])
+  distance([seg001.start, seg001.end]) == 20
   seg002 = line(start = [var 14.142, var -28.284], end = [var 0, var -42.426])
-  fixed([seg002.start, [14.142, -28.284]])
-  fixed([seg002.end, [0, -42.426]])
+  distance([seg002.start, seg002.end]) == 20
   coincident([seg001.end, seg002.start])
   seg003 = line(start = [var 0, var -42.426], end = [var -14.142, var -28.284])
-  fixed([seg003.start, [0, -42.426]])
-  fixed([seg003.end, [-14.142, -28.284]])
+  distance([seg003.start, seg003.end]) == 20
   coincident([seg002.end, seg003.start])
   seg004 = line(start = [var -14.142, var -28.284], end = [var 0, var -14.142])
-  fixed([seg004.start, [-14.142, -28.284]])
-  fixed([seg004.end, [0, -14.142]])
+  distance([seg004.start, seg004.end]) == 20
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
   seg005 = line(start = [var 0, var -56.569], end = [var 14.142, var -70.711])
-  fixed([seg005.start, [0, -56.569]])
-  fixed([seg005.end, [14.142, -70.711]])
+  distance([seg005.start, seg005.end]) == 20
   seg006 = line(start = [var 14.142, var -70.711], end = [var 0, var -84.853])
-  fixed([seg006.start, [14.142, -70.711]])
-  fixed([seg006.end, [0, -84.853]])
+  distance([seg006.start, seg006.end]) == 20
   coincident([seg005.end, seg006.start])
   seg007 = line(start = [var 0, var -84.853], end = [var -14.142, var -70.711])
-  fixed([seg007.start, [0, -84.853]])
-  fixed([seg007.end, [-14.142, -70.711]])
+  distance([seg007.start, seg007.end]) == 20
   coincident([seg006.end, seg007.start])
   seg008 = line(start = [var -14.142, var -70.711], end = [var 0, var -56.569])
-  fixed([seg008.start, [-14.142, -70.711]])
-  fixed([seg008.end, [0, -56.569]])
+  distance([seg008.start, seg008.end]) == 20
   coincident([seg007.end, seg008.start])
   coincident([seg008.end, seg005.start])
 }

@@ -15,7 +15,7 @@ const options: KclOptions = {
 }
 
 const dataDir = path.join(__dirname, 'data', 'fillrule')
-const legacyKclSyntax = /startSketchOn|startProfile|subtract2d|bezierCurve|endAbsolute|\|>/
+const disallowedKclSyntax = /startSketchOn|startProfile|subtract2d|bezierCurve|endAbsolute|fixed\(|\|>/
 
 describe('SVG Fill Rule Tests', () => {
   it('should correctly convert nonzero_basic.svg to KCL', async () => {
@@ -84,7 +84,7 @@ describe('SVG Fill Rule Tests', () => {
     expect(actualKCL.trim()).toBe(expectedKcl.trim())
     expect(actualKCL).toContain('@settings(experimentalFeatures = allow)')
     expect(actualKCL).toContain('controlPointSpline')
-    expect(actualKCL).not.toMatch(legacyKclSyntax)
+    expect(actualKCL).not.toMatch(disallowedKclSyntax)
   })
   it('should correctly convert winding_order.svg to KCL', async () => {
     // https://oreillymedia.github.io/Using_SVG/extras/ch06-fill-rule.html

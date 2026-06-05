@@ -1,0 +1,86 @@
+@settings(experimentalFeatures = allow)
+
+sketch001 = sketch(on = XY) {
+  seg001 = line(start = [var 168.2, var -28.5], end = [var 48.7, var -28.5])
+  fixed([seg001.start, [168.2, -28.5]])
+  fixed([seg001.end, [48.7, -28.5]])
+  seg002 = controlPointSpline(points = [
+    [48.7, -28.5],
+    [47.9, -28.5],
+    [46.9, -29.2],
+    [47, -30.4]
+  ])
+  seg003 = line(start = [var 47, var -30.4], end = [var 51, var -138.1])
+  fixed([seg003.start, [47, -30.4]])
+  fixed([seg003.end, [51, -138.1]])
+  seg004 = controlPointSpline(points = [
+    [51, -138.1],
+    [51, -138.4],
+    [51.2, -138.7],
+    [51.5, -138.7]
+  ])
+  seg005 = line(start = [var 51.5, var -138.7], end = [var 165.6, var -138.7])
+  fixed([seg005.start, [51.5, -138.7]])
+  fixed([seg005.end, [165.6, -138.7]])
+  seg006 = controlPointSpline(points = [
+    [165.6, -138.7],
+    [165.9, -138.7],
+    [166, -138.5],
+    [166, -138.2]
+  ])
+  seg007 = line(start = [var 166, var -138.2], end = [var 169.7, var -30.4])
+  fixed([seg007.start, [166, -138.2]])
+  fixed([seg007.end, [169.7, -30.4]])
+  seg008 = controlPointSpline(points = [
+    [169.7, -30.4],
+    [169.8, -29.4],
+    [169.1, -28.5],
+    [168.2, -28.5]
+  ])
+  seg009 = controlPointSpline(points = [
+    [166.6, -30],
+    [166.8, -29],
+    [167.5, -28.5],
+    [168.2, -28.5]
+  ])
+  seg010 = controlPointSpline(points = [
+    [50.3, -30],
+    [50.2, -29.2],
+    [49.6, -28.5],
+    [48.8, -28.5]
+  ])
+  seg011 = arc(start = [var 69, var -135.5], end = [var 57.3, var -138.6], center = [var 69, var -158.1])
+  fixed([seg011.start, [69, -135.5]])
+  fixed([seg011.end, [57.3, -138.6]])
+  fixed([seg011.center, [69, -158.1]])
+  seg012 = line(start = [var 69, var -135.5], end = [var 149, var -135.5])
+  fixed([seg012.start, [69, -135.5]])
+  fixed([seg012.end, [149, -135.5]])
+  coincident([seg011.start, seg012.start])
+  seg013 = arc(start = [var 160.2, var -138.6], end = [var 149, var -135.5], center = [var 148.245, var -161.911])
+  fixed([seg013.start, [160.2, -138.6]])
+  fixed([seg013.end, [149, -135.5]])
+  fixed([seg013.center, [148.245, -161.911]])
+  coincident([seg012.end, seg013.end])
+  seg014 = line(start = [var 50.3, var -30], end = [var 57, var -122.5])
+  fixed([seg014.start, [50.3, -30]])
+  fixed([seg014.end, [57, -122.5]])
+  seg015 = arc(start = [var 57, var -122.5], end = [var 67.4, var -132.3], center = [var 67.4, var -121.633])
+  fixed([seg015.start, [57, -122.5]])
+  fixed([seg015.end, [67.4, -132.3]])
+  fixed([seg015.center, [67.4, -121.633]])
+  coincident([seg014.end, seg015.start])
+  seg016 = line(start = [var 67.4, var -132.3], end = [var 151.2, var -132.3])
+  fixed([seg016.start, [67.4, -132.3]])
+  fixed([seg016.end, [151.2, -132.3]])
+  coincident([seg015.end, seg016.start])
+  seg017 = arc(start = [var 151.2, var -132.3], end = [var 160.6, var -123], center = [var 150.657, var -121.985])
+  fixed([seg017.start, [151.2, -132.3]])
+  fixed([seg017.end, [160.6, -123]])
+  fixed([seg017.center, [150.657, -121.985]])
+  coincident([seg016.end, seg017.start])
+  seg018 = line(start = [var 160.6, var -123], end = [var 166.6, var -30])
+  fixed([seg018.start, [160.6, -123]])
+  fixed([seg018.end, [166.6, -30]])
+  coincident([seg017.end, seg018.start])
+}

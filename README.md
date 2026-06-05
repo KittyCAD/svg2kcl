@@ -86,9 +86,11 @@ export interface RectangleElement extends ElementProperties {
   `Formatter` class.
 - The `formatAndWrite` method writes the formatted output to disk, combining SVG geometry into a
   single sketch variable (e.g., `sketch001`).
-- Generated KCL uses sketch-solve syntax (`sketch(on = XY) { ... }`) with explicit constraints.
-  Endpoints from the SVG are emitted as `var` initial guesses and pinned with `fixed(...)` so the
-  solver preserves the source geometry.
+- Generated KCL uses sketch-solve syntax (`sketch(on = XY) { ... }`) with solver-friendly
+  constraints. Coordinates from the SVG are emitted as `var` initial guesses; lines, arcs, circles,
+  and smooth joins receive dimensional/geometric constraints when they can be inferred directly.
+  The formatter avoids `fixed(...)` constraints unless a future case truly has no better
+  representation.
 - Closed line/arc/circle loops are exposed as `region(point = ..., sketch = sketch001)` selections
   when the loop geometry is safe for KCL's region solver.
 - Rounded-rectangle arcs, tangential arcs, and SVG cubic curves that match a circular arc are
@@ -269,4 +271,39 @@ To center the geometry on x=0, y=0, use:
 
 ```bash
 npx ts-node src/main.ts ./tests/data/examples/project_payload.svg ./output.kcl --center
+```
+
+### Comparing Legacy and Sketch-Solve KCL
+
+To compare the legacy, non-sketch-solve KCL from `origin/main` with the current sketch-solve output
+for a fixture SVG, run:
+
+```bash
+npm run compare:kcl -- tests/data/elements/basic_rectangle.svg
+```
+
+This writes `input.svg`, `new.kcl`, and, when available, `old.kcl` and `diff.patch` under
+`/tmp/svg2kcl-comparisons`, preserving the fixture path. If no old KCL is available, the command
+still writes `new.kcl` and records the missing baseline in `old.missing.txt`. To process every SVG
+fixture, run:
+
+```bash
+npm run compare:kcl -- --all
+```
+
+Use `--out <dir>` to choose a different output directory, `--old-ref <ref>` to compare against a
+different git ref, or `--old-kcl <file>` to compare one SVG against a specific legacy KCL file.
+
+### Rebuilding Generated KCL
+
+To rebuild every SVG example under `tests/data/examples` without skipping any SVG file, run:
+
+```bash
+npm run rebuild:kcl -- --data-dir tests/data/examples
+```
+
+To rebuild only the checked-in KCL baselines across all fixture directories, run:
+
+```bash
+npm run rebuild:kcl -- --baselines
 ```

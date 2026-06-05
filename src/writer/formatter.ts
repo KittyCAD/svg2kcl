@@ -24,11 +24,13 @@ type Point2d = [number, number]
 type SegmentRef = {
   endAnchor?: string
   endTangentSketch: Point2d
+  kind: 'arc' | 'line' | 'spline'
   name: string
   pathEnd: Point2d
   pathStart: Point2d
   samplePoints: Point2d[]
   startAnchor?: string
+  startTangentSketch: Point2d
 }
 
 type RegionRef = {
@@ -38,7 +40,6 @@ type RegionRef = {
 
 type NativeArc = {
   center: Point2d
-  endTangentSketch: Point2d
   isCounterClockwise: boolean
   midpoint: Point2d
   pathEnd: Point2d
@@ -134,6 +135,10 @@ export class Formatter {
     return Math.hypot(vector[0], vector[1])
   }
 
+  private isNearlyZero(value: number): boolean {
+    return Math.abs(value) < 1e-6
+  }
+
   private getLineIntersection(
     pointA: Point2d,
     directionA: Point2d,
@@ -186,6 +191,9 @@ export class Formatter {
   private appendSegment(state: SketchState, segment: SegmentRef, lines: string[]): void {
     if (state.lastSegment?.endAnchor && segment.startAnchor) {
       lines.push(`coincident([${state.lastSegment.endAnchor}, ${segment.startAnchor}])`)
+      if (this.shouldConstrainTangent(state.lastSegment, segment)) {
+        lines.push(`tangent([${state.lastSegment.name}, ${segment.name}])`)
+      }
     } else if (!state.lastSegment) {
       state.firstSegment = segment
     }
@@ -197,6 +205,26 @@ export class Formatter {
       state.currentLoopPoints.push(segment.pathStart)
     }
     state.currentLoopPoints.push(...segment.samplePoints.slice(1))
+  }
+
+  private shouldConstrainTangent(previous: SegmentRef, next: SegmentRef): boolean {
+    if (previous.kind === 'spline' || next.kind === 'spline') {
+      return false
+    }
+
+    if (previous.kind === 'line' && next.kind === 'line') {
+      return false
+    }
+
+    const previousLength = this.length(previous.endTangentSketch)
+    const nextLength = this.length(next.startTangentSketch)
+    if (previousLength < 1e-6 || nextLength < 1e-6) {
+      return false
+    }
+
+    const cross = this.cross(previous.endTangentSketch, next.startTangentSketch)
+    const dot = this.dot(previous.endTangentSketch, next.startTangentSketch)
+    return Math.abs(cross) / (previousLength * nextLength) < 1e-4 && dot > 0
   }
 
   private getRegionPoint(points: Point2d[]): Point2d {
@@ -300,55 +328,108 @@ export class Formatter {
 
   private emitLine(state: SketchState, start: Point2d, end: Point2d, lines: string[]): void {
     const name = this.nextSegmentName(state)
+    const startSketch = this.toSketchPoint(start)
+    const endSketch = this.toSketchPoint(end)
+    const tangentSketch: Point2d = [
+      endSketch[0] - startSketch[0],
+      endSketch[1] - startSketch[1]
+    ]
+
     lines.push(
       `${name} = line(start = ${this.formatVarPoint(start)}, end = ${this.formatVarPoint(end)})`
     )
-    lines.push(`fixed([${name}.start, ${this.formatPoint(start)}])`)
-    lines.push(`fixed([${name}.end, ${this.formatPoint(end)}])`)
+    this.emitLineConstraints(name, tangentSketch, lines)
     this.appendSegment(
       state,
       {
         endAnchor: `${name}.end`,
-        endTangentSketch: [
-          this.toSketchPoint(end)[0] - this.toSketchPoint(start)[0],
-          this.toSketchPoint(end)[1] - this.toSketchPoint(start)[1]
-        ],
+        endTangentSketch: tangentSketch,
+        kind: 'line',
         name,
         pathEnd: end,
         pathStart: start,
         samplePoints: [start, end],
-        startAnchor: `${name}.start`
+        startAnchor: `${name}.start`,
+        startTangentSketch: tangentSketch
       },
       lines
     )
+  }
+
+  private emitLineConstraints(name: string, tangentSketch: Point2d, lines: string[]): void {
+    const segmentLength = this.length(tangentSketch)
+    if (segmentLength < 1e-6) {
+      return
+    }
+
+    if (this.isNearlyZero(tangentSketch[1])) {
+      lines.push(`horizontal(${name})`)
+    } else if (this.isNearlyZero(tangentSketch[0])) {
+      lines.push(`vertical(${name})`)
+    }
+
+    lines.push(`distance([${name}.start, ${name}.end]) == ${this.formatNumber(segmentLength)}`)
   }
 
   private emitNativeArc(state: SketchState, arc: NativeArc, lines: string[]): void {
     const arcStart = arc.isCounterClockwise ? arc.pathStart : arc.pathEnd
     const arcEnd = arc.isCounterClockwise ? arc.pathEnd : arc.pathStart
     const name = this.nextSegmentName(state)
+    const startTangentSketch = this.getArcTangentAtPoint(
+      arc.pathStart,
+      arc.center,
+      arc.isCounterClockwise
+    )
+    const endTangentSketch = this.getArcTangentAtPoint(
+      arc.pathEnd,
+      arc.center,
+      arc.isCounterClockwise
+    )
 
     lines.push(
       `${name} = arc(start = ${this.formatVarPoint(arcStart)}, end = ${this.formatVarPoint(
         arcEnd
       )}, center = ${this.formatVarPoint(arc.center)})`
     )
-    lines.push(`fixed([${name}.start, ${this.formatPoint(arcStart)}])`)
-    lines.push(`fixed([${name}.end, ${this.formatPoint(arcEnd)}])`)
-    lines.push(`fixed([${name}.center, ${this.formatPoint(arc.center)}])`)
+    lines.push(`radius(${name}) == ${this.formatNumber(this.getArcRadius(arc))}`)
     this.appendSegment(
       state,
       {
         endAnchor: arc.isCounterClockwise ? `${name}.end` : `${name}.start`,
-        endTangentSketch: arc.endTangentSketch,
+        endTangentSketch,
+        kind: 'arc',
         name,
         pathEnd: arc.pathEnd,
         pathStart: arc.pathStart,
         samplePoints: [arc.pathStart, arc.midpoint, arc.pathEnd],
-        startAnchor: arc.isCounterClockwise ? `${name}.start` : `${name}.end`
+        startAnchor: arc.isCounterClockwise ? `${name}.start` : `${name}.end`,
+        startTangentSketch
       },
       lines
     )
+  }
+
+  private getArcTangentAtPoint(
+    point: Point2d,
+    center: Point2d,
+    isCounterClockwise: boolean
+  ): Point2d {
+    const sketchPoint = this.toSketchPoint(point)
+    const sketchCenter = this.toSketchPoint(center)
+    const radiusVector: Point2d = [
+      sketchPoint[0] - sketchCenter[0],
+      sketchPoint[1] - sketchCenter[1]
+    ]
+
+    return isCounterClockwise
+      ? [-radiusVector[1], radiusVector[0]]
+      : [radiusVector[1], -radiusVector[0]]
+  }
+
+  private getArcRadius(arc: NativeArc): number {
+    const sketchStart = this.toSketchPoint(arc.pathStart)
+    const sketchCenter = this.toSketchPoint(arc.center)
+    return this.length(this.subtractPoints(sketchStart, sketchCenter))
   }
 
   private getCircularArcFromBezier(
@@ -418,7 +499,6 @@ export class Formatter {
 
     return {
       center: this.toModelPoint(center),
-      endTangentSketch: endTangent,
       isCounterClockwise,
       midpoint: midpointOnArc,
       pathEnd: end,
@@ -470,10 +550,10 @@ export class Formatter {
     state.currentLoopRegionSafe = false
 
     lines.push(`${name} = controlPointSpline(points = [`)
-    lines.push(`  ${this.formatPoint(start)},`)
-    lines.push(`  ${this.formatPoint(control1)},`)
-    lines.push(`  ${this.formatPoint(control2)},`)
-    lines.push(`  ${this.formatPoint(end)}`)
+    lines.push(`  ${this.formatVarPoint(start)},`)
+    lines.push(`  ${this.formatVarPoint(control1)},`)
+    lines.push(`  ${this.formatVarPoint(control2)},`)
+    lines.push(`  ${this.formatVarPoint(end)}`)
     lines.push(`])`)
     this.appendSegment(
       state,
@@ -482,10 +562,15 @@ export class Formatter {
           this.toSketchPoint(end)[0] - this.toSketchPoint(control2)[0],
           this.toSketchPoint(end)[1] - this.toSketchPoint(control2)[1]
         ],
+        kind: 'spline',
         name,
         pathEnd: end,
         pathStart: start,
-        samplePoints: [start, control1, control2, end]
+        samplePoints: [start, control1, control2, end],
+        startTangentSketch: [
+          this.toSketchPoint(control1)[0] - this.toSketchPoint(start)[0],
+          this.toSketchPoint(control1)[1] - this.toSketchPoint(start)[1]
+        ]
       },
       lines
     )
@@ -517,22 +602,11 @@ export class Formatter {
     const midpointSketch = this.addPoints(center, this.rotateVector(startVector, angleRadians / 2))
     const midpoint = this.toModelPoint(midpointSketch)
     const isCounterClockwise = angleRadians > 0
-    const arcStart = isCounterClockwise ? pathStart : pathEnd
-    const arcEnd = isCounterClockwise ? pathEnd : pathStart
-    const radiusVectorAtEnd: Point2d = [
-      endSketchPoint[0] - center[0],
-      endSketchPoint[1] - center[1]
-    ]
-    const endTangentSketch: Point2d =
-      angleRadians > 0
-        ? [-radiusVectorAtEnd[1], radiusVectorAtEnd[0]]
-        : [radiusVectorAtEnd[1], -radiusVectorAtEnd[0]]
 
     this.emitNativeArc(
       state,
       {
         center: centerPoint,
-        endTangentSketch,
         isCounterClockwise,
         midpoint,
         pathEnd,
@@ -559,9 +633,8 @@ export class Formatter {
     lines.push(
       `${name} = circle(start = ${this.formatVarPoint(start)}, center = ${this.formatVarPoint(center)})`
     )
-    lines.push(`fixed([${name}.center, ${this.formatPoint(center)}])`)
-    lines.push(`fixed([${name}.start, ${this.formatPoint(start)}])`)
     lines.push(`horizontal([${name}.center, ${name}.start])`)
+    lines.push(`diameter(${name}) == ${this.formatNumber(params.radius * 2)}`)
     state.regions.push({
       name: this.nextRegionName(state),
       point: center
@@ -583,6 +656,9 @@ export class Formatter {
 
     if (state.firstSegment?.startAnchor && state.lastSegment?.endAnchor) {
       lines.push(`coincident([${state.lastSegment.endAnchor}, ${state.firstSegment.startAnchor}])`)
+      if (this.shouldConstrainTangent(state.lastSegment, state.firstSegment)) {
+        lines.push(`tangent([${state.lastSegment.name}, ${state.firstSegment.name}])`)
+      }
     }
 
     this.addCurrentRegion(state)

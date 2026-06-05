@@ -13,7 +13,7 @@ const options: KclOptions = {
 }
 
 const dataDir = path.join(__dirname, 'data', 'elements')
-const legacyKclSyntax = /startSketchOn|startProfile|subtract2d|bezierCurve|endAbsolute|\|>/
+const disallowedKclSyntax = /startSketchOn|startProfile|subtract2d|bezierCurve|endAbsolute|fixed\(|\|>/
 
 describe('SVG Basic Elements to KCL Conversion', () => {
   it('should correctly convert basic_rectangle.svg to KCL', async () => {
@@ -27,12 +27,14 @@ describe('SVG Basic Elements to KCL Conversion', () => {
 
     expect(actualKcl.trim()).toBe(expectedKcl.trim())
     expect(actualKcl).toContain('sketch(on = XY)')
-    expect(actualKcl).toContain('fixed([')
+    expect(actualKcl).toContain('distance([')
+    expect(actualKcl).toContain('radius(')
+    expect(actualKcl).toContain('tangent([')
     expect(actualKcl).toContain('arc(start =')
     expect(actualKcl.match(/^sketch\d+ = sketch/gm)).toHaveLength(1)
     expect(actualKcl).toContain('region001 = region(')
     expect(actualKcl).toContain('region002 = region(')
-    expect(actualKcl).not.toMatch(legacyKclSyntax)
+    expect(actualKcl).not.toMatch(disallowedKclSyntax)
   })
 
   it('should correctly convert basic_circle.svg to KCL', async () => {

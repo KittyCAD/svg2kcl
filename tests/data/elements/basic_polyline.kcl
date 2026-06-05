@@ -1,32 +1,24 @@
 sketch001 = sketch(on = XY) {
   seg001 = line(start = [var 10, var -10], end = [var 30, var -90])
-  fixed([seg001.start, [10, -10]])
-  fixed([seg001.end, [30, -90]])
+  distance([seg001.start, seg001.end]) == 82.462
   seg002 = line(start = [var 30, var -90], end = [var 50, var -10])
-  fixed([seg002.start, [30, -90]])
-  fixed([seg002.end, [50, -10]])
+  distance([seg002.start, seg002.end]) == 82.462
   coincident([seg001.end, seg002.start])
   seg003 = line(start = [var 50, var -10], end = [var 70, var -90])
-  fixed([seg003.start, [50, -10]])
-  fixed([seg003.end, [70, -90]])
+  distance([seg003.start, seg003.end]) == 82.462
   coincident([seg002.end, seg003.start])
   seg004 = line(start = [var 70, var -90], end = [var 90, var -10])
-  fixed([seg004.start, [70, -90]])
-  fixed([seg004.end, [90, -10]])
+  distance([seg004.start, seg004.end]) == 82.462
   coincident([seg003.end, seg004.start])
   seg005 = line(start = [var 10, var -50], end = [var 30, var -30])
-  fixed([seg005.start, [10, -50]])
-  fixed([seg005.end, [30, -30]])
+  distance([seg005.start, seg005.end]) == 28.284
   seg006 = line(start = [var 30, var -30], end = [var 50, var -50])
-  fixed([seg006.start, [30, -30]])
-  fixed([seg006.end, [50, -50]])
+  distance([seg006.start, seg006.end]) == 28.284
   coincident([seg005.end, seg006.start])
   seg007 = line(start = [var 50, var -50], end = [var 70, var -30])
-  fixed([seg007.start, [50, -50]])
-  fixed([seg007.end, [70, -30]])
+  distance([seg007.start, seg007.end]) == 28.284
   coincident([seg006.end, seg007.start])
   seg008 = line(start = [var 70, var -30], end = [var 90, var -50])
-  fixed([seg008.start, [70, -30]])
-  fixed([seg008.end, [90, -50]])
+  distance([seg008.start, seg008.end]) == 28.284
   coincident([seg007.end, seg008.start])
 }

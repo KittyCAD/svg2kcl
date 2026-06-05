@@ -1,37 +1,34 @@
 sketch001 = sketch(on = XY) {
   seg001 = line(start = [var 10, var -10], end = [var 50, var -10])
-  fixed([seg001.start, [10, -10]])
-  fixed([seg001.end, [50, -10]])
+  horizontal(seg001)
+  distance([seg001.start, seg001.end]) == 40
   seg002 = line(start = [var 50, var -10], end = [var 50, var -50])
-  fixed([seg002.start, [50, -10]])
-  fixed([seg002.end, [50, -50]])
+  vertical(seg002)
+  distance([seg002.start, seg002.end]) == 40
   coincident([seg001.end, seg002.start])
   seg003 = line(start = [var 50, var -50], end = [var 10, var -50])
-  fixed([seg003.start, [50, -50]])
-  fixed([seg003.end, [10, -50]])
+  horizontal(seg003)
+  distance([seg003.start, seg003.end]) == 40
   coincident([seg002.end, seg003.start])
   seg004 = line(start = [var 10, var -50], end = [var 10, var -10])
-  fixed([seg004.start, [10, -50]])
-  fixed([seg004.end, [10, -10]])
+  vertical(seg004)
+  distance([seg004.start, seg004.end]) == 40
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
   seg005 = circle(start = [var 90, var -30], center = [var 70, var -30])
-  fixed([seg005.center, [70, -30]])
-  fixed([seg005.start, [90, -30]])
   horizontal([seg005.center, seg005.start])
+  diameter(seg005) == 40
   seg006 = line(start = [var 10, var -60], end = [var 90, var -60])
-  fixed([seg006.start, [10, -60]])
-  fixed([seg006.end, [90, -60]])
+  horizontal(seg006)
+  distance([seg006.start, seg006.end]) == 80
   seg007 = line(start = [var 50, var -70], end = [var 90, var -90])
-  fixed([seg007.start, [50, -70]])
-  fixed([seg007.end, [90, -90]])
+  distance([seg007.start, seg007.end]) == 44.721
   seg008 = line(start = [var 90, var -90], end = [var 10, var -90])
-  fixed([seg008.start, [90, -90]])
-  fixed([seg008.end, [10, -90]])
+  horizontal(seg008)
+  distance([seg008.start, seg008.end]) == 80
   coincident([seg007.end, seg008.start])
   seg009 = line(start = [var 10, var -90], end = [var 50, var -70])
-  fixed([seg009.start, [10, -90]])
-  fixed([seg009.end, [50, -70]])
+  distance([seg009.start, seg009.end]) == 44.721
   coincident([seg008.end, seg009.start])
   coincident([seg009.end, seg007.start])
 }

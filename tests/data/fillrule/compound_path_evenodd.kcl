@@ -1,160 +1,197 @@
 @settings(experimentalFeatures = allow)
 
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -10], end = [var 90, var -10])
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 80
-  seg002 = line(start = [var 90, var -10], end = [var 90, var -90])
+  pt003 = [var 90, var -90]
+  seg002 = line(start = pt002, end = pt003)
   vertical(seg002)
   distance([seg002.start, seg002.end]) == 80
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 90, var -90], end = [var 10, var -90])
+  pt004 = [var 10, var -90]
+  seg003 = line(start = pt003, end = pt004)
   horizontal(seg003)
   distance([seg003.start, seg003.end]) == 80
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var 10, var -90], end = [var 10, var -10])
+  seg004 = line(start = pt004, end = pt001)
   vertical(seg004)
   distance([seg004.start, seg004.end]) == 80
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
+  pt005 = [var 20, var -50]
+  pt006 = [var 23.333, var -43.333]
+  pt007 = [var 26.667, var -38.889]
+  pt008 = [var 30, var -36.667]
   seg005 = controlPointSpline(points = [
-    [var 20, var -50],
-    [var 23.333, var -43.333],
-    [var 26.667, var -38.889],
-    [var 30, var -36.667]
+    pt005,
+    pt006,
+    pt007,
+    pt008
   ])
-  seg006 = line(start = [var 30, var -36.667], end = [var 30, var -50])
+  pt009 = [var 30, var -50]
+  seg006 = line(start = pt008, end = pt009)
   vertical(seg006)
   distance([seg006.start, seg006.end]) == 13.333
-  seg007 = line(start = [var 30, var -50], end = [var 20, var -50])
+  seg007 = line(start = pt009, end = pt005)
   horizontal(seg007)
   distance([seg007.start, seg007.end]) == 10
   coincident([seg006.end, seg007.start])
-  seg008 = line(start = [var 30, var -30], end = [var 70, var -30])
+  pt010 = [var 30, var -30]
+  pt011 = [var 70, var -30]
+  seg008 = line(start = pt010, end = pt011)
   horizontal(seg008)
   distance([seg008.start, seg008.end]) == 40
-  seg009 = line(start = [var 70, var -30], end = [var 70, var -50])
+  pt012 = [var 70, var -50]
+  seg009 = line(start = pt011, end = pt012)
   vertical(seg009)
   distance([seg009.start, seg009.end]) == 20
   coincident([seg008.end, seg009.start])
-  seg010 = line(start = [var 70, var -50], end = [var 56.255, var -50])
+  pt013 = [var 56.255, var -50]
+  seg010 = line(start = pt012, end = pt013)
   horizontal(seg010)
   distance([seg010.start, seg010.end]) == 13.745
   coincident([seg009.end, seg010.start])
+  pt014 = [var 53.629, var -45.453]
+  pt015 = [var 50.557, var -44.007]
+  pt016 = [var 47.647, var -45.663]
   seg011 = controlPointSpline(points = [
-    [var 56.255, var -50],
-    [var 53.629, var -45.453],
-    [var 50.557, var -44.007],
-    [var 47.647, var -45.663]
+    pt013,
+    pt014,
+    pt015,
+    pt016
   ])
+  pt017 = [var 41.765, var -35.744]
+  pt018 = [var 35.882, var -32.745]
   seg012 = controlPointSpline(points = [
-    [var 47.647, var -45.663],
-    [var 41.765, var -35.744],
-    [var 35.882, var -32.745],
-    [var 30, var -36.667]
+    pt016,
+    pt017,
+    pt018,
+    pt008
   ])
-  seg013 = line(start = [var 30, var -36.667], end = [var 30, var -30])
+  seg013 = line(start = pt008, end = pt010)
   vertical(seg013)
   distance([seg013.start, seg013.end]) == 6.667
   coincident([seg013.end, seg008.start])
-  seg014 = line(start = [var 30, var -50], end = [var 43.745, var -50])
+  pt019 = [var 43.745, var -50]
+  seg014 = line(start = pt009, end = pt019)
   horizontal(seg014)
   distance([seg014.start, seg014.end]) == 13.745
-  seg015 = controlPointSpline(points = [
-    [var 43.745, var -50],
-    [var 42.337, var -52.44],
-    [var 41.057, var -55.773],
-    [var 40, var -60]
-  ])
-  seg016 = line(start = [var 40, var -60], end = [var 56.34, var -60])
+  pt020 = [var 40, var -60]
+  pt021 = [var 77.152, var -69.288]
+  seg015 = arc(start = pt019, end = pt020, center = pt021)
+  radius(seg015) == 38.575
+  coincident([seg014.end, seg015.start])
+  pt022 = [var 56.34, var -60]
+  seg016 = line(start = pt020, end = pt022)
   horizontal(seg016)
   distance([seg016.start, seg016.end]) == 16.34
-  seg017 = arc(start = [var 56.34, var -60], end = [var 61.156, var -64.015], center = [var 68.7, var -49.296])
+  coincident([seg015.end, seg016.start])
+  pt023 = [var 61.156, var -64.015]
+  pt024 = [var 68.7, var -49.296]
+  seg017 = arc(start = pt022, end = pt023, center = pt024)
   radius(seg017) == 16.351
   coincident([seg016.end, seg017.start])
-  seg018 = arc(start = [var 61.156, var -64.015], end = [var 63.745, var -70], center = [var 91.549, var -53.948])
+  pt025 = [var 63.745, var -70]
+  pt026 = [var 91.549, var -53.948]
+  seg018 = arc(start = pt023, end = pt025, center = pt026)
   radius(seg018) == 32.017
   coincident([seg017.end, seg018.start])
-  seg019 = line(start = [var 63.745, var -70], end = [var 30, var -70])
+  pt027 = [var 30, var -70]
+  seg019 = line(start = pt025, end = pt027)
   distance([seg019.start, seg019.end]) == 33.745
   coincident([seg018.end, seg019.start])
-  seg020 = line(start = [var 30, var -70], end = [var 30, var -50])
+  seg020 = line(start = pt027, end = pt009)
   vertical(seg020)
   distance([seg020.start, seg020.end]) == 20
   coincident([seg019.end, seg020.start])
   coincident([seg020.end, seg014.start])
-  seg021 = controlPointSpline(points = [
-    [var 43.745, var -50],
-    [var 44.969, var -47.88],
-    [var 46.29, var -46.435],
-    [var 47.647, var -45.663]
-  ])
-  seg022 = arc(start = [var 50, var -50], end = [var 47.647, var -45.663], center = [var -11.616, var -80.808])
+  pt028 = [var 53.23, var -55.476]
+  seg021 = arc(start = pt016, end = pt019, center = pt028)
+  radius(seg021) == 10.951
+  pt029 = [var 50, var -50]
+  pt030 = [var -11.616, var -80.808]
+  seg022 = arc(start = pt029, end = pt016, center = pt030)
   radius(seg022) == 68.9
-  seg023 = line(start = [var 50, var -50], end = [var 43.745, var -50])
+  coincident([seg021.start, seg022.end])
+  seg023 = line(start = pt029, end = pt019)
   distance([seg023.start, seg023.end]) == 6.255
   coincident([seg022.start, seg023.start])
-  seg024 = line(start = [var 50, var -50], end = [var 56.255, var -50])
+  coincident([seg023.end, seg021.end])
+  seg024 = line(start = pt029, end = pt013)
   horizontal(seg024)
   distance([seg024.start, seg024.end]) == 6.255
-  seg025 = controlPointSpline(points = [
-    [var 56.255, var -50],
-    [var 57.663, var -52.44],
-    [var 58.943, var -55.773],
-    [var 60, var -60]
-  ])
-  seg026 = line(start = [var 60, var -60], end = [var 56.34, var -60])
+  pt031 = [var 60, var -60]
+  pt032 = [var 22.848, var -69.288]
+  seg025 = arc(start = pt031, end = pt013, center = pt032)
+  radius(seg025) == 38.575
+  coincident([seg024.end, seg025.end])
+  seg026 = line(start = pt031, end = pt022)
   horizontal(seg026)
   distance([seg026.start, seg026.end]) == 3.66
-  seg027 = arc(start = [var 50, var -50], end = [var 56.34, var -60], center = [var 92.319, var -28.841])
+  coincident([seg025.start, seg026.start])
+  pt033 = [var 92.319, var -28.841]
+  seg027 = arc(start = pt029, end = pt022, center = pt033)
   radius(seg027) == 47.596
   coincident([seg026.end, seg027.end])
   coincident([seg027.start, seg024.start])
-  seg028 = line(start = [var 60, var -60], end = [var 70, var -60])
+  pt034 = [var 70, var -60]
+  seg028 = line(start = pt031, end = pt034)
   horizontal(seg028)
   distance([seg028.start, seg028.end]) == 10
-  seg029 = line(start = [var 70, var -60], end = [var 70, var -63.333])
+  pt035 = [var 70, var -63.333]
+  seg029 = line(start = pt034, end = pt035)
   vertical(seg029)
   distance([seg029.start, seg029.end]) == 3.333
   coincident([seg028.end, seg029.start])
-  seg030 = controlPointSpline(points = [
-    [var 70, var -63.333],
-    [var 67.052, var -65.299],
-    [var 64.104, var -65.526],
-    [var 61.156, var -64.015]
-  ])
-  seg031 = arc(start = [var 60, var -60], end = [var 61.156, var -64.015], center = [var 114.149, var -46.463])
+  pt036 = [var 65.197, var -56.13]
+  seg030 = arc(start = pt023, end = pt035, center = pt036)
+  radius(seg030) == 8.658
+  coincident([seg029.end, seg030.end])
+  pt037 = [var 114.149, var -46.463]
+  seg031 = arc(start = pt031, end = pt023, center = pt037)
   radius(seg031) == 55.825
+  coincident([seg030.start, seg031.end])
   coincident([seg031.start, seg028.start])
-  seg032 = line(start = [var 63.745, var -70], end = [var 70, var -70])
+  pt038 = [var 70, var -70]
+  seg032 = line(start = pt025, end = pt038)
   horizontal(seg032)
   distance([seg032.start, seg032.end]) == 6.255
-  seg033 = line(start = [var 70, var -70], end = [var 70, var -63.333])
+  seg033 = line(start = pt038, end = pt035)
   vertical(seg033)
   distance([seg033.start, seg033.end]) == 6.667
   coincident([seg032.end, seg033.start])
-  seg034 = arc(start = [var 70, var -63.333], end = [var 73.66, var -60], center = [var 59.743, var -47.948])
+  pt039 = [var 73.66, var -60]
+  pt040 = [var 59.743, var -47.948]
+  seg034 = arc(start = pt035, end = pt039, center = pt040)
   radius(seg034) == 18.491
   coincident([seg033.end, seg034.start])
-  seg035 = line(start = [var 73.66, var -60], end = [var 80, var -60])
+  pt041 = [var 80, var -60]
+  seg035 = line(start = pt039, end = pt041)
   distance([seg035.start, seg035.end]) == 6.34
   coincident([seg034.end, seg035.start])
+  pt042 = [var 76.057, var -75.773]
+  pt043 = [var 69.003, var -79.107]
   seg036 = controlPointSpline(points = [
-    [var 80, var -60],
-    [var 76.057, var -75.773],
-    [var 69.003, var -79.107],
-    [var 63.745, var -70]
+    pt041,
+    pt042,
+    pt043,
+    pt025
   ])
-  seg037 = line(start = [var 70, var -50], end = [var 80, var -50])
+  pt044 = [var 80, var -50]
+  seg037 = line(start = pt012, end = pt044)
   horizontal(seg037)
   distance([seg037.start, seg037.end]) == 10
-  seg038 = arc(start = [var 73.66, var -60], end = [var 80, var -50], center = [var 37.68, var -28.84])
+  pt045 = [var 37.68, var -28.84]
+  seg038 = arc(start = pt039, end = pt044, center = pt045)
   radius(seg038) == 47.316
   coincident([seg037.end, seg038.end])
-  seg039 = line(start = [var 73.66, var -60], end = [var 70, var -60])
+  seg039 = line(start = pt039, end = pt034)
   distance([seg039.start, seg039.end]) == 3.66
   coincident([seg038.start, seg039.start])
-  seg040 = line(start = [var 70, var -60], end = [var 70, var -50])
+  seg040 = line(start = pt034, end = pt012)
   vertical(seg040)
   distance([seg040.start, seg040.end]) == 10
   coincident([seg039.end, seg040.start])
@@ -163,4 +200,12 @@ sketch001 = sketch(on = XY) {
 
 region001 = region(point = [50, -10.4], sketch = sketch001)
 
-region002 = region(point = [74.987, -50.042], sketch = sketch001)
+region002 = region(point = [36.933, -50.123], sketch = sketch001)
+
+region003 = region(point = [44.652, -48.85], sketch = sketch001)
+
+region004 = region(point = [53.15, -50.046], sketch = sketch001)
+
+region005 = region(point = [65.002, -60.021], sketch = sketch001)
+
+region006 = region(point = [74.987, -50.042], sketch = sketch001)

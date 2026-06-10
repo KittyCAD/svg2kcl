@@ -1,24 +1,32 @@
 @settings(experimentalFeatures = allow)
 
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 50, var -100], end = [var 142.043, var -87.728])
+  pt001 = [var 50, var -100]
+  pt002 = [var 142.043, var -87.728]
+  seg001 = line(start = pt001, end = pt002)
   distance([seg001.start, seg001.end]) == 92.858
-  seg002 = controlPointSpline(points = [
-    [var 142.043, var -87.728],
-    [var 118.253, var -100.341],
-    [var 87.572, var -121.098],
-    [var 50, var -150]
-  ])
-  seg003 = line(start = [var 50, var -150], end = [var 50, var -100])
+  pt003 = [var 50, var -150]
+  pt004 = [var 452.446, var -673.18]
+  seg002 = arc(start = pt002, end = pt003, center = pt004)
+  radius(seg002) == 662.649
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = pt003, end = pt001)
   vertical(seg003)
   distance([seg003.start, seg003.end]) == 50
+  coincident([seg002.end, seg003.start])
   coincident([seg003.end, seg001.start])
+  pt005 = [var 142.043, var -87.727]
+  pt006 = [var 173.128, var -71.246]
+  pt007 = [var 192.447, var -68.671]
+  pt008 = [var 200, var -80]
   seg004 = controlPointSpline(points = [
-    [var 142.043, var -87.727],
-    [var 173.128, var -71.246],
-    [var 192.447, var -68.671],
-    [var 200, var -80]
+    pt005,
+    pt006,
+    pt007,
+    pt008
   ])
-  seg005 = line(start = [var 200, var -80], end = [var 142.043, var -87.727])
+  seg005 = line(start = pt008, end = pt005)
   distance([seg005.start, seg005.end]) == 58.47
 }
+
+region001 = region(point = [95.854, -94.046], sketch = sketch001)

@@ -1,25 +1,33 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 0, var -14.142], end = [var 14.142, var -28.284])
+  pt001 = [var 0, var -14.142]
+  pt002 = [var 14.142, var -28.284]
+  seg001 = line(start = pt001, end = pt002)
   distance([seg001.start, seg001.end]) == 20
-  seg002 = line(start = [var 14.142, var -28.284], end = [var 0, var -42.426])
+  pt003 = [var 0, var -42.426]
+  seg002 = line(start = pt002, end = pt003)
   distance([seg002.start, seg002.end]) == 20
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 0, var -42.426], end = [var -14.142, var -28.284])
+  pt004 = [var -14.142, var -28.284]
+  seg003 = line(start = pt003, end = pt004)
   distance([seg003.start, seg003.end]) == 20
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var -14.142, var -28.284], end = [var 0, var -14.142])
+  seg004 = line(start = pt004, end = pt001)
   distance([seg004.start, seg004.end]) == 20
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
-  seg005 = line(start = [var 0, var -56.569], end = [var 14.142, var -70.711])
+  pt005 = [var 0, var -56.569]
+  pt006 = [var 14.142, var -70.711]
+  seg005 = line(start = pt005, end = pt006)
   distance([seg005.start, seg005.end]) == 20
-  seg006 = line(start = [var 14.142, var -70.711], end = [var 0, var -84.853])
+  pt007 = [var 0, var -84.853]
+  seg006 = line(start = pt006, end = pt007)
   distance([seg006.start, seg006.end]) == 20
   coincident([seg005.end, seg006.start])
-  seg007 = line(start = [var 0, var -84.853], end = [var -14.142, var -70.711])
+  pt008 = [var -14.142, var -70.711]
+  seg007 = line(start = pt007, end = pt008)
   distance([seg007.start, seg007.end]) == 20
   coincident([seg006.end, seg007.start])
-  seg008 = line(start = [var -14.142, var -70.711], end = [var 0, var -56.569])
+  seg008 = line(start = pt008, end = pt005)
   distance([seg008.start, seg008.end]) == 20
   coincident([seg007.end, seg008.start])
   coincident([seg008.end, seg005.start])

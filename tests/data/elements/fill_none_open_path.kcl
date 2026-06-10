@@ -1,8 +1,12 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -10], end = [var 20, var -10])
+  pt001 = [var 10, var -10]
+  pt002 = [var 20, var -10]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 10
-  seg002 = line(start = [var 30, var -10], end = [var 40, var -10])
+  pt003 = [var 30, var -10]
+  pt004 = [var 40, var -10]
+  seg002 = line(start = pt003, end = pt004)
   horizontal(seg002)
   distance([seg002.start, seg002.end]) == 10
 }

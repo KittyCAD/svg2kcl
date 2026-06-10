@@ -1,21 +1,26 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 0, var 0], end = [var 50, var -50])
+  pt001 = [var 0, var 0]
+  pt002 = [var 50, var -50]
+  seg001 = line(start = pt001, end = pt002)
   distance([seg001.start, seg001.end]) == 70.711
-  seg002 = line(start = [var 50, var -50], end = [var 0, var -100])
+  pt003 = [var 0, var -100]
+  seg002 = line(start = pt002, end = pt003)
   distance([seg002.start, seg002.end]) == 70.711
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 0, var -100], end = [var 0, var 0])
+  seg003 = line(start = pt003, end = pt001)
   vertical(seg003)
   distance([seg003.start, seg003.end]) == 100
   coincident([seg002.end, seg003.start])
   coincident([seg003.end, seg001.start])
-  seg004 = line(start = [var 50, var -50], end = [var 100, var 0])
+  pt004 = [var 100, var 0]
+  seg004 = line(start = pt002, end = pt004)
   distance([seg004.start, seg004.end]) == 70.711
-  seg005 = line(start = [var 100, var 0], end = [var 100, var -100])
+  pt005 = [var 100, var -100]
+  seg005 = line(start = pt004, end = pt005)
   vertical(seg005)
   distance([seg005.start, seg005.end]) == 100
   coincident([seg004.end, seg005.start])
-  seg006 = line(start = [var 100, var -100], end = [var 50, var -50])
+  seg006 = line(start = pt005, end = pt002)
   distance([seg006.start, seg006.end]) == 70.711
   coincident([seg005.end, seg006.start])
   coincident([seg006.end, seg004.start])

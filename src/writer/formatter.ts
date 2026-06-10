@@ -23,6 +23,7 @@ type Point2d = [number, number]
 
 type SegmentRef = {
   endAnchor?: string
+  endPointRef: string
   endTangentSketch: Point2d
   kind: 'arc' | 'line' | 'spline'
   name: string
@@ -30,6 +31,7 @@ type SegmentRef = {
   pathStart: Point2d
   samplePoints: Point2d[]
   startAnchor?: string
+  startPointRef: string
   startTangentSketch: Point2d
 }
 
@@ -48,10 +50,13 @@ type NativeArc = {
 
 type SketchState = {
   currentPoint: Point2d | null
+  currentPointRef: string | null
   currentLoopPoints: Point2d[]
   currentLoopRegionSafe: boolean
   firstSegment: SegmentRef | null
   lastSegment: SegmentRef | null
+  pointCounter: number
+  pointRefs: Map<string, string>
   regionCounter: number
   regions: RegionRef[]
   segmentCounter: number
@@ -175,6 +180,44 @@ export class Formatter {
     return `seg${String(state.segmentCounter).padStart(3, '0')}`
   }
 
+  private nextPointName(state: SketchState): string {
+    state.pointCounter += 1
+    return `pt${String(state.pointCounter).padStart(3, '0')}`
+  }
+
+  private getPointKey(point: Point2d): string {
+    const sketchPoint = this.toSketchPoint(point)
+    return `${this.formatNumber(sketchPoint[0])},${this.formatNumber(sketchPoint[1])}`
+  }
+
+  private definePointRef(
+    state: SketchState,
+    point: Point2d,
+    lines: string[],
+    reuseExisting = true
+  ): string {
+    const key = this.getPointKey(point)
+    const existing = state.pointRefs.get(key)
+    if (reuseExisting && existing) {
+      return existing
+    }
+
+    const name = this.nextPointName(state)
+    lines.push(`${name} = ${this.formatVarPoint(point)}`)
+    if (reuseExisting) {
+      state.pointRefs.set(key, name)
+    }
+    return name
+  }
+
+  private getSegmentStartPointRef(state: SketchState, point: Point2d, lines: string[]): string {
+    if (state.currentPointRef) {
+      return state.currentPointRef
+    }
+
+    return this.definePointRef(state, point, lines)
+  }
+
   private nextRegionName(state: SketchState): string {
     state.regionCounter += 1
     return `region${String(state.regionCounter).padStart(3, '0')}`
@@ -182,6 +225,7 @@ export class Formatter {
 
   private resetPathState(state: SketchState): void {
     state.currentPoint = null
+    state.currentPointRef = null
     state.currentLoopPoints = []
     state.currentLoopRegionSafe = true
     state.firstSegment = null
@@ -200,6 +244,7 @@ export class Formatter {
 
     state.lastSegment = segment
     state.currentPoint = segment.pathEnd
+    state.currentPointRef = segment.endPointRef
 
     if (state.currentLoopPoints.length === 0) {
       state.currentLoopPoints.push(segment.pathStart)
@@ -328,6 +373,8 @@ export class Formatter {
 
   private emitLine(state: SketchState, start: Point2d, end: Point2d, lines: string[]): void {
     const name = this.nextSegmentName(state)
+    const startPointRef = this.getSegmentStartPointRef(state, start, lines)
+    const endPointRef = this.definePointRef(state, end, lines)
     const startSketch = this.toSketchPoint(start)
     const endSketch = this.toSketchPoint(end)
     const tangentSketch: Point2d = [
@@ -335,14 +382,13 @@ export class Formatter {
       endSketch[1] - startSketch[1]
     ]
 
-    lines.push(
-      `${name} = line(start = ${this.formatVarPoint(start)}, end = ${this.formatVarPoint(end)})`
-    )
+    lines.push(`${name} = line(start = ${startPointRef}, end = ${endPointRef})`)
     this.emitLineConstraints(name, tangentSketch, lines)
     this.appendSegment(
       state,
       {
         endAnchor: `${name}.end`,
+        endPointRef,
         endTangentSketch: tangentSketch,
         kind: 'line',
         name,
@@ -350,6 +396,7 @@ export class Formatter {
         pathStart: start,
         samplePoints: [start, end],
         startAnchor: `${name}.start`,
+        startPointRef,
         startTangentSketch: tangentSketch
       },
       lines
@@ -374,6 +421,11 @@ export class Formatter {
   private emitNativeArc(state: SketchState, arc: NativeArc, lines: string[]): void {
     const arcStart = arc.isCounterClockwise ? arc.pathStart : arc.pathEnd
     const arcEnd = arc.isCounterClockwise ? arc.pathEnd : arc.pathStart
+    const startPointRef = this.getSegmentStartPointRef(state, arc.pathStart, lines)
+    const endPointRef = this.definePointRef(state, arc.pathEnd, lines)
+    const arcStartPointRef = arc.isCounterClockwise ? startPointRef : endPointRef
+    const arcEndPointRef = arc.isCounterClockwise ? endPointRef : startPointRef
+    const centerPointRef = this.definePointRef(state, arc.center, lines)
     const name = this.nextSegmentName(state)
     const startTangentSketch = this.getArcTangentAtPoint(
       arc.pathStart,
@@ -386,16 +438,13 @@ export class Formatter {
       arc.isCounterClockwise
     )
 
-    lines.push(
-      `${name} = arc(start = ${this.formatVarPoint(arcStart)}, end = ${this.formatVarPoint(
-        arcEnd
-      )}, center = ${this.formatVarPoint(arc.center)})`
-    )
+    lines.push(`${name} = arc(start = ${arcStartPointRef}, end = ${arcEndPointRef}, center = ${centerPointRef})`)
     lines.push(`radius(${name}) == ${this.formatNumber(this.getArcRadius(arc))}`)
     this.appendSegment(
       state,
       {
         endAnchor: arc.isCounterClockwise ? `${name}.end` : `${name}.start`,
+        endPointRef,
         endTangentSketch,
         kind: 'arc',
         name,
@@ -403,6 +452,7 @@ export class Formatter {
         pathStart: arc.pathStart,
         samplePoints: [arc.pathStart, arc.midpoint, arc.pathEnd],
         startAnchor: arc.isCounterClockwise ? `${name}.start` : `${name}.end`,
+        startPointRef,
         startTangentSketch
       },
       lines
@@ -462,9 +512,10 @@ export class Formatter {
     const endRadius = this.subtractPoints(sketchEnd, center)
     const radius = this.length(startRadius)
     const endRadiusLength = this.length(endRadius)
-    if (radius < 1e-6 || Math.abs(radius - endRadiusLength) / radius > 0.04) {
+    if (radius < 1e-6) {
       return null
     }
+    const radiusMismatch = Math.abs(radius - endRadiusLength) / radius
 
     const ccwStartTangent: Point2d = [-startRadius[1], startRadius[0]]
     const isCounterClockwise = this.dot(startTangent, ccwStartTangent) > 0
@@ -485,12 +536,29 @@ export class Formatter {
       Math.abs(startHandleLength - expectedHandleLength),
       Math.abs(endHandleLength - expectedHandleLength)
     )
-    if (maxHandleError / expectedHandleLength > 0.2) {
-      return null
-    }
+    const handleMismatch = maxHandleError / expectedHandleLength
 
     const midpoint = this.getBezierPoint(sketchStart, sketchControl1, sketchControl2, sketchEnd, 0.5)
-    if (Math.abs(this.length(this.subtractPoints(midpoint, center)) - radius) / radius > 0.02) {
+    const midpointRadiusMismatch =
+      Math.abs(this.length(this.subtractPoints(midpoint, center)) - radius) / radius
+    const radialFit = this.getBezierRadialFit(
+      sketchStart,
+      sketchControl1,
+      sketchControl2,
+      sketchEnd,
+      center,
+      radius
+    )
+    const isStrictCircularArc =
+      radiusMismatch <= 0.04 && handleMismatch <= 0.2 && midpointRadiusMismatch <= 0.02
+    const isFilletLikeArc =
+      sweepAngle <= (2 * Math.PI) / 3 &&
+      radiusMismatch <= 0.22 &&
+      handleMismatch <= 0.35 &&
+      radialFit.maxRelativeError <= 0.22 &&
+      radialFit.rmsRelativeError <= 0.13
+
+    if (!isStrictCircularArc && !isFilletLikeArc) {
       return null
     }
 
@@ -503,6 +571,32 @@ export class Formatter {
       midpoint: midpointOnArc,
       pathEnd: end,
       pathStart: start
+    }
+  }
+
+  private getBezierRadialFit(
+    start: Point2d,
+    control1: Point2d,
+    control2: Point2d,
+    end: Point2d,
+    center: Point2d,
+    radius: number
+  ): { maxRelativeError: number; rmsRelativeError: number } {
+    let maxError = 0
+    let squaredErrorSum = 0
+    const sampleCount = 9
+
+    for (let index = 0; index < sampleCount; index++) {
+      const t = index / (sampleCount - 1)
+      const point = this.getBezierPoint(start, control1, control2, end, t)
+      const error = Math.abs(this.length(this.subtractPoints(point, center)) - radius)
+      maxError = Math.max(maxError, error)
+      squaredErrorSum += error ** 2
+    }
+
+    return {
+      maxRelativeError: maxError / radius,
+      rmsRelativeError: Math.sqrt(squaredErrorSum / sampleCount) / radius
     }
   }
 
@@ -546,18 +640,23 @@ export class Formatter {
     }
 
     const name = this.nextSegmentName(state)
+    const startPointRef = this.getSegmentStartPointRef(state, start, lines)
+    const control1PointRef = this.definePointRef(state, control1, lines, false)
+    const control2PointRef = this.definePointRef(state, control2, lines, false)
+    const endPointRef = this.definePointRef(state, end, lines)
     this.usesExperimentalSpline = true
     state.currentLoopRegionSafe = false
 
     lines.push(`${name} = controlPointSpline(points = [`)
-    lines.push(`  ${this.formatVarPoint(start)},`)
-    lines.push(`  ${this.formatVarPoint(control1)},`)
-    lines.push(`  ${this.formatVarPoint(control2)},`)
-    lines.push(`  ${this.formatVarPoint(end)}`)
+    lines.push(`  ${startPointRef},`)
+    lines.push(`  ${control1PointRef},`)
+    lines.push(`  ${control2PointRef},`)
+    lines.push(`  ${endPointRef}`)
     lines.push(`])`)
     this.appendSegment(
       state,
       {
+        endPointRef,
         endTangentSketch: [
           this.toSketchPoint(end)[0] - this.toSketchPoint(control2)[0],
           this.toSketchPoint(end)[1] - this.toSketchPoint(control2)[1]
@@ -567,6 +666,7 @@ export class Formatter {
         pathEnd: end,
         pathStart: start,
         samplePoints: [start, control1, control2, end],
+        startPointRef,
         startTangentSketch: [
           this.toSketchPoint(control1)[0] - this.toSketchPoint(start)[0],
           this.toSketchPoint(control1)[1] - this.toSketchPoint(start)[1]
@@ -676,6 +776,7 @@ export class Formatter {
             throw new FormatterError('Invalid StartSketch parameters')
           }
           state.currentPoint = operation.params.point
+          state.currentPointRef = null
           state.currentLoopPoints = [operation.params.point]
           state.currentLoopRegionSafe = true
           state.firstSegment = null
@@ -788,10 +889,13 @@ export class Formatter {
     const variable = shape.variable || 'sketch'
     const state: SketchState = {
       currentPoint: null,
+      currentPointRef: null,
       currentLoopPoints: [],
       currentLoopRegionSafe: true,
       firstSegment: null,
       lastSegment: null,
+      pointCounter: 0,
+      pointRefs: new Map<string, string>(),
       regionCounter: 0,
       regions: [],
       segmentCounter: 0

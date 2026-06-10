@@ -44,7 +44,8 @@ export class KclWriter {
     kclOperationSets: KclOperation[][],
     outputPath: string
   ): Promise<string> {
-    const kcl = this.format(kclOperationSets)
+    const formattedKcl = this.format(kclOperationSets)
+    const kcl = formattedKcl && !formattedKcl.endsWith('\n') ? `${formattedKcl}\n` : formattedKcl
     await fs.writeFile(outputPath, kcl, 'utf8')
     return kcl
   }

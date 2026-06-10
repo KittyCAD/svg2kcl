@@ -1,15 +1,19 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 50.718, var -40], end = [var 70.718, var -40])
+  pt001 = [var 50.718, var -40]
+  pt002 = [var 70.718, var -40]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 20
-  seg002 = line(start = [var 70.718, var -40], end = [var 76.077, var -60])
+  pt003 = [var 76.077, var -60]
+  seg002 = line(start = pt002, end = pt003)
   distance([seg002.start, seg002.end]) == 20.706
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 76.077, var -60], end = [var 56.077, var -60])
+  pt004 = [var 56.077, var -60]
+  seg003 = line(start = pt003, end = pt004)
   horizontal(seg003)
   distance([seg003.start, seg003.end]) == 20
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var 56.077, var -60], end = [var 50.718, var -40])
+  seg004 = line(start = pt004, end = pt001)
   distance([seg004.start, seg004.end]) == 20.706
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])

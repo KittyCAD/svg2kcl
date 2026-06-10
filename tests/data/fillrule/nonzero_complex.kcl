@@ -1,16 +1,20 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -10], end = [var 90, var -10])
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 80
-  seg002 = line(start = [var 90, var -10], end = [var 90, var -90])
+  pt003 = [var 90, var -90]
+  seg002 = line(start = pt002, end = pt003)
   vertical(seg002)
   distance([seg002.start, seg002.end]) == 80
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 90, var -90], end = [var 10, var -90])
+  pt004 = [var 10, var -90]
+  seg003 = line(start = pt003, end = pt004)
   horizontal(seg003)
   distance([seg003.start, seg003.end]) == 80
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var 10, var -90], end = [var 10, var -10])
+  seg004 = line(start = pt004, end = pt001)
   vertical(seg004)
   distance([seg004.start, seg004.end]) == 80
   coincident([seg003.end, seg004.start])

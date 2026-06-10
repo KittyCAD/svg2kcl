@@ -1,16 +1,20 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -10], end = [var 50, var -10])
+  pt001 = [var 10, var -10]
+  pt002 = [var 50, var -10]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 40
-  seg002 = line(start = [var 50, var -10], end = [var 50, var -50])
+  pt003 = [var 50, var -50]
+  seg002 = line(start = pt002, end = pt003)
   vertical(seg002)
   distance([seg002.start, seg002.end]) == 40
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 50, var -50], end = [var 10, var -50])
+  pt004 = [var 10, var -50]
+  seg003 = line(start = pt003, end = pt004)
   horizontal(seg003)
   distance([seg003.start, seg003.end]) == 40
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var 10, var -50], end = [var 10, var -10])
+  seg004 = line(start = pt004, end = pt001)
   vertical(seg004)
   distance([seg004.start, seg004.end]) == 40
   coincident([seg003.end, seg004.start])
@@ -18,16 +22,21 @@ sketch001 = sketch(on = XY) {
   seg005 = circle(start = [var 90, var -30], center = [var 70, var -30])
   horizontal([seg005.center, seg005.start])
   diameter(seg005) == 40
-  seg006 = line(start = [var 10, var -60], end = [var 90, var -60])
+  pt005 = [var 10, var -60]
+  pt006 = [var 90, var -60]
+  seg006 = line(start = pt005, end = pt006)
   horizontal(seg006)
   distance([seg006.start, seg006.end]) == 80
-  seg007 = line(start = [var 50, var -70], end = [var 90, var -90])
+  pt007 = [var 50, var -70]
+  pt008 = [var 90, var -90]
+  seg007 = line(start = pt007, end = pt008)
   distance([seg007.start, seg007.end]) == 44.721
-  seg008 = line(start = [var 90, var -90], end = [var 10, var -90])
+  pt009 = [var 10, var -90]
+  seg008 = line(start = pt008, end = pt009)
   horizontal(seg008)
   distance([seg008.start, seg008.end]) == 80
   coincident([seg007.end, seg008.start])
-  seg009 = line(start = [var 10, var -90], end = [var 50, var -70])
+  seg009 = line(start = pt009, end = pt007)
   distance([seg009.start, seg009.end]) == 44.721
   coincident([seg008.end, seg009.start])
   coincident([seg009.end, seg007.start])

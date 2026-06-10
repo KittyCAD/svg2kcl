@@ -1,34 +1,44 @@
 @settings(experimentalFeatures = allow)
 
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -10], end = [var 90, var -10])
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 80
-  seg002 = line(start = [var 90, var -10], end = [var 90, var -90])
+  pt003 = [var 90, var -90]
+  seg002 = line(start = pt002, end = pt003)
   vertical(seg002)
   distance([seg002.start, seg002.end]) == 80
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 90, var -90], end = [var 10, var -90])
+  pt004 = [var 10, var -90]
+  seg003 = line(start = pt003, end = pt004)
   horizontal(seg003)
   distance([seg003.start, seg003.end]) == 80
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var 10, var -90], end = [var 10, var -10])
+  seg004 = line(start = pt004, end = pt001)
   vertical(seg004)
   distance([seg004.start, seg004.end]) == 80
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
-  seg005 = line(start = [var 50, var -50], end = [var 90, var -50])
+  pt005 = [var 50, var -50]
+  pt006 = [var 90, var -50]
+  seg005 = line(start = pt005, end = pt006)
   horizontal(seg005)
   distance([seg005.start, seg005.end]) == 40
+  pt007 = [var 80, var -80]
+  pt008 = [var 60, var -80]
   seg006 = controlPointSpline(points = [
-    [var 90, var -50],
-    [var 80, var -80],
-    [var 60, var -80],
-    [var 50, var -50]
+    pt006,
+    pt007,
+    pt008,
+    pt005
   ])
-  seg007 = line(start = [var 75, var -45], end = [var 90, var -50])
+  pt009 = [var 75, var -45]
+  seg007 = line(start = pt009, end = pt006)
   distance([seg007.start, seg007.end]) == 15.811
-  seg008 = arc(start = [var 75, var -45], end = [var 90, var -50], center = [var 90, var -22.5])
+  pt010 = [var 90, var -22.5]
+  seg008 = arc(start = pt009, end = pt006, center = pt010)
   radius(seg008) == 27.5
   coincident([seg007.end, seg008.end])
   coincident([seg008.start, seg007.start])

@@ -1,51 +1,67 @@
 sketch001 = sketch(on = XY) {
-  seg001 = line(start = [var 10, var -10], end = [var 90, var -10])
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
   horizontal(seg001)
   distance([seg001.start, seg001.end]) == 80
-  seg002 = line(start = [var 90, var -10], end = [var 90, var -50])
+  pt003 = [var 90, var -50]
+  seg002 = line(start = pt002, end = pt003)
   vertical(seg002)
   distance([seg002.start, seg002.end]) == 40
   coincident([seg001.end, seg002.start])
-  seg003 = line(start = [var 90, var -50], end = [var 10, var -50])
+  pt004 = [var 10, var -50]
+  seg003 = line(start = pt003, end = pt004)
   horizontal(seg003)
   distance([seg003.start, seg003.end]) == 80
   coincident([seg002.end, seg003.start])
-  seg004 = line(start = [var 10, var -50], end = [var 10, var -10])
+  seg004 = line(start = pt004, end = pt001)
   vertical(seg004)
   distance([seg004.start, seg004.end]) == 40
   coincident([seg003.end, seg004.start])
   coincident([seg004.end, seg001.start])
-  seg005 = line(start = [var 30, var -60], end = [var 70, var -60])
+  pt005 = [var 30, var -60]
+  pt006 = [var 70, var -60]
+  seg005 = line(start = pt005, end = pt006)
   horizontal(seg005)
   distance([seg005.start, seg005.end]) == 40
-  seg006 = arc(start = [var 80, var -70], end = [var 70, var -60], center = [var 70, var -70])
+  pt007 = [var 80, var -70]
+  pt008 = [var 70, var -70]
+  seg006 = arc(start = pt007, end = pt006, center = pt008)
   radius(seg006) == 10
   coincident([seg005.end, seg006.end])
   tangent([seg005, seg006])
-  seg007 = line(start = [var 80, var -70], end = [var 80, var -80])
+  pt009 = [var 80, var -80]
+  seg007 = line(start = pt007, end = pt009)
   vertical(seg007)
   distance([seg007.start, seg007.end]) == 10
   coincident([seg006.start, seg007.start])
   tangent([seg006, seg007])
-  seg008 = arc(start = [var 70, var -90], end = [var 80, var -80], center = [var 70, var -80])
+  pt010 = [var 70, var -90]
+  pt011 = [var 70, var -80]
+  seg008 = arc(start = pt010, end = pt009, center = pt011)
   radius(seg008) == 10
   coincident([seg007.end, seg008.end])
   tangent([seg007, seg008])
-  seg009 = line(start = [var 70, var -90], end = [var 30, var -90])
+  pt012 = [var 30, var -90]
+  seg009 = line(start = pt010, end = pt012)
   horizontal(seg009)
   distance([seg009.start, seg009.end]) == 40
   coincident([seg008.start, seg009.start])
   tangent([seg008, seg009])
-  seg010 = arc(start = [var 20, var -80], end = [var 30, var -90], center = [var 30, var -80])
+  pt013 = [var 20, var -80]
+  pt014 = [var 30, var -80]
+  seg010 = arc(start = pt013, end = pt012, center = pt014)
   radius(seg010) == 10
   coincident([seg009.end, seg010.end])
   tangent([seg009, seg010])
-  seg011 = line(start = [var 20, var -80], end = [var 20, var -70])
+  pt015 = [var 20, var -70]
+  seg011 = line(start = pt013, end = pt015)
   vertical(seg011)
   distance([seg011.start, seg011.end]) == 10
   coincident([seg010.start, seg011.start])
   tangent([seg010, seg011])
-  seg012 = arc(start = [var 30, var -60], end = [var 20, var -70], center = [var 30, var -70])
+  pt016 = [var 30, var -70]
+  seg012 = arc(start = pt005, end = pt015, center = pt016)
   radius(seg012) == 10
   coincident([seg011.end, seg012.end])
   tangent([seg011, seg012])

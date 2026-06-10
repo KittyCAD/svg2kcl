@@ -21,6 +21,11 @@ export class FormatterError extends Error {
 
 type Point2d = [number, number]
 
+type PointRef = {
+  name: string
+  point: Point2d
+}
+
 type SegmentRef = {
   endAnchor?: string
   endPointRef: string
@@ -50,19 +55,25 @@ type NativeArc = {
 
 type SketchState = {
   currentPoint: Point2d | null
-  currentPointRef: string | null
+  currentPointRef: PointRef | null
   currentLoopPoints: Point2d[]
   currentLoopRegionSafe: boolean
+  coincidentConstraintKeys: Set<string>
+  endpointRefs: PointRef[]
   firstSegment: SegmentRef | null
   lastSegment: SegmentRef | null
   pointCounter: number
   pointRefs: Map<string, string>
   regionCounter: number
   regions: RegionRef[]
+  segments: SegmentRef[]
   segmentCounter: number
 }
 
 const INVERT_Y = true
+const ENDPOINT_SNAP_TOLERANCE = 0.15
+const POINT_ON_LINE_TOLERANCE = 0.25
+const POINT_ON_LINE_ENDPOINT_MARGIN = 0.02
 
 export class Formatter {
   private usesExperimentalSpline = false
@@ -210,12 +221,28 @@ export class Formatter {
     return name
   }
 
-  private getSegmentStartPointRef(state: SketchState, point: Point2d, lines: string[]): string {
+  private defineEndpointRef(state: SketchState, point: Point2d, lines: string[]): PointRef {
+    for (const existing of state.endpointRefs) {
+      if (Math.hypot(existing.point[0] - point[0], existing.point[1] - point[1]) <= ENDPOINT_SNAP_TOLERANCE) {
+        return existing
+      }
+    }
+
+    const pointRef: PointRef = {
+      name: this.nextPointName(state),
+      point
+    }
+    lines.push(`${pointRef.name} = ${this.formatVarPoint(pointRef.point)}`)
+    state.endpointRefs.push(pointRef)
+    return pointRef
+  }
+
+  private getSegmentStartPointRef(state: SketchState, point: Point2d, lines: string[]): PointRef {
     if (state.currentPointRef) {
       return state.currentPointRef
     }
 
-    return this.definePointRef(state, point, lines)
+    return this.defineEndpointRef(state, point, lines)
   }
 
   private nextRegionName(state: SketchState): string {
@@ -234,7 +261,7 @@ export class Formatter {
 
   private appendSegment(state: SketchState, segment: SegmentRef, lines: string[]): void {
     if (state.lastSegment?.endAnchor && segment.startAnchor) {
-      lines.push(`coincident([${state.lastSegment.endAnchor}, ${segment.startAnchor}])`)
+      this.emitCoincident(state, lines, state.lastSegment.endAnchor, segment.startAnchor)
       if (this.shouldConstrainTangent(state.lastSegment, segment)) {
         lines.push(`tangent([${state.lastSegment.name}, ${segment.name}])`)
       }
@@ -244,12 +271,35 @@ export class Formatter {
 
     state.lastSegment = segment
     state.currentPoint = segment.pathEnd
-    state.currentPointRef = segment.endPointRef
+    state.currentPointRef = {
+      name: segment.endPointRef,
+      point: segment.pathEnd
+    }
+    state.segments.push(segment)
 
     if (state.currentLoopPoints.length === 0) {
       state.currentLoopPoints.push(segment.pathStart)
     }
     state.currentLoopPoints.push(...segment.samplePoints.slice(1))
+  }
+
+  private emitCoincident(
+    state: SketchState,
+    lines: string[],
+    anchorA: string,
+    anchorB: string
+  ): void {
+    if (anchorA === anchorB) {
+      return
+    }
+
+    const key = [anchorA, anchorB].sort().join('|')
+    if (state.coincidentConstraintKeys.has(key)) {
+      return
+    }
+
+    lines.push(`coincident([${anchorA}, ${anchorB}])`)
+    state.coincidentConstraintKeys.add(key)
   }
 
   private shouldConstrainTangent(previous: SegmentRef, next: SegmentRef): boolean {
@@ -297,6 +347,10 @@ export class Formatter {
 
     if (Math.abs(twiceArea) > 1e-6) {
       const centroid: Point2d = [centroidX / (3 * twiceArea), centroidY / (3 * twiceArea)]
+      if (this.isPointInsidePolygon(centroid, uniquePoints)) {
+        return centroid
+      }
+
       const edgeCandidate = this.getInteriorEdgePoint(uniquePoints, centroid)
       if (edgeCandidate) {
         return edgeCandidate
@@ -371,32 +425,307 @@ export class Formatter {
     })
   }
 
+  private emitEndpointClusterCoincidences(state: SketchState, lines: string[]): void {
+    const endpointAnchors = new Map<string, string[]>()
+
+    for (const segment of state.segments) {
+      if (segment.startAnchor) {
+        const anchors = endpointAnchors.get(segment.startPointRef) ?? []
+        anchors.push(segment.startAnchor)
+        endpointAnchors.set(segment.startPointRef, anchors)
+      }
+
+      if (segment.endAnchor) {
+        const anchors = endpointAnchors.get(segment.endPointRef) ?? []
+        anchors.push(segment.endAnchor)
+        endpointAnchors.set(segment.endPointRef, anchors)
+      }
+    }
+
+    for (const anchors of endpointAnchors.values()) {
+      if (anchors.length < 2) {
+        continue
+      }
+
+      const [firstAnchor, ...remainingAnchors] = anchors
+      for (const anchor of remainingAnchors) {
+        this.emitCoincident(state, lines, firstAnchor, anchor)
+      }
+    }
+  }
+
+  private emitPointOnLineCoincidences(state: SketchState, lines: string[]): void {
+    const linesWithAnchors = state.segments.filter((segment) => {
+      return segment.kind === 'line' && segment.startAnchor && segment.endAnchor
+    })
+    const endpoints = state.segments.flatMap((segment) => {
+      return [
+        {
+          anchor: segment.startAnchor,
+          point: segment.pathStart,
+          pointRef: segment.startPointRef,
+          segmentName: segment.name
+        },
+        {
+          anchor: segment.endAnchor,
+          point: segment.pathEnd,
+          pointRef: segment.endPointRef,
+          segmentName: segment.name
+        }
+      ]
+    })
+
+    for (const endpoint of endpoints) {
+      if (!endpoint.anchor) {
+        continue
+      }
+
+      for (const lineSegment of linesWithAnchors) {
+        if (
+          endpoint.segmentName === lineSegment.name ||
+          endpoint.pointRef === lineSegment.startPointRef ||
+          endpoint.pointRef === lineSegment.endPointRef
+        ) {
+          continue
+        }
+
+        const distance = this.getPointToLineSegmentDistance(
+          endpoint.point,
+          lineSegment.pathStart,
+          lineSegment.pathEnd
+        )
+        if (
+          distance.t <= POINT_ON_LINE_ENDPOINT_MARGIN ||
+          distance.t >= 1 - POINT_ON_LINE_ENDPOINT_MARGIN ||
+          distance.distance > POINT_ON_LINE_TOLERANCE
+        ) {
+          continue
+        }
+
+        this.emitCoincident(state, lines, endpoint.anchor, lineSegment.name)
+      }
+    }
+  }
+
+  private getPointToLineSegmentDistance(
+    point: Point2d,
+    lineStart: Point2d,
+    lineEnd: Point2d
+  ): { distance: number; t: number } {
+    const lineVector = this.subtractPoints(lineEnd, lineStart)
+    const lengthSquared = this.dot(lineVector, lineVector)
+    if (lengthSquared < 1e-12) {
+      return { distance: Infinity, t: Number.NaN }
+    }
+
+    const startToPoint = this.subtractPoints(point, lineStart)
+    const t = this.dot(startToPoint, lineVector) / lengthSquared
+    const closestPoint: Point2d = [
+      lineStart[0] + t * lineVector[0],
+      lineStart[1] + t * lineVector[1]
+    ]
+
+    return {
+      distance: this.length(this.subtractPoints(point, closestPoint)),
+      t
+    }
+  }
+
+  private addGraphRegions(state: SketchState): void {
+    const faces = this.findClosedGraphFaces(state).sort((faceA, faceB) => {
+      return Math.abs(faceB.area) - Math.abs(faceA.area)
+    })
+
+    if (faces.length === 0) {
+      return
+    }
+
+    state.regions = []
+    state.regionCounter = 0
+    for (const face of faces) {
+      if (face.points.length < 3 || Math.abs(face.area) < 1e-3) {
+        continue
+      }
+
+      state.regions.push({
+        name: this.nextRegionName(state),
+        point: this.getRegionPoint(face.points)
+      })
+    }
+  }
+
+  private findClosedGraphFaces(state: SketchState): Array<{ area: number; points: Point2d[] }> {
+    type HalfEdge = {
+      edgeIndex: number
+      from: string
+      reversed: boolean
+      segment: SegmentRef
+      to: string
+    }
+
+    const pointByRef = new Map<string, Point2d>()
+    for (const endpointRef of state.endpointRefs) {
+      pointByRef.set(endpointRef.name, endpointRef.point)
+    }
+
+    const adjacency = new Map<string, HalfEdge[]>()
+    const addHalfEdge = (halfEdge: HalfEdge): void => {
+      const halfEdges = adjacency.get(halfEdge.from) ?? []
+      halfEdges.push(halfEdge)
+      adjacency.set(halfEdge.from, halfEdges)
+    }
+
+    state.segments.forEach((segment, edgeIndex) => {
+      if (segment.startPointRef === segment.endPointRef) {
+        return
+      }
+
+      addHalfEdge({
+        edgeIndex,
+        from: segment.startPointRef,
+        reversed: false,
+        segment,
+        to: segment.endPointRef
+      })
+      addHalfEdge({
+        edgeIndex,
+        from: segment.endPointRef,
+        reversed: true,
+        segment,
+        to: segment.startPointRef
+      })
+    })
+
+    const getAngle = (halfEdge: HalfEdge): number => {
+      const from = pointByRef.get(halfEdge.from)
+      const to = pointByRef.get(halfEdge.to)
+      if (!from || !to) {
+        return 0
+      }
+      return Math.atan2(to[1] - from[1], to[0] - from[0])
+    }
+
+    for (const halfEdges of adjacency.values()) {
+      halfEdges.sort((a, b) => getAngle(a) - getAngle(b))
+    }
+
+    const visited = new Set<string>()
+    const faces: Array<{ area: number; points: Point2d[] }> = []
+    const halfEdgeKey = (halfEdge: HalfEdge): string =>
+      `${halfEdge.edgeIndex}:${halfEdge.reversed ? 'r' : 'f'}`
+
+    for (const halfEdges of adjacency.values()) {
+      for (const startHalfEdge of halfEdges) {
+        const startKey = halfEdgeKey(startHalfEdge)
+        if (visited.has(startKey)) {
+          continue
+        }
+
+        const faceHalfEdges: HalfEdge[] = []
+        let current = startHalfEdge
+
+        while (!visited.has(halfEdgeKey(current))) {
+          visited.add(halfEdgeKey(current))
+          faceHalfEdges.push(current)
+
+          const outgoing = adjacency.get(current.to)
+          if (!outgoing) {
+            break
+          }
+
+          const reverseIndex = outgoing.findIndex((candidate) => {
+            return candidate.edgeIndex === current.edgeIndex && candidate.to === current.from
+          })
+          if (reverseIndex < 0) {
+            break
+          }
+
+          current = outgoing[(reverseIndex - 1 + outgoing.length) % outgoing.length]
+        }
+
+        if (current !== startHalfEdge || faceHalfEdges.length < 3) {
+          continue
+        }
+
+        const points = this.getFacePoints(faceHalfEdges)
+        const area = this.getSignedArea(points)
+        if (area > 1e-3) {
+          faces.push({ area, points })
+        }
+      }
+    }
+
+    return faces
+  }
+
+  private getFacePoints(faceHalfEdges: Array<{
+    from: string
+    reversed: boolean
+    segment: SegmentRef
+    to: string
+  }>): Point2d[] {
+    const points: Point2d[] = []
+
+    for (const halfEdge of faceHalfEdges) {
+      const segmentPoints = halfEdge.reversed
+        ? [...halfEdge.segment.samplePoints].reverse()
+        : halfEdge.segment.samplePoints
+      for (const point of segmentPoints) {
+        const previous = points[points.length - 1]
+        if (previous && Math.hypot(previous[0] - point[0], previous[1] - point[1]) < 1e-6) {
+          continue
+        }
+        points.push(point)
+      }
+    }
+
+    const first = points[0]
+    const last = points[points.length - 1]
+    if (first && last && Math.hypot(first[0] - last[0], first[1] - last[1]) < 1e-6) {
+      points.pop()
+    }
+
+    return points
+  }
+
+  private getSignedArea(points: Point2d[]): number {
+    let area = 0
+    for (let index = 0; index < points.length; index++) {
+      const current = points[index]
+      const next = points[(index + 1) % points.length]
+      area += current[0] * next[1] - next[0] * current[1]
+    }
+    return area / 2
+  }
+
   private emitLine(state: SketchState, start: Point2d, end: Point2d, lines: string[]): void {
     const name = this.nextSegmentName(state)
     const startPointRef = this.getSegmentStartPointRef(state, start, lines)
-    const endPointRef = this.definePointRef(state, end, lines)
-    const startSketch = this.toSketchPoint(start)
-    const endSketch = this.toSketchPoint(end)
+    const endPointRef = this.defineEndpointRef(state, end, lines)
+    const canonicalStart = startPointRef.point
+    const canonicalEnd = endPointRef.point
+    const startSketch = this.toSketchPoint(canonicalStart)
+    const endSketch = this.toSketchPoint(canonicalEnd)
     const tangentSketch: Point2d = [
       endSketch[0] - startSketch[0],
       endSketch[1] - startSketch[1]
     ]
 
-    lines.push(`${name} = line(start = ${startPointRef}, end = ${endPointRef})`)
+    lines.push(`${name} = line(start = ${startPointRef.name}, end = ${endPointRef.name})`)
     this.emitLineConstraints(name, tangentSketch, lines)
     this.appendSegment(
       state,
       {
         endAnchor: `${name}.end`,
-        endPointRef,
+        endPointRef: endPointRef.name,
         endTangentSketch: tangentSketch,
         kind: 'line',
         name,
-        pathEnd: end,
-        pathStart: start,
-        samplePoints: [start, end],
+        pathEnd: canonicalEnd,
+        pathStart: canonicalStart,
+        samplePoints: [canonicalStart, canonicalEnd],
         startAnchor: `${name}.start`,
-        startPointRef,
+        startPointRef: startPointRef.name,
         startTangentSketch: tangentSketch
       },
       lines
@@ -419,21 +748,21 @@ export class Formatter {
   }
 
   private emitNativeArc(state: SketchState, arc: NativeArc, lines: string[]): void {
-    const arcStart = arc.isCounterClockwise ? arc.pathStart : arc.pathEnd
-    const arcEnd = arc.isCounterClockwise ? arc.pathEnd : arc.pathStart
     const startPointRef = this.getSegmentStartPointRef(state, arc.pathStart, lines)
-    const endPointRef = this.definePointRef(state, arc.pathEnd, lines)
-    const arcStartPointRef = arc.isCounterClockwise ? startPointRef : endPointRef
-    const arcEndPointRef = arc.isCounterClockwise ? endPointRef : startPointRef
+    const endPointRef = this.defineEndpointRef(state, arc.pathEnd, lines)
+    const canonicalStart = startPointRef.point
+    const canonicalEnd = endPointRef.point
+    const arcStartPointRef = arc.isCounterClockwise ? startPointRef.name : endPointRef.name
+    const arcEndPointRef = arc.isCounterClockwise ? endPointRef.name : startPointRef.name
     const centerPointRef = this.definePointRef(state, arc.center, lines)
     const name = this.nextSegmentName(state)
     const startTangentSketch = this.getArcTangentAtPoint(
-      arc.pathStart,
+      canonicalStart,
       arc.center,
       arc.isCounterClockwise
     )
     const endTangentSketch = this.getArcTangentAtPoint(
-      arc.pathEnd,
+      canonicalEnd,
       arc.center,
       arc.isCounterClockwise
     )
@@ -444,15 +773,15 @@ export class Formatter {
       state,
       {
         endAnchor: arc.isCounterClockwise ? `${name}.end` : `${name}.start`,
-        endPointRef,
+        endPointRef: endPointRef.name,
         endTangentSketch,
         kind: 'arc',
         name,
-        pathEnd: arc.pathEnd,
-        pathStart: arc.pathStart,
-        samplePoints: [arc.pathStart, arc.midpoint, arc.pathEnd],
+        pathEnd: canonicalEnd,
+        pathStart: canonicalStart,
+        samplePoints: [canonicalStart, arc.midpoint, canonicalEnd],
         startAnchor: arc.isCounterClockwise ? `${name}.start` : `${name}.end`,
-        startPointRef,
+        startPointRef: startPointRef.name,
         startTangentSketch
       },
       lines
@@ -643,33 +972,35 @@ export class Formatter {
     const startPointRef = this.getSegmentStartPointRef(state, start, lines)
     const control1PointRef = this.definePointRef(state, control1, lines, false)
     const control2PointRef = this.definePointRef(state, control2, lines, false)
-    const endPointRef = this.definePointRef(state, end, lines)
+    const endPointRef = this.defineEndpointRef(state, end, lines)
+    const canonicalStart = startPointRef.point
+    const canonicalEnd = endPointRef.point
     this.usesExperimentalSpline = true
     state.currentLoopRegionSafe = false
 
     lines.push(`${name} = controlPointSpline(points = [`)
-    lines.push(`  ${startPointRef},`)
+    lines.push(`  ${startPointRef.name},`)
     lines.push(`  ${control1PointRef},`)
     lines.push(`  ${control2PointRef},`)
-    lines.push(`  ${endPointRef}`)
+    lines.push(`  ${endPointRef.name}`)
     lines.push(`])`)
     this.appendSegment(
       state,
       {
-        endPointRef,
+        endPointRef: endPointRef.name,
         endTangentSketch: [
-          this.toSketchPoint(end)[0] - this.toSketchPoint(control2)[0],
-          this.toSketchPoint(end)[1] - this.toSketchPoint(control2)[1]
+          this.toSketchPoint(canonicalEnd)[0] - this.toSketchPoint(control2)[0],
+          this.toSketchPoint(canonicalEnd)[1] - this.toSketchPoint(control2)[1]
         ],
         kind: 'spline',
         name,
-        pathEnd: end,
-        pathStart: start,
-        samplePoints: [start, control1, control2, end],
-        startPointRef,
+        pathEnd: canonicalEnd,
+        pathStart: canonicalStart,
+        samplePoints: [canonicalStart, control1, control2, canonicalEnd],
+        startPointRef: startPointRef.name,
         startTangentSketch: [
-          this.toSketchPoint(control1)[0] - this.toSketchPoint(start)[0],
-          this.toSketchPoint(control1)[1] - this.toSketchPoint(start)[1]
+          this.toSketchPoint(control1)[0] - this.toSketchPoint(canonicalStart)[0],
+          this.toSketchPoint(control1)[1] - this.toSketchPoint(canonicalStart)[1]
         ]
       },
       lines
@@ -755,7 +1086,12 @@ export class Formatter {
     }
 
     if (state.firstSegment?.startAnchor && state.lastSegment?.endAnchor) {
-      lines.push(`coincident([${state.lastSegment.endAnchor}, ${state.firstSegment.startAnchor}])`)
+      this.emitCoincident(
+        state,
+        lines,
+        state.lastSegment.endAnchor,
+        state.firstSegment.startAnchor
+      )
       if (this.shouldConstrainTangent(state.lastSegment, state.firstSegment)) {
         lines.push(`tangent([${state.lastSegment.name}, ${state.firstSegment.name}])`)
       }
@@ -892,17 +1228,23 @@ export class Formatter {
       currentPointRef: null,
       currentLoopPoints: [],
       currentLoopRegionSafe: true,
+      coincidentConstraintKeys: new Set<string>(),
+      endpointRefs: [],
       firstSegment: null,
       lastSegment: null,
       pointCounter: 0,
       pointRefs: new Map<string, string>(),
       regionCounter: 0,
       regions: [],
+      segments: [],
       segmentCounter: 0
     }
     const bodyLines: string[] = []
 
     this.formatOperationsIntoSketch(shape.operations, bodyLines, state)
+    this.emitEndpointClusterCoincidences(state, bodyLines)
+    this.emitPointOnLineCoincidences(state, bodyLines)
+    this.addGraphRegions(state)
 
     const sketch = `${variable} = sketch(on = ${this.getSketchPlane(shape)}) {\n${bodyLines
       .map((line) => `  ${line}`)

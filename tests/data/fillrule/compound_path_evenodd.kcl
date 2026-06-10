@@ -117,6 +117,7 @@ sketch001 = sketch(on = XY) {
   radius(seg022) == 68.9
   coincident([seg021.start, seg022.end])
   seg023 = line(start = pt029, end = pt019)
+  horizontal(seg023)
   distance([seg023.start, seg023.end]) == 6.255
   coincident([seg022.start, seg023.start])
   coincident([seg023.end, seg021.end])
@@ -157,7 +158,6 @@ sketch001 = sketch(on = XY) {
   coincident([seg031.start, seg028.start])
   pt038 = [var 70, var -70]
   seg032 = line(start = pt025, end = pt038)
-  horizontal(seg032)
   distance([seg032.start, seg032.end]) == 6.255
   seg033 = line(start = pt038, end = pt035)
   vertical(seg033)
@@ -196,16 +196,56 @@ sketch001 = sketch(on = XY) {
   distance([seg040.start, seg040.end]) == 10
   coincident([seg039.end, seg040.start])
   coincident([seg040.end, seg037.start])
+  coincident([seg006.start, seg013.start])
+  coincident([seg006.end, seg014.start])
+  coincident([seg006.end, seg020.end])
+  coincident([seg009.end, seg037.start])
+  coincident([seg009.end, seg040.end])
+  coincident([seg010.end, seg024.end])
+  coincident([seg010.end, seg025.end])
+  coincident([seg014.end, seg021.end])
+  coincident([seg014.end, seg023.end])
+  coincident([seg016.end, seg026.end])
+  coincident([seg016.end, seg027.end])
+  coincident([seg017.end, seg030.start])
+  coincident([seg017.end, seg031.end])
+  coincident([seg018.end, seg032.start])
+  coincident([seg022.start, seg024.start])
+  coincident([seg022.start, seg027.start])
+  coincident([seg025.start, seg028.start])
+  coincident([seg025.start, seg031.start])
+  coincident([seg028.end, seg039.end])
+  coincident([seg028.end, seg040.start])
+  coincident([seg029.end, seg033.end])
+  coincident([seg029.end, seg034.start])
+  coincident([seg034.end, seg038.start])
+  coincident([seg034.end, seg039.start])
 }
 
-region001 = region(point = [50, -10.4], sketch = sketch001)
+region001 = region(point = [50, -50], sketch = sketch001)
 
-region002 = region(point = [36.933, -50.123], sketch = sketch001)
+region002 = region(point = [55.402, -38.189], sketch = sketch001)
 
-region003 = region(point = [44.652, -48.85], sketch = sketch001)
+region003 = region(point = [42.867, -62.336], sketch = sketch001)
 
-region004 = region(point = [53.15, -50.046], sketch = sketch001)
+region004 = region(point = [37.502, -42.601], sketch = sketch001)
 
-region005 = region(point = [65.002, -60.021], sketch = sketch001)
+region005 = region(point = [64.15, -54.732], sketch = sketch001)
 
-region006 = region(point = [74.987, -50.042], sketch = sketch001)
+region006 = region(point = [47.329, -55.742], sketch = sketch001)
+
+region007 = region(point = [26.364, -44.983], sketch = sketch001)
+
+region008 = region(point = [73.723, -54.242], sketch = sketch001)
+
+region009 = region(point = [55.438, -54.611], sketch = sketch001)
+
+region010 = region(point = [65.179, -62.084], sketch = sketch001)
+
+region011 = region(point = [51.735, -47.388], sketch = sketch001)
+
+region012 = region(point = [47.078, -48.514], sketch = sketch001)
+
+region013 = region(point = [59.111, -61.39], sketch = sketch001)
+
+region014 = region(point = [71.271, -61.158], sketch = sketch001)

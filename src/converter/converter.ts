@@ -107,13 +107,15 @@ export class Converter {
         break
       case PathCommandType.HorizontalLineAbsolute:
       case PathCommandType.HorizontalLineRelative:
-        // X supplied, Y is 0.
+        // X supplied. For relative commands this is an X offset; for absolute
+        // commands this is an absolute X and Y stays at the current Y.
         x = command.parameters[0]
         y = 0
         break
       case PathCommandType.VerticalLineAbsolute:
       case PathCommandType.VerticalLineRelative:
-        // Y supplied, X is 0.
+        // Y supplied. For relative commands this is a Y offset; for absolute
+        // commands this is an absolute Y and X stays at the current X.
         x = 0
         y = command.parameters[0]
         break
@@ -128,6 +130,16 @@ export class Converter {
       absoluteEnd = {
         x: this.currentPoint.x + x,
         y: this.currentPoint.y + y
+      }
+    } else if (command.type === PathCommandType.HorizontalLineAbsolute) {
+      absoluteEnd = {
+        x,
+        y: this.currentPoint.y
+      }
+    } else if (command.type === PathCommandType.VerticalLineAbsolute) {
+      absoluteEnd = {
+        x: this.currentPoint.x,
+        y
       }
     } else {
       absoluteEnd = { x, y }

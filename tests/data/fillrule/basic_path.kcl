@@ -42,8 +42,13 @@ sketch001 = sketch(on = XY) {
   radius(seg008) == 27.5
   coincident([seg007.end, seg008.end])
   coincident([seg008.start, seg007.start])
+  coincident([seg005.end, seg007.end])
+  coincident([seg005.end, seg008.end])
+  coincident([seg005.end, seg002])
+  coincident([seg007.end, seg002])
+  coincident([seg008.end, seg002])
 }
 
-region001 = region(point = [50, -10.4], sketch = sketch001)
+region001 = region(point = [50, -50], sketch = sketch001)
 
-region002 = region(point = [82.498, -47.504], sketch = sketch001)
+region002 = region(point = [70.15, -63.146], sketch = sketch001)

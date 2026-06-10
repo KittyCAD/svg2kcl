@@ -26,4 +26,5 @@ sketch001 = sketch(on = XY) {
     pt007,
     pt004
   ])
+  coincident([seg002.start, seg003.start])
 }

@@ -221,3 +221,17 @@ sketch001 = sketch(on = XY) {
     pt076
   ])
 }
+
+region001 = region(point = [420.713, -271.576], sketch = sketch001)
+
+region002 = region(point = [477.611, -224.533], sketch = sketch001)
+
+region003 = region(point = [333.231, -548.728], sketch = sketch001)
+
+region004 = region(point = [619.587, -68.427], sketch = sketch001)
+
+region005 = region(point = [467.417, -222.485], sketch = sketch001)
+
+region006 = region(point = [120.415, -351.444], sketch = sketch001)
+
+region007 = region(point = [249.879, -431.863], sketch = sketch001)

@@ -69,6 +69,6 @@ sketch001 = sketch(on = XY) {
   tangent([seg012, seg005])
 }
 
-region001 = region(point = [50, -10.2], sketch = sketch001)
+region001 = region(point = [50, -30], sketch = sketch001)
 
-region002 = region(point = [50, -60.15], sketch = sketch001)
+region002 = region(point = [50, -75], sketch = sketch001)

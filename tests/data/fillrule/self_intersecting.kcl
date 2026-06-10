@@ -15,18 +15,18 @@ sketch001 = sketch(on = XY) {
   distance([seg003.start, seg003.end]) == 50
   coincident([seg002.end, seg003.start])
   coincident([seg003.end, seg001.start])
-  pt005 = [var 142.043, var -87.727]
-  pt006 = [var 173.128, var -71.246]
-  pt007 = [var 192.447, var -68.671]
-  pt008 = [var 200, var -80]
+  pt005 = [var 173.128, var -71.246]
+  pt006 = [var 192.447, var -68.671]
+  pt007 = [var 200, var -80]
   seg004 = controlPointSpline(points = [
+    pt002,
     pt005,
     pt006,
-    pt007,
-    pt008
+    pt007
   ])
-  seg005 = line(start = pt008, end = pt005)
+  seg005 = line(start = pt007, end = pt002)
   distance([seg005.start, seg005.end]) == 58.47
+  coincident([seg001.end, seg005.end])
 }
 
-region001 = region(point = [95.854, -94.046], sketch = sketch001)
+region001 = region(point = [79.272, -112.067], sketch = sketch001)

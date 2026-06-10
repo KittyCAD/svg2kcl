@@ -88,6 +88,23 @@ describe('SVG Basic Elements to KCL Conversion', () => {
     expect(actualKcl).not.toContain('region(')
   })
 
+  it('should convert near-circular cubic path loops to concentric KCL circles', async () => {
+    const inputPath = path.join(dataDir, 'concentric_cubic_circles.svg')
+    const outputPath = path.join(dataDir, 'output.kcl')
+
+    await convertSvgToKcl(inputPath, outputPath, { centerOnViewBox: false, emitRegions: false })
+    const actualKcl = await fsPromises.readFile(outputPath, 'utf8')
+    const centers = [...actualKcl.matchAll(/circle\(start = .* center = (\[var [^\]]+\])/g)].map(
+      (match) => match[1]
+    )
+
+    expect(actualKcl.match(/circle\(/g)).toHaveLength(2)
+    expect(actualKcl).not.toContain('arc(start =')
+    expect(actualKcl).not.toContain('region(')
+    expect(centers).toHaveLength(2)
+    expect(centers[0]).toBe(centers[1])
+  })
+
   it('should correctly convert basic_polygon.svg to KCL', async () => {
     const inputPath = path.join(dataDir, 'basic_polygon.svg')
     const outputPath = path.join(dataDir, 'output.kcl')

@@ -8,6 +8,7 @@ type RebuildMode = 'all' | 'baselines'
 type ParsedArgs = {
   center: boolean
   dataDir: string
+  emitRegions: boolean
   help: boolean
   inputPaths: string[]
   mode: RebuildMode
@@ -26,9 +27,9 @@ const DEFAULT_DATA_DIR = 'tests/data'
 function usage(): string {
   return [
     'Usage:',
-    '  npm run rebuild:kcl -- [--all] [--center] [--data-dir <dir>] [--out-dir <dir>]',
-    '  npm run rebuild:kcl -- --baselines [--center] [--data-dir <dir>] [--out-dir <dir>]',
-    '  npm run rebuild:kcl -- <svg-file> [<svg-file> ...] [--center] [--out-dir <dir>]',
+    '  npm run rebuild:kcl -- [--all] [--center] [--no-regions] [--data-dir <dir>] [--out-dir <dir>]',
+    '  npm run rebuild:kcl -- --baselines [--center] [--no-regions] [--data-dir <dir>] [--out-dir <dir>]',
+    '  npm run rebuild:kcl -- <svg-file> [<svg-file> ...] [--center] [--no-regions] [--out-dir <dir>]',
     '',
     'Examples:',
     '  npm run rebuild:kcl -- --all',
@@ -50,6 +51,7 @@ function parseArgs(args: string[]): ParsedArgs {
   const parsed: ParsedArgs = {
     center: false,
     dataDir: DEFAULT_DATA_DIR,
+    emitRegions: true,
     help: false,
     inputPaths: [],
     mode: 'all'
@@ -64,6 +66,8 @@ function parseArgs(args: string[]): ParsedArgs {
       parsed.mode = 'baselines'
     } else if (arg === '--center') {
       parsed.center = true
+    } else if (arg === '--no-regions') {
+      parsed.emitRegions = false
     } else if (arg === '--help' || arg === '-h') {
       parsed.help = true
     } else if (arg === '--data-dir') {
@@ -150,7 +154,8 @@ async function rebuildSvg(
     workerPath,
     svgPath,
     outputPath,
-    ...(parsed.center ? ['--center'] : [])
+    ...(parsed.center ? ['--center'] : []),
+    ...(parsed.emitRegions ? [] : ['--no-regions'])
   ]
   const result = spawnSync(process.execPath, workerArgs, {
     cwd: repoRoot,

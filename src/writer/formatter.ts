@@ -4,6 +4,7 @@ import {
   CircleParams,
   KclOperation,
   KclOperationType,
+  KclOptions,
   KclOutput,
   KclShape,
   LineToParams,
@@ -27,6 +28,7 @@ type PointRef = {
 }
 
 type SegmentRef = {
+  allowTangentConstraints: boolean
   endAnchor?: string
   endPointRef: string
   endTangentSketch: Point2d
@@ -76,7 +78,12 @@ const POINT_ON_LINE_TOLERANCE = 0.25
 const POINT_ON_LINE_ENDPOINT_MARGIN = 0.02
 
 export class Formatter {
+  private readonly emitRegions: boolean
   private usesExperimentalSpline = false
+
+  constructor(options: KclOptions = {}) {
+    this.emitRegions = options.emitRegions ?? true
+  }
 
   private formatNumber(value: number): string {
     return `${Number(value.toFixed(3))}`
@@ -303,6 +310,10 @@ export class Formatter {
   }
 
   private shouldConstrainTangent(previous: SegmentRef, next: SegmentRef): boolean {
+    if (!previous.allowTangentConstraints || !next.allowTangentConstraints) {
+      return false
+    }
+
     if (previous.kind === 'spline' || next.kind === 'spline') {
       return false
     }
@@ -716,6 +727,7 @@ export class Formatter {
     this.appendSegment(
       state,
       {
+        allowTangentConstraints: true,
         endAnchor: `${name}.end`,
         endPointRef: endPointRef.name,
         endTangentSketch: tangentSketch,
@@ -747,7 +759,13 @@ export class Formatter {
     lines.push(`distance([${name}.start, ${name}.end]) == ${this.formatNumber(segmentLength)}`)
   }
 
-  private emitNativeArc(state: SketchState, arc: NativeArc, lines: string[]): void {
+  private emitNativeArc(
+    state: SketchState,
+    arc: NativeArc,
+    lines: string[],
+    allowTangentConstraints = false,
+    constrainRadius = false
+  ): void {
     const startPointRef = this.getSegmentStartPointRef(state, arc.pathStart, lines)
     const endPointRef = this.defineEndpointRef(state, arc.pathEnd, lines)
     const canonicalStart = startPointRef.point
@@ -768,10 +786,13 @@ export class Formatter {
     )
 
     lines.push(`${name} = arc(start = ${arcStartPointRef}, end = ${arcEndPointRef}, center = ${centerPointRef})`)
-    lines.push(`radius(${name}) == ${this.formatNumber(this.getArcRadius(arc))}`)
+    if (constrainRadius) {
+      lines.push(`radius(${name}) == ${this.formatNumber(this.getArcRadius(arc))}`)
+    }
     this.appendSegment(
       state,
       {
+        allowTangentConstraints,
         endAnchor: arc.isCounterClockwise ? `${name}.end` : `${name}.start`,
         endPointRef: endPointRef.name,
         endTangentSketch,
@@ -993,6 +1014,7 @@ export class Formatter {
           this.toSketchPoint(canonicalEnd)[1] - this.toSketchPoint(control2)[1]
         ],
         kind: 'spline',
+        allowTangentConstraints: false,
         name,
         pathEnd: canonicalEnd,
         pathStart: canonicalStart,
@@ -1043,7 +1065,9 @@ export class Formatter {
         pathEnd,
         pathStart
       },
-      lines
+      lines,
+      true,
+      true
     )
   }
 
@@ -1244,14 +1268,18 @@ export class Formatter {
     this.formatOperationsIntoSketch(shape.operations, bodyLines, state)
     this.emitEndpointClusterCoincidences(state, bodyLines)
     this.emitPointOnLineCoincidences(state, bodyLines)
-    this.addGraphRegions(state)
+    if (this.emitRegions) {
+      this.addGraphRegions(state)
+    }
 
     const sketch = `${variable} = sketch(on = ${this.getSketchPlane(shape)}) {\n${bodyLines
       .map((line) => `  ${line}`)
       .join('\n')}\n}`
-    const regions = state.regions.map((region) => {
-      return `${region.name} = region(point = ${this.formatPoint(region.point)}, sketch = ${variable})`
-    })
+    const regions = this.emitRegions
+      ? state.regions.map((region) => {
+          return `${region.name} = region(point = ${this.formatPoint(region.point)}, sketch = ${variable})`
+        })
+      : []
 
     return [sketch, ...regions].join('\n\n')
   }

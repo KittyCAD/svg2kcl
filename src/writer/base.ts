@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs'
-import { KclOperation, KclOutput } from '../types/kcl'
+import { KclOperation, KclOptions, KclOutput } from '../types/kcl'
 import { Formatter } from './formatter'
 export class KclWriteError extends Error {
   constructor(message: string) {
@@ -12,8 +12,8 @@ export class KclWriter {
   private variableCounter = 1
   private formatter: Formatter
 
-  constructor() {
-    this.formatter = new Formatter()
+  constructor(options: KclOptions = {}) {
+    this.formatter = new Formatter(options)
   }
 
   private generateVariableName(): string {

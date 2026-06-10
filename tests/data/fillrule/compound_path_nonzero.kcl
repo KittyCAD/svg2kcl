@@ -1,52 +1,103 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(endAbsolute = [90, -10])
-  |> line(endAbsolute = [90, -90])
-  |> line(endAbsolute = [10, -90])
-  |> line(endAbsolute = [10, -10])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [60, -60])
-    |> line(endAbsolute = [70, -60])
-    |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve(
-         control1 = [-2.948, -1.965],
-         control2 = [-5.896, -2.193],
-         end = [-8.844, -0.682]
-     )
-    |> bezierCurve(
-         control1 = [-0.409, 1.234],
-         control2 = [-0.795, 2.573],
-         end = [-1.156, 4.015]
-     )
-    |> close())
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [63.745, -70])
-    |> line(endAbsolute = [70, -70])
-    |> line(endAbsolute = [70, -63.333])
-    |> bezierCurve(
-         control1 = [1.22, 0.813],
-         control2 = [2.44, 1.924],
-         end = [3.66, 3.333]
-     )
-    |> line(endAbsolute = [80, -60])
-    |> bezierCurve(
-         control1 = [-3.943, -15.773],
-         control2 = [-10.997, -19.107],
-         end = [-16.255, -10]
-     )
-    |> close())
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [70, -50])
-    |> line(endAbsolute = [80, -50])
-    |> bezierCurve(
-         control1 = [-2.113, -4.227],
-         control2 = [-4.227, -7.56],
-         end = [-6.34, -10]
-     )
-    |> line(endAbsolute = [70, -60])
-    |> line(endAbsolute = [70, -50])
-    |> close())
+@settings(experimentalFeatures = allow)
+
+sketch001 = sketch(on = XY) {
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
+  horizontal(seg001)
+  distance([seg001.start, seg001.end]) == 80
+  pt003 = [var 90, var -90]
+  seg002 = line(start = pt002, end = pt003)
+  vertical(seg002)
+  distance([seg002.start, seg002.end]) == 80
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 10, var -90]
+  seg003 = line(start = pt003, end = pt004)
+  horizontal(seg003)
+  distance([seg003.start, seg003.end]) == 80
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = pt004, end = pt001)
+  vertical(seg004)
+  distance([seg004.start, seg004.end]) == 80
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+  pt005 = [var 60, var -60]
+  pt006 = [var 70, var -60]
+  seg005 = line(start = pt005, end = pt006)
+  horizontal(seg005)
+  distance([seg005.start, seg005.end]) == 10
+  pt007 = [var 70, var -63.333]
+  seg006 = line(start = pt006, end = pt007)
+  vertical(seg006)
+  distance([seg006.start, seg006.end]) == 3.333
+  coincident([seg005.end, seg006.start])
+  pt008 = [var 61.156, var -64.015]
+  pt009 = [var 65.197, var -56.13]
+  seg007 = arc(start = pt008, end = pt007, center = pt009)
+  radius(seg007) == 8.658
+  coincident([seg006.end, seg007.end])
+  pt010 = [var 114.149, var -46.463]
+  seg008 = arc(start = pt005, end = pt008, center = pt010)
+  radius(seg008) == 55.825
+  coincident([seg007.start, seg008.end])
+  coincident([seg008.start, seg005.start])
+  pt011 = [var 63.745, var -70]
+  pt012 = [var 70, var -70]
+  seg009 = line(start = pt011, end = pt012)
+  horizontal(seg009)
+  distance([seg009.start, seg009.end]) == 6.255
+  seg010 = line(start = pt012, end = pt007)
+  vertical(seg010)
+  distance([seg010.start, seg010.end]) == 6.667
+  coincident([seg009.end, seg010.start])
+  pt013 = [var 73.66, var -60]
+  pt014 = [var 59.743, var -47.948]
+  seg011 = arc(start = pt007, end = pt013, center = pt014)
+  radius(seg011) == 18.491
+  coincident([seg010.end, seg011.start])
+  pt015 = [var 80, var -60]
+  seg012 = line(start = pt013, end = pt015)
+  distance([seg012.start, seg012.end]) == 6.34
+  coincident([seg011.end, seg012.start])
+  pt016 = [var 76.057, var -75.773]
+  pt017 = [var 69.003, var -79.107]
+  seg013 = controlPointSpline(points = [
+    pt015,
+    pt016,
+    pt017,
+    pt011
+  ])
+  pt018 = [var 70, var -50]
+  pt019 = [var 80, var -50]
+  seg014 = line(start = pt018, end = pt019)
+  horizontal(seg014)
+  distance([seg014.start, seg014.end]) == 10
+  pt020 = [var 37.68, var -28.84]
+  seg015 = arc(start = pt013, end = pt019, center = pt020)
+  radius(seg015) == 47.316
+  coincident([seg014.end, seg015.end])
+  seg016 = line(start = pt013, end = pt006)
+  distance([seg016.start, seg016.end]) == 3.66
+  coincident([seg015.start, seg016.start])
+  seg017 = line(start = pt006, end = pt018)
+  vertical(seg017)
+  distance([seg017.start, seg017.end]) == 10
+  coincident([seg016.end, seg017.start])
+  coincident([seg017.end, seg014.start])
+  coincident([seg005.end, seg016.end])
+  coincident([seg005.end, seg017.start])
+  coincident([seg006.end, seg010.end])
+  coincident([seg006.end, seg011.start])
+  coincident([seg011.end, seg015.start])
+  coincident([seg011.end, seg016.start])
+}
+
+region001 = region(point = [50, -50], sketch = sketch001)
+
+region002 = region(point = [72.833, -69.253], sketch = sketch001)
+
+region003 = region(point = [73.723, -54.242], sketch = sketch001)
+
+region004 = region(point = [65.179, -62.084], sketch = sketch001)
+
+region005 = region(point = [71.271, -61.158], sketch = sketch001)

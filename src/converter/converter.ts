@@ -1,5 +1,5 @@
 import { PathFragment } from '../paths/fragments/fragment'
-import { PathProcessor } from '../paths/path_processor'
+import { PathProcessor, ProcessedPath } from '../paths/path_processor'
 import { Plane3D, Point, ViewBox } from '../types/base'
 import {
   CircleElement,
@@ -22,6 +22,30 @@ import { getCombinedTransform, Transform } from '../utils/transform'
 // yield degenerate geometry, with closing lines intersecting with but overshooting the
 // start point.
 const USE_ABSOLUTE_LINE_COORDS = true
+const FACE_DISCOVERY_FAILED = 'Face discovery failed'
+const CIRCLE_SAMPLE_COUNT_PER_CURVE = 9
+const CIRCLE_MAX_RELATIVE_ERROR = 0.045
+const CIRCLE_MAX_ABSOLUTE_ERROR = 0.75
+const CIRCLE_RMS_RELATIVE_ERROR = 0.025
+const CIRCLE_MIN_ANGLE_COVERAGE = Math.PI * 1.75
+
+type CubicPoints = {
+  control1: Point
+  control2: Point
+  end: Point
+  start: Point
+}
+
+type CircleCandidate = {
+  center: Point
+  radius: number
+  samplePoints: Point[]
+}
+
+type ProfileSubpath = {
+  circle: CircleCandidate | null
+  commands: PathCommand[]
+}
 
 export class ConverterError extends Error {
   constructor(message: string) {
@@ -107,13 +131,15 @@ export class Converter {
         break
       case PathCommandType.HorizontalLineAbsolute:
       case PathCommandType.HorizontalLineRelative:
-        // X supplied, Y is 0.
+        // X supplied. For relative commands this is an X offset; for absolute
+        // commands this is an absolute X and Y stays at the current Y.
         x = command.parameters[0]
         y = 0
         break
       case PathCommandType.VerticalLineAbsolute:
       case PathCommandType.VerticalLineRelative:
-        // Y supplied, X is 0.
+        // Y supplied. For relative commands this is a Y offset; for absolute
+        // commands this is an absolute Y and X stays at the current X.
         x = 0
         y = command.parameters[0]
         break
@@ -128,6 +154,16 @@ export class Converter {
       absoluteEnd = {
         x: this.currentPoint.x + x,
         y: this.currentPoint.y + y
+      }
+    } else if (command.type === PathCommandType.HorizontalLineAbsolute) {
+      absoluteEnd = {
+        x,
+        y: this.currentPoint.y
+      }
+    } else if (command.type === PathCommandType.VerticalLineAbsolute) {
+      absoluteEnd = {
+        x: this.currentPoint.x,
+        y
       }
     } else {
       absoluteEnd = { x, y }
@@ -447,24 +483,455 @@ export class Converter {
       }
     }
   }
+
+  private isMoveCommand(command: PathCommand): boolean {
+    return (
+      command.type === PathCommandType.MoveAbsolute || command.type === PathCommandType.MoveRelative
+    )
+  }
+
+  private isStopCommand(command: PathCommand): boolean {
+    return (
+      command.type === PathCommandType.StopAbsolute || command.type === PathCommandType.StopRelative
+    )
+  }
+
+  private isCubicCommand(command: PathCommand): boolean {
+    return (
+      command.type === PathCommandType.CubicBezierAbsolute ||
+      command.type === PathCommandType.CubicBezierRelative ||
+      command.type === PathCommandType.CubicBezierSmoothAbsolute ||
+      command.type === PathCommandType.CubicBezierSmoothRelative
+    )
+  }
+
+  private splitPathCommands(commands: PathCommand[]): PathCommand[][] {
+    const subpaths: PathCommand[][] = []
+    let currentSubpath: PathCommand[] = []
+
+    for (const command of commands) {
+      if (this.isMoveCommand(command) && currentSubpath.length > 0) {
+        subpaths.push(currentSubpath)
+        currentSubpath = []
+      }
+
+      currentSubpath.push(command)
+
+      if (this.isStopCommand(command)) {
+        subpaths.push(currentSubpath)
+        currentSubpath = []
+      }
+    }
+
+    if (currentSubpath.length > 0) {
+      subpaths.push(currentSubpath)
+    }
+
+    return subpaths
+  }
+
+  private createCircleOps(circle: CircleCandidate): KclOperation[] {
+    return [
+      {
+        type: KclOperationType.StartSketchOn,
+        params: { plane: Plane3D.XY }
+      },
+      {
+        type: KclOperationType.Circle,
+        params: {
+          radius: circle.radius,
+          x: circle.center.x,
+          y: circle.center.y
+        }
+      }
+    ]
+  }
+
+  private convertPathCommandsToProfileKclOps(
+    commands: PathCommand[],
+    transform: Transform,
+    closeOpenPath = true
+  ): KclOperation[] {
+    const subpaths = this.splitPathCommands(commands).map((subpathCommands): ProfileSubpath => {
+      return {
+        circle: this.detectCircularSubpath(subpathCommands, transform),
+        commands: subpathCommands
+      }
+    })
+
+    this.snapConcentricCircles(subpaths)
+
+    return subpaths.flatMap((subpath) => {
+      if (subpath.circle) {
+        return this.createCircleOps(subpath.circle)
+      }
+
+      return this.convertPathCommandsToKclOps(subpath.commands, transform, closeOpenPath)
+    })
+  }
+
+  private detectCircularSubpath(
+    commands: PathCommand[],
+    transform: Transform
+  ): CircleCandidate | null {
+    if (commands.length < 5 || !this.isMoveCommand(commands[0])) {
+      return null
+    }
+
+    const drawingCommands = commands.filter((command) => {
+      return !this.isMoveCommand(command) && !this.isStopCommand(command)
+    })
+
+    if (drawingCommands.length < 3 || !drawingCommands.every((command) => this.isCubicCommand(command))) {
+      return null
+    }
+
+    const firstPoint = commands[0].endPositionAbsolute
+    const lastDrawingCommand = drawingCommands[drawingCommands.length - 1]
+    const lastPoint = lastDrawingCommand.endPositionAbsolute
+    if (Math.hypot(firstPoint.x - lastPoint.x, firstPoint.y - lastPoint.y) > 1e-3) {
+      return null
+    }
+
+    const samples: Point[] = []
+    let previousControlPoint: Point | null = null
+
+    for (const command of drawingCommands) {
+      const cubicPoints = this.getAbsoluteCubicPoints(command, previousControlPoint)
+      if (!cubicPoints) {
+        return null
+      }
+
+      previousControlPoint = cubicPoints.control2
+
+      for (let sampleIndex = 0; sampleIndex < CIRCLE_SAMPLE_COUNT_PER_CURVE; sampleIndex++) {
+        if (samples.length > 0 && sampleIndex === 0) {
+          continue
+        }
+
+        const t = sampleIndex / (CIRCLE_SAMPLE_COUNT_PER_CURVE - 1)
+        const sample = this.getCubicPoint(cubicPoints, t)
+        samples.push(this.transformAndCenterPoint(sample, transform))
+      }
+    }
+
+    if (samples.length < 12) {
+      return null
+    }
+
+    return this.fitCircleToSamples(samples)
+  }
+
+  private getAbsoluteCubicPoints(
+    command: PathCommand,
+    previousControlPoint: Point | null
+  ): CubicPoints | null {
+    const start = command.startPositionAbsolute
+    const parameters = command.parameters
+
+    switch (command.type) {
+      case PathCommandType.CubicBezierAbsolute:
+        return {
+          control1: { x: parameters[0], y: parameters[1] },
+          control2: { x: parameters[2], y: parameters[3] },
+          end: { x: parameters[4], y: parameters[5] },
+          start
+        }
+
+      case PathCommandType.CubicBezierRelative:
+        return {
+          control1: { x: start.x + parameters[0], y: start.y + parameters[1] },
+          control2: { x: start.x + parameters[2], y: start.y + parameters[3] },
+          end: { x: start.x + parameters[4], y: start.y + parameters[5] },
+          start
+        }
+
+      case PathCommandType.CubicBezierSmoothAbsolute:
+        return {
+          control1: this.reflectControlPoint(start, previousControlPoint),
+          control2: { x: parameters[0], y: parameters[1] },
+          end: { x: parameters[2], y: parameters[3] },
+          start
+        }
+
+      case PathCommandType.CubicBezierSmoothRelative:
+        return {
+          control1: this.reflectControlPoint(start, previousControlPoint),
+          control2: { x: start.x + parameters[0], y: start.y + parameters[1] },
+          end: { x: start.x + parameters[2], y: start.y + parameters[3] },
+          start
+        }
+
+      default:
+        return null
+    }
+  }
+
+  private reflectControlPoint(point: Point, controlPoint: Point | null): Point {
+    if (!controlPoint) {
+      return point
+    }
+
+    return {
+      x: 2 * point.x - controlPoint.x,
+      y: 2 * point.y - controlPoint.y
+    }
+  }
+
+  private getCubicPoint(cubicPoints: CubicPoints, t: number): Point {
+    const mt = 1 - t
+    return {
+      x:
+        mt ** 3 * cubicPoints.start.x +
+        3 * mt ** 2 * t * cubicPoints.control1.x +
+        3 * mt * t ** 2 * cubicPoints.control2.x +
+        t ** 3 * cubicPoints.end.x,
+      y:
+        mt ** 3 * cubicPoints.start.y +
+        3 * mt ** 2 * t * cubicPoints.control1.y +
+        3 * mt * t ** 2 * cubicPoints.control2.y +
+        t ** 3 * cubicPoints.end.y
+    }
+  }
+
+  private transformAndCenterPoint(point: Point, transform: Transform): Point {
+    return this.centerPoint(transform.transformPoint(point))
+  }
+
+  private fitCircleToSamples(samples: Point[]): CircleCandidate | null {
+    const bounds = this.getBounds(samples)
+    const width = bounds.xMax - bounds.xMin
+    const height = bounds.yMax - bounds.yMin
+    if (width <= 1e-6 || height <= 1e-6) {
+      return null
+    }
+
+    const aspectRatio = width / height
+    if (aspectRatio < 0.85 || aspectRatio > 1.15) {
+      return null
+    }
+
+    const fittedCircle = this.solveCircleLeastSquares(samples)
+    if (!fittedCircle) {
+      return null
+    }
+
+    const distances = samples.map((point) => {
+      return Math.hypot(point.x - fittedCircle.center.x, point.y - fittedCircle.center.y)
+    })
+    const maxError = Math.max(
+      ...distances.map((distance) => Math.abs(distance - fittedCircle.radius))
+    )
+    const squaredErrorSum = distances.reduce((sum, distance) => {
+      return sum + (distance - fittedCircle.radius) ** 2
+    }, 0)
+    const rmsError = Math.sqrt(squaredErrorSum / distances.length)
+    const allowedMaxError = Math.max(CIRCLE_MAX_ABSOLUTE_ERROR, fittedCircle.radius * CIRCLE_MAX_RELATIVE_ERROR)
+    const allowedRmsError = fittedCircle.radius * CIRCLE_RMS_RELATIVE_ERROR
+
+    if (maxError > allowedMaxError || rmsError > allowedRmsError) {
+      return null
+    }
+
+    if (this.getCircularAngleCoverage(samples, fittedCircle.center) < CIRCLE_MIN_ANGLE_COVERAGE) {
+      return null
+    }
+
+    return {
+      center: fittedCircle.center,
+      radius: fittedCircle.radius,
+      samplePoints: samples
+    }
+  }
+
+  private getBounds(points: Point[]): { xMax: number; xMin: number; yMax: number; yMin: number } {
+    return points.reduce(
+      (bounds, point) => {
+        return {
+          xMax: Math.max(bounds.xMax, point.x),
+          xMin: Math.min(bounds.xMin, point.x),
+          yMax: Math.max(bounds.yMax, point.y),
+          yMin: Math.min(bounds.yMin, point.y)
+        }
+      },
+      {
+        xMax: Number.NEGATIVE_INFINITY,
+        xMin: Number.POSITIVE_INFINITY,
+        yMax: Number.NEGATIVE_INFINITY,
+        yMin: Number.POSITIVE_INFINITY
+      }
+    )
+  }
+
+  private solveCircleLeastSquares(samples: Point[]): { center: Point; radius: number } | null {
+    const matrix = [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0]
+    ]
+    const vector = [0, 0, 0]
+
+    for (const point of samples) {
+      const row = [point.x, point.y, 1]
+      const target = -(point.x ** 2 + point.y ** 2)
+
+      for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
+        vector[rowIndex] += row[rowIndex] * target
+        for (let columnIndex = 0; columnIndex < 3; columnIndex++) {
+          matrix[rowIndex][columnIndex] += row[rowIndex] * row[columnIndex]
+        }
+      }
+    }
+
+    const solution = this.solveLinearSystem3x3(matrix, vector)
+    if (!solution) {
+      return null
+    }
+
+    const [d, e, f] = solution
+    const center = { x: -d / 2, y: -e / 2 }
+    const radiusSquared = center.x ** 2 + center.y ** 2 - f
+    if (radiusSquared <= 0) {
+      return null
+    }
+
+    return {
+      center,
+      radius: Math.sqrt(radiusSquared)
+    }
+  }
+
+  private solveLinearSystem3x3(matrix: number[][], vector: number[]): [number, number, number] | null {
+    const augmented = matrix.map((row, index) => [...row, vector[index]])
+
+    for (let pivotIndex = 0; pivotIndex < 3; pivotIndex++) {
+      let pivotRow = pivotIndex
+      for (let rowIndex = pivotIndex + 1; rowIndex < 3; rowIndex++) {
+        if (Math.abs(augmented[rowIndex][pivotIndex]) > Math.abs(augmented[pivotRow][pivotIndex])) {
+          pivotRow = rowIndex
+        }
+      }
+
+      if (Math.abs(augmented[pivotRow][pivotIndex]) < 1e-9) {
+        return null
+      }
+
+      if (pivotRow !== pivotIndex) {
+        ;[augmented[pivotIndex], augmented[pivotRow]] = [augmented[pivotRow], augmented[pivotIndex]]
+      }
+
+      const pivot = augmented[pivotIndex][pivotIndex]
+      for (let columnIndex = pivotIndex; columnIndex < 4; columnIndex++) {
+        augmented[pivotIndex][columnIndex] /= pivot
+      }
+
+      for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
+        if (rowIndex === pivotIndex) {
+          continue
+        }
+
+        const factor = augmented[rowIndex][pivotIndex]
+        for (let columnIndex = pivotIndex; columnIndex < 4; columnIndex++) {
+          augmented[rowIndex][columnIndex] -= factor * augmented[pivotIndex][columnIndex]
+        }
+      }
+    }
+
+    return [augmented[0][3], augmented[1][3], augmented[2][3]]
+  }
+
+  private getCircularAngleCoverage(samples: Point[], center: Point): number {
+    const angles = samples
+      .map((point) => Math.atan2(point.y - center.y, point.x - center.x))
+      .sort((a, b) => a - b)
+
+    let maxGap = 0
+    for (let index = 0; index < angles.length; index++) {
+      const current = angles[index]
+      const next = index === angles.length - 1 ? angles[0] + Math.PI * 2 : angles[index + 1]
+      maxGap = Math.max(maxGap, next - current)
+    }
+
+    return Math.PI * 2 - maxGap
+  }
+
+  private snapConcentricCircles(subpaths: ProfileSubpath[]): void {
+    const circles = subpaths.flatMap((subpath) => {
+      return subpath.circle ? [subpath.circle] : []
+    })
+    const visited = new Set<CircleCandidate>()
+
+    for (const circle of circles) {
+      if (visited.has(circle)) {
+        continue
+      }
+
+      const group = circles.filter((candidate) => {
+        return !visited.has(candidate) && this.shouldShareCircleCenter(circle, candidate)
+      })
+
+      for (const candidate of group) {
+        visited.add(candidate)
+      }
+
+      if (group.length < 2) {
+        continue
+      }
+
+      const totalWeight = group.reduce((sum, candidate) => sum + candidate.radius, 0)
+      const sharedCenter = group.reduce(
+        (center, candidate) => {
+          return {
+            x: center.x + (candidate.center.x * candidate.radius) / totalWeight,
+            y: center.y + (candidate.center.y * candidate.radius) / totalWeight
+          }
+        },
+        { x: 0, y: 0 }
+      )
+
+      for (const candidate of group) {
+        candidate.center = sharedCenter
+        candidate.radius = this.getAverageRadius(candidate.samplePoints, sharedCenter)
+      }
+    }
+  }
+
+  private shouldShareCircleCenter(circleA: CircleCandidate, circleB: CircleCandidate): boolean {
+    const centerDistance = Math.hypot(circleA.center.x - circleB.center.x, circleA.center.y - circleB.center.y)
+    const minRadius = Math.min(circleA.radius, circleB.radius)
+    const maxRadius = Math.max(circleA.radius, circleB.radius)
+    const tolerance = Math.max(0.8, Math.min(2, minRadius * 0.05))
+    const isNested = centerDistance + minRadius <= maxRadius + tolerance
+
+    return centerDistance <= tolerance && isNested
+  }
+
+  private getAverageRadius(samples: Point[], center: Point): number {
+    const radiusSum = samples.reduce((sum, point) => {
+      return sum + Math.hypot(point.x - center.x, point.y - center.y)
+    }, 0)
+    return radiusSum / samples.length
+  }
   // Command conversion methods.
   // --------------------------------------------------
   private convertPathCommandsToKclOps(
     commands: PathCommand[],
-    transform: Transform
+    transform: Transform,
+    closeOpenPath = true
   ): KclOperation[] {
     const operations: KclOperation[] = []
     this.previousControlPoint = null
     this.currentPoint = { x: 0, y: 0 }
 
-    commands.forEach((command, index) => {
-      // Handle first command: start sketch.
-      if (index === 0) {
-        operations.push(this.createNewSketchOp(command, transform))
-      }
-
-      // Otherwise, command type determines operation.
+    commands.forEach((command) => {
       switch (command.type) {
+        // Moves.
+        case PathCommandType.MoveAbsolute:
+        case PathCommandType.MoveRelative:
+          operations.push(this.createNewSketchOp(command, transform))
+          this.previousControlPoint = null
+          break
+
         // Lines.
         case PathCommandType.LineAbsolute:
         case PathCommandType.HorizontalLineAbsolute:
@@ -513,7 +980,7 @@ export class Converter {
       }
     })
 
-    if (!operations.some((op) => op.type === KclOperationType.Close)) {
+    if (closeOpenPath && !operations.some((op) => op.type === KclOperationType.Close)) {
       // Call close.
       operations.push({ type: KclOperationType.Close, params: null })
     }
@@ -522,9 +989,30 @@ export class Converter {
   }
 
   private convertPathToKclOps(path: PathElement): KclOperation[] {
+    if (this.options.emitRegions === false) {
+      return this.convertPathCommandsToProfileKclOps(
+        path.commands,
+        path.transform!,
+        path.fill !== 'none'
+      )
+    }
+
+    if (path.fill === 'none') {
+      return this.convertPathCommandsToKclOps(path.commands, path.transform!, false)
+    }
+
     // Process path to regions and fragments.
     const processor = new PathProcessor(path)
-    const processedPath = processor.processPath()
+    let processedPath: ProcessedPath
+    try {
+      processedPath = processor.processPath()
+    } catch (error) {
+      if (error instanceof Error && error.message === FACE_DISCOVERY_FAILED) {
+        return this.convertPathCommandsToKclOps(path.commands, path.transform!)
+      }
+
+      throw error
+    }
 
     const operations: KclOperation[] = []
 

@@ -1,15 +1,46 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(endAbsolute = [90, -10])
-  |> line(endAbsolute = [90, -90])
-  |> line(endAbsolute = [10, -90])
-  |> line(endAbsolute = [10, -10])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [30, -30])
-    |> line(endAbsolute = [70, -30])
-    |> line(endAbsolute = [70, -70])
-    |> line(endAbsolute = [30, -70])
-    |> line(endAbsolute = [30, -30])
-    |> close())
+sketch001 = sketch(on = XY) {
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
+  horizontal(seg001)
+  distance([seg001.start, seg001.end]) == 80
+  pt003 = [var 90, var -90]
+  seg002 = line(start = pt002, end = pt003)
+  vertical(seg002)
+  distance([seg002.start, seg002.end]) == 80
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 10, var -90]
+  seg003 = line(start = pt003, end = pt004)
+  horizontal(seg003)
+  distance([seg003.start, seg003.end]) == 80
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = pt004, end = pt001)
+  vertical(seg004)
+  distance([seg004.start, seg004.end]) == 80
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+  pt005 = [var 30, var -30]
+  pt006 = [var 70, var -30]
+  seg005 = line(start = pt005, end = pt006)
+  horizontal(seg005)
+  distance([seg005.start, seg005.end]) == 40
+  pt007 = [var 70, var -70]
+  seg006 = line(start = pt006, end = pt007)
+  vertical(seg006)
+  distance([seg006.start, seg006.end]) == 40
+  coincident([seg005.end, seg006.start])
+  pt008 = [var 30, var -70]
+  seg007 = line(start = pt007, end = pt008)
+  horizontal(seg007)
+  distance([seg007.start, seg007.end]) == 40
+  coincident([seg006.end, seg007.start])
+  seg008 = line(start = pt008, end = pt005)
+  vertical(seg008)
+  distance([seg008.start, seg008.end]) == 40
+  coincident([seg007.end, seg008.start])
+  coincident([seg008.end, seg005.start])
+}
+
+region001 = region(point = [50, -50], sketch = sketch001)
+
+region002 = region(point = [50, -50], sketch = sketch001)

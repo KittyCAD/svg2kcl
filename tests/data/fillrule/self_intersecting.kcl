@@ -1,19 +1,32 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [50, -100])
-  |> line(endAbsolute = [142.043, -87.728])
-  |> bezierCurve(
-         control1 = [-23.79, -12.613],
-         control2 = [-54.471, -33.371],
-         end = [-92.043, -62.272]
-     )
-  |> line(endAbsolute = [50, -100])
-  |> close()
-  startSketchOn(XY)
-  |> startProfile(at = [142.043, -87.727])
-  |> bezierCurve(
-         control1 = [31.085, 16.481],
-         control2 = [50.404, 19.057],
-         end = [57.957, 7.727]
-     )
-  |> line(endAbsolute = [142.043, -87.727])
-  |> close()
+@settings(experimentalFeatures = allow)
+
+sketch001 = sketch(on = XY) {
+  pt001 = [var 50, var -100]
+  pt002 = [var 142.043, var -87.728]
+  seg001 = line(start = pt001, end = pt002)
+  distance([seg001.start, seg001.end]) == 92.858
+  pt003 = [var 50, var -150]
+  pt004 = [var 452.446, var -673.18]
+  seg002 = arc(start = pt002, end = pt003, center = pt004)
+  radius(seg002) == 662.649
+  coincident([seg001.end, seg002.start])
+  seg003 = line(start = pt003, end = pt001)
+  vertical(seg003)
+  distance([seg003.start, seg003.end]) == 50
+  coincident([seg002.end, seg003.start])
+  coincident([seg003.end, seg001.start])
+  pt005 = [var 173.128, var -71.246]
+  pt006 = [var 192.447, var -68.671]
+  pt007 = [var 200, var -80]
+  seg004 = controlPointSpline(points = [
+    pt002,
+    pt005,
+    pt006,
+    pt007
+  ])
+  seg005 = line(start = pt007, end = pt002)
+  distance([seg005.start, seg005.end]) == 58.47
+  coincident([seg001.end, seg005.end])
+}
+
+region001 = region(point = [79.272, -112.067], sketch = sketch001)

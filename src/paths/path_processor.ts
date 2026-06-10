@@ -121,6 +121,10 @@ export class PathProcessor {
       const { pathSamplePoints: localSubpathSamplePoints, pathCommands: localSubpathCommands } =
         sampleSubpath(subpath)
 
+      if (localSubpathSamplePoints.length === 0) {
+        continue
+      }
+
       // Create our subpath object.
       subpaths.push(
         this.createSubpaths(localSubpathCommands, localSubpathSamplePoints, globalCommandIndex)

@@ -1,63 +1,158 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -5])
-  |> line(endAbsolute = [110, -15])
-  |> line(endAbsolute = [60, -65])
-  |> line(endAbsolute = [110, -115])
-  |> line(endAbsolute = [10, -125])
-  |> line(endAbsolute = [10, -5])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [30, -35])
-    |> line(endAbsolute = [60, -65])
-    |> line(endAbsolute = [30, -95])
-    |> line(endAbsolute = [30, -35])
-    |> close())
+sketch001 = sketch(on = XY) {
+  pt001 = [var 10, var -5]
+  pt002 = [var 110, var -15]
+  seg001 = line(start = pt001, end = pt002)
+  distance([seg001.start, seg001.end]) == 100.499
+  pt003 = [var 60, var -65]
+  seg002 = line(start = pt002, end = pt003)
+  distance([seg002.start, seg002.end]) == 70.711
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 110, var -115]
+  seg003 = line(start = pt003, end = pt004)
+  distance([seg003.start, seg003.end]) == 70.711
+  coincident([seg002.end, seg003.start])
+  pt005 = [var 10, var -125]
+  seg004 = line(start = pt004, end = pt005)
+  distance([seg004.start, seg004.end]) == 100.499
+  coincident([seg003.end, seg004.start])
+  seg005 = line(start = pt005, end = pt001)
+  vertical(seg005)
+  distance([seg005.start, seg005.end]) == 120
+  coincident([seg004.end, seg005.start])
+  coincident([seg005.end, seg001.start])
+  pt006 = [var 30, var -35]
+  seg006 = line(start = pt006, end = pt003)
+  distance([seg006.start, seg006.end]) == 42.426
+  pt007 = [var 30, var -95]
+  seg007 = line(start = pt003, end = pt007)
+  distance([seg007.start, seg007.end]) == 42.426
+  coincident([seg006.end, seg007.start])
+  seg008 = line(start = pt007, end = pt006)
+  vertical(seg008)
+  distance([seg008.start, seg008.end]) == 60
+  coincident([seg007.end, seg008.start])
+  coincident([seg008.end, seg006.start])
+  pt008 = [var 150, var -5]
+  pt009 = [var 250, var -15]
+  seg009 = line(start = pt008, end = pt009)
+  distance([seg009.start, seg009.end]) == 100.499
+  pt010 = [var 200, var -65]
+  seg010 = line(start = pt009, end = pt010)
+  distance([seg010.start, seg010.end]) == 70.711
+  coincident([seg009.end, seg010.start])
+  pt011 = [var 250, var -115]
+  seg011 = line(start = pt010, end = pt011)
+  distance([seg011.start, seg011.end]) == 70.711
+  coincident([seg010.end, seg011.start])
+  pt012 = [var 150, var -125]
+  seg012 = line(start = pt011, end = pt012)
+  distance([seg012.start, seg012.end]) == 100.499
+  coincident([seg011.end, seg012.start])
+  seg013 = line(start = pt012, end = pt008)
+  vertical(seg013)
+  distance([seg013.start, seg013.end]) == 120
+  coincident([seg012.end, seg013.start])
+  coincident([seg013.end, seg009.start])
+  pt013 = [var 170, var -35]
+  seg014 = line(start = pt013, end = pt010)
+  distance([seg014.start, seg014.end]) == 42.426
+  pt014 = [var 170, var -95]
+  seg015 = line(start = pt010, end = pt014)
+  distance([seg015.start, seg015.end]) == 42.426
+  coincident([seg014.end, seg015.start])
+  seg016 = line(start = pt014, end = pt013)
+  vertical(seg016)
+  distance([seg016.start, seg016.end]) == 60
+  coincident([seg015.end, seg016.start])
+  coincident([seg016.end, seg014.start])
+  pt015 = [var 290, var -5]
+  pt016 = [var 390, var -15]
+  seg017 = line(start = pt015, end = pt016)
+  distance([seg017.start, seg017.end]) == 100.499
+  pt017 = [var 340, var -65]
+  seg018 = line(start = pt016, end = pt017)
+  distance([seg018.start, seg018.end]) == 70.711
+  coincident([seg017.end, seg018.start])
+  pt018 = [var 390, var -115]
+  seg019 = line(start = pt017, end = pt018)
+  distance([seg019.start, seg019.end]) == 70.711
+  coincident([seg018.end, seg019.start])
+  pt019 = [var 290, var -125]
+  seg020 = line(start = pt018, end = pt019)
+  distance([seg020.start, seg020.end]) == 100.499
+  coincident([seg019.end, seg020.start])
+  seg021 = line(start = pt019, end = pt015)
+  vertical(seg021)
+  distance([seg021.start, seg021.end]) == 120
+  coincident([seg020.end, seg021.start])
+  coincident([seg021.end, seg017.start])
+  pt020 = [var 310, var -35]
+  seg022 = line(start = pt020, end = pt017)
+  distance([seg022.start, seg022.end]) == 42.426
+  pt021 = [var 310, var -95]
+  seg023 = line(start = pt017, end = pt021)
+  distance([seg023.start, seg023.end]) == 42.426
+  coincident([seg022.end, seg023.start])
+  seg024 = line(start = pt021, end = pt020)
+  vertical(seg024)
+  distance([seg024.start, seg024.end]) == 60
+  coincident([seg023.end, seg024.start])
+  coincident([seg024.end, seg022.start])
+  pt022 = [var 430, var -5]
+  pt023 = [var 530, var -15]
+  seg025 = line(start = pt022, end = pt023)
+  distance([seg025.start, seg025.end]) == 100.499
+  pt024 = [var 480, var -65]
+  seg026 = line(start = pt023, end = pt024)
+  distance([seg026.start, seg026.end]) == 70.711
+  coincident([seg025.end, seg026.start])
+  pt025 = [var 530, var -115]
+  seg027 = line(start = pt024, end = pt025)
+  distance([seg027.start, seg027.end]) == 70.711
+  coincident([seg026.end, seg027.start])
+  pt026 = [var 430, var -125]
+  seg028 = line(start = pt025, end = pt026)
+  distance([seg028.start, seg028.end]) == 100.499
+  coincident([seg027.end, seg028.start])
+  seg029 = line(start = pt026, end = pt022)
+  vertical(seg029)
+  distance([seg029.start, seg029.end]) == 120
+  coincident([seg028.end, seg029.start])
+  coincident([seg029.end, seg025.start])
+  pt027 = [var 450, var -35]
+  seg030 = line(start = pt027, end = pt024)
+  distance([seg030.start, seg030.end]) == 42.426
+  pt028 = [var 450, var -95]
+  seg031 = line(start = pt024, end = pt028)
+  distance([seg031.start, seg031.end]) == 42.426
+  coincident([seg030.end, seg031.start])
+  seg032 = line(start = pt028, end = pt027)
+  vertical(seg032)
+  distance([seg032.start, seg032.end]) == 60
+  coincident([seg031.end, seg032.start])
+  coincident([seg032.end, seg030.start])
+  coincident([seg002.end, seg006.end])
+  coincident([seg002.end, seg007.start])
+  coincident([seg010.end, seg014.end])
+  coincident([seg010.end, seg015.start])
+  coincident([seg018.end, seg022.end])
+  coincident([seg018.end, seg023.start])
+  coincident([seg026.end, seg030.end])
+  coincident([seg026.end, seg031.start])
+}
 
-sketch002 = startSketchOn(XY)
-  |> startProfile(at = [150, -5])
-  |> line(endAbsolute = [250, -15])
-  |> line(endAbsolute = [200, -65])
-  |> line(endAbsolute = [250, -115])
-  |> line(endAbsolute = [150, -125])
-  |> line(endAbsolute = [150, -5])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [170, -35])
-    |> line(endAbsolute = [200, -65])
-    |> line(endAbsolute = [170, -95])
-    |> line(endAbsolute = [170, -35])
-    |> close())
+region001 = region(point = [59.892, -10.55], sketch = sketch001)
 
-sketch003 = startSketchOn(XY)
-  |> startProfile(at = [290, -5])
-  |> line(endAbsolute = [390, -15])
-  |> line(endAbsolute = [340, -65])
-  |> line(endAbsolute = [390, -115])
-  |> line(endAbsolute = [290, -125])
-  |> line(endAbsolute = [290, -5])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [310, -35])
-    |> line(endAbsolute = [340, -65])
-    |> line(endAbsolute = [310, -95])
-    |> line(endAbsolute = [310, -35])
-    |> close())
+region002 = region(point = [199.892, -10.55], sketch = sketch001)
 
-sketch004 = startSketchOn(XY)
-  |> startProfile(at = [430, -5])
-  |> line(endAbsolute = [530, -15])
-  |> line(endAbsolute = [480, -65])
-  |> line(endAbsolute = [530, -115])
-  |> line(endAbsolute = [430, -125])
-  |> line(endAbsolute = [430, -5])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [450, -35])
-    |> line(endAbsolute = [480, -65])
-    |> line(endAbsolute = [450, -95])
-    |> line(endAbsolute = [450, -35])
-    |> close())
+region003 = region(point = [339.892, -10.55], sketch = sketch001)
+
+region004 = region(point = [479.892, -10.55], sketch = sketch001)
+
+region005 = region(point = [40, -65], sketch = sketch001)
+
+region006 = region(point = [180, -65], sketch = sketch001)
+
+region007 = region(point = [320, -65], sketch = sketch001)
+
+region008 = region(point = [460, -65], sketch = sketch001)

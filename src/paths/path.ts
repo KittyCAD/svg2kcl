@@ -225,6 +225,8 @@ export function sampleSubpath(inputCommands: PathCommand[]): PathSampleResult {
   // Push our final point... making our iLastPoint not OOB.
   if (points.length > 0) {
     points.push(currentPoint)
+  } else {
+    return { pathSamplePoints: points, pathCommands: commands }
   }
 
   // Close.

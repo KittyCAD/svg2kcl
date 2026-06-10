@@ -8,7 +8,9 @@
     "test": "jest",
     "dev": "http-server .",
     "start": "npm run build && npm run dev",
-    "example": "node -r ts-node/register src/main.ts ./tests/data/examples/project_payload.svg"
+    "example": "node -r ts-node/register src/main.ts ./tests/data/examples/project_payload.svg",
+    "compare:kcl": "ts-node scripts/compare-kcl.ts",
+    "rebuild:kcl": "ts-node scripts/rebuild-kcl.ts"
   },
   "author": "",
   "license": "ISC",

@@ -1,197 +1,237 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [188.462, -392.912])
-  |> bezierCurve(
-         control1 = [7.315, 27.416],
-         control2 = [19.758, 53.186],
-         end = [34.257, 77.476]
-     )
-  |> bezierCurve(
-         control1 = [61.709, 97.431],
-         control2 = [142.648, 187.572],
-         end = [247.543, 239.024]
-     )
-  |> bezierCurve(
-         control1 = [6.274, 3.088],
-         control2 = [12.508, 6.284],
-         end = [19, 8.9]
-     )
-  |> bezierCurve(
-         control1 = [48.485, -43.813],
-         control2 = [94.592, -90.15],
-         end = [142.1, -135]
-     )
-  |> bezierCurve(
-         control1 = [-54.43, -109.519],
-         control2 = [-152.916, -189.85],
-         end = [-257.489, -249.236]
-     )
-  |> bezierCurve(
-         control1 = [-32.292, -12.323],
-         control2 = [-76.12, -52.446],
-         end = [-106.703, -17.791]
-     )
-  |> bezierCurve(
-         control1 = [3.298, -2.207],
-         control2 = [31.567, 28.732],
-         end = [39.881, 40.935]
-     )
-  |> bezierCurve(
-         control1 = [18.043, 27.056],
-         control2 = [64.762, 54.808],
-         end = [36.287, 90.981]
-     )
-  |> bezierCurve(
-         control1 = [-40.595, 24.762],
-         control2 = [-74.945, -28.63],
-         end = [-101.563, -52.634]
-     )
-  |> bezierCurve(
-         control1 = [-12.563, -26.581],
-         control2 = [-37.888, -27.894],
-         end = [-53.314, -2.655]
-     )
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [475.122, -144.924])
-    |> bezierCurve(
-         control1 = [5.633, -0.181],
-         control2 = [11.251, -0.904],
-         end = [16.74, -2.187]
-     )
-    |> bezierCurve(
-         control1 = [49.47, -9.291],
-         control2 = [76.165, -76.383],
-         end = [42.383, -115.43]
-     )
-    |> bezierCurve(
-         control1 = [-34.586, -46.329],
-         control2 = [-118.704, -34.43],
-         end = [-135.898, 22.021]
-     )
-    |> bezierCurve(
-         control1 = [-16.288, 47.302],
-         control2 = [26.994, 100.866],
-         end = [76.775, 95.596]
-     )
-    |> close())
+@settings(experimentalFeatures = allow)
 
-sketch002 = startSketchOn(XY)
-  |> startProfile(at = [464.862, -163.512])
-  |> bezierCurve(
-         control1 = [33.802, 5.369],
-         control2 = [69.516, -24.881],
-         end = [65.38, -59.918]
-     )
-  |> bezierCurve(
-         control1 = [-2.831, -45.665],
-         control2 = [-66.251, -65.692],
-         end = [-97.795, -35.12]
-     )
-  |> bezierCurve(
-         control1 = [-36.408, 28.479],
-         control2 = [-12.83, 93.626],
-         end = [32.415, 95.038]
-     )
-  |> close()
+sketch001 = sketch(on = XY) {
+  pt001 = [var 188.462, var -392.912]
+  pt002 = [var 222.719, var -315.436]
+  pt003 = [var 485.104, var -472.06]
+  seg001 = arc(start = pt002, end = pt001, center = pt003)
+  radius(seg001) == 307.019
+  pt004 = [var 470.262, var -76.411]
+  pt005 = [var 751.911, var -650.603]
+  seg002 = arc(start = pt004, end = pt002, center = pt005)
+  radius(seg002) == 626.403
+  coincident([seg001.start, seg002.end])
+  pt006 = [var 489.262, var -67.511]
+  pt007 = [var 594.923, var -329.715]
+  seg003 = arc(start = pt006, end = pt004, center = pt007)
+  radius(seg003) == 282.318
+  coincident([seg002.start, seg003.end])
+  pt008 = [var 631.362, var -202.512]
+  pt009 = [var -5536.27, var -6735.597]
+  seg004 = arc(start = pt008, end = pt006, center = pt009)
+  radius(seg004) == 8987.235
+  coincident([seg003.start, seg004.end])
+  pt010 = [var 373.873, var -451.748]
+  pt011 = [var 75.43, var 73.785]
+  seg005 = arc(start = pt010, end = pt008, center = pt011)
+  radius(seg005) == 620.806
+  coincident([seg004.start, seg005.end])
+  pt012 = [var 341.58, var -464.071]
+  pt013 = [var 297.753, var -504.194]
+  pt014 = [var 267.17, var -469.538]
+  seg006 = controlPointSpline(points = [
+    pt010,
+    pt012,
+    pt013,
+    pt014
+  ])
+  pt015 = [var 270.467, var -471.745]
+  pt016 = [var 298.736, var -440.807]
+  pt017 = [var 307.051, var -428.603]
+  seg007 = controlPointSpline(points = [
+    pt014,
+    pt015,
+    pt016,
+    pt017
+  ])
+  pt018 = [var 325.094, var -401.548]
+  pt019 = [var 371.814, var -373.796]
+  pt020 = [var 343.338, var -337.622]
+  seg008 = controlPointSpline(points = [
+    pt017,
+    pt018,
+    pt019,
+    pt020
+  ])
+  pt021 = [var 302.743, var -312.86]
+  pt022 = [var 268.393, var -366.253]
+  pt023 = [var 241.776, var -390.257]
+  seg009 = controlPointSpline(points = [
+    pt020,
+    pt021,
+    pt022,
+    pt023
+  ])
+  pt024 = [var 229.212, var -416.837]
+  pt025 = [var 203.888, var -418.151]
+  seg010 = controlPointSpline(points = [
+    pt023,
+    pt024,
+    pt025,
+    pt001
+  ])
+  pt026 = [var 475.122, var -144.924]
+  pt027 = [var 491.862, var -147.111]
+  pt028 = [var 472.366, var -230.555]
+  seg011 = arc(start = pt027, end = pt026, center = pt028)
+  radius(seg011) == 85.675
+  pt029 = [var 541.332, var -156.402]
+  pt030 = [var 568.027, var -223.494]
+  pt031 = [var 534.245, var -262.541]
+  seg012 = controlPointSpline(points = [
+    pt027,
+    pt029,
+    pt030,
+    pt031
+  ])
+  pt032 = [var 499.659, var -308.87]
+  pt033 = [var 415.541, var -296.971]
+  pt034 = [var 398.347, var -240.52]
+  seg013 = controlPointSpline(points = [
+    pt031,
+    pt032,
+    pt033,
+    pt034
+  ])
+  pt035 = [var 467.523, var -216.7]
+  seg014 = arc(start = pt026, end = pt034, center = pt035)
+  radius(seg014) == 73.163
+  coincident([seg014.start, seg011.end])
+  pt036 = [var 464.862, var -163.512]
+  pt037 = [var 530.242, var -223.43]
+  pt038 = [var 473.311, var -216.71]
+  seg015 = arc(start = pt037, end = pt036, center = pt038)
+  radius(seg015) == 53.865
+  pt039 = [var 527.412, var -269.095]
+  pt040 = [var 463.991, var -289.122]
+  pt041 = [var 432.447, var -258.55]
+  seg016 = controlPointSpline(points = [
+    pt037,
+    pt039,
+    pt040,
+    pt041
+  ])
+  pt042 = [var 396.039, var -230.071]
+  pt043 = [var 419.617, var -164.924]
+  seg017 = controlPointSpline(points = [
+    pt041,
+    pt042,
+    pt043,
+    pt036
+  ])
+  pt044 = [var 11.678, var -423.562]
+  pt045 = [var 199.362, var -269.112]
+  pt046 = [var 268.64, var -563.282]
+  seg018 = arc(start = pt045, end = pt044, center = pt046)
+  radius(seg018) == 292.492
+  pt047 = [var 229.362, var -268.612]
+  pt048 = [var 212.183, var -372.716]
+  seg019 = arc(start = pt047, end = pt045, center = pt048)
+  radius(seg019) == 104.394
+  coincident([seg018.start, seg019.end])
+  pt049 = [var 179.062, var -360.212]
+  pt050 = [var 766.101, var -589.344]
+  seg020 = arc(start = pt047, end = pt049, center = pt050)
+  radius(seg020) == 625.266
+  coincident([seg019.start, seg020.start])
+  pt051 = [var 17.009, var -452.865]
+  pt052 = [var 200.997, var -618.981]
+  seg021 = arc(start = pt049, end = pt051, center = pt052)
+  radius(seg021) == 259.697
+  coincident([seg020.end, seg021.start])
+  pt053 = [var -4.154, var -486.586]
+  pt054 = [var 5.374, var -437.651]
+  seg022 = controlPointSpline(points = [
+    pt051,
+    pt053,
+    pt054,
+    pt044
+  ])
+  pt055 = [var 105.622, var -564.649]
+  pt056 = [var 163.25, var -502.308]
+  pt057 = [var 2723.628, var -2904.432]
+  seg023 = arc(start = pt056, end = pt055, center = pt057)
+  radius(seg023) == 3511.202
+  pt058 = [var 313.962, var -350.012]
+  pt059 = [var 1223.978, var -1555.267]
+  seg024 = arc(start = pt058, end = pt056, center = pt059)
+  radius(seg024) == 1494.613
+  coincident([seg023.start, seg024.end])
+  pt060 = [var 336.729, var -342.216]
+  pt061 = [var 338.704, var -367.055]
+  pt062 = [var 325.45, var -378.989]
+  seg025 = controlPointSpline(points = [
+    pt058,
+    pt060,
+    pt061,
+    pt062
+  ])
+  pt063 = [var -4192.032, var 4535.814]
+  seg026 = arc(start = pt055, end = pt062, center = pt063)
+  radius(seg026) == 6675.547
+  coincident([seg026.start, seg023.end])
+  pt064 = [var 202.862, var -664.712]
+  pt065 = [var 317.396, var -517.312]
+  pt066 = [var 43.735, var -449.516]
+  seg027 = arc(start = pt064, end = pt065, center = pt066)
+  radius(seg027) == 267.639
+  pt067 = [var 321.463, var -478.205]
+  pt068 = [var 377.489, var -481.272]
+  pt069 = [var 402.862, var -456.712]
+  seg028 = controlPointSpline(points = [
+    pt065,
+    pt067,
+    pt068,
+    pt069
+  ])
+  pt070 = [var 408.178, var -455.73]
+  pt071 = [var 412.135, var -447.74]
+  pt072 = [var 417.851, var -449.519]
+  seg029 = controlPointSpline(points = [
+    pt069,
+    pt070,
+    pt071,
+    pt072
+  ])
+  pt073 = [var 363.54, var -572.212]
+  pt074 = [var 241.907, var -461.433]
+  seg030 = arc(start = pt073, end = pt072, center = pt074)
+  radius(seg030) == 176.347
+  pt075 = [var 192.889, var -411.882]
+  seg031 = arc(start = pt064, end = pt073, center = pt075)
+  radius(seg031) == 234.153
+  coincident([seg030.start, seg031.end])
+  coincident([seg031.start, seg027.start])
+  pt076 = [var 530.388, var -49.962]
+  pt077 = [var 681.856, var -0.44]
+  pt078 = [var 733.339, var -373.735]
+  seg032 = arc(start = pt077, end = pt076, center = pt078)
+  radius(seg032) == 382.123
+  pt079 = [var 645.361, var -164.262]
+  pt080 = [var 65.408, var 59.736]
+  seg033 = arc(start = pt079, end = pt077, center = pt080)
+  radius(seg033) == 619.378
+  coincident([seg032.start, seg033.end])
+  pt081 = [var 607.036, var -126.162]
+  pt082 = [var 568.712, var -88.062]
+  seg034 = controlPointSpline(points = [
+    pt079,
+    pt081,
+    pt082,
+    pt076
+  ])
+}
 
-sketch003 = startSketchOn(XY)
-  |> startProfile(at = [11.678, -423.562])
-  |> bezierCurve(
-         control1 = [39.404, 72.468],
-         control2 = [105.672, 135.135],
-         end = [187.684, 154.45]
-     )
-  |> bezierCurve(
-         control1 = [9.929, 1.229],
-         control2 = [20.054, 2.141],
-         end = [30, 0.5]
-     )
-  |> bezierCurve(
-         control1 = [-17.86, -29.888],
-         control2 = [-37.576, -59.002],
-         end = [-50.3, -91.6]
-     )
-  |> bezierCurve(
-         control1 = [-64.505, -5.468],
-         control2 = [-119.896, -45.96],
-         end = [-162.053, -92.653]
-     )
-  |> bezierCurve(
-         control1 = [-21.163, -33.722],
-         control2 = [-11.635, 15.213],
-         end = [-5.331, 29.303]
-     )
-  |> close()
+region001 = region(point = [420.713, -271.576], sketch = sketch001)
 
-sketch004 = startSketchOn(XY)
-  |> startProfile(at = [105.622, -564.649])
-  |> bezierCurve(
-         control1 = [18.859, 21.101],
-         control2 = [38.266, 41.703],
-         end = [57.628, 62.341]
-     )
-  |> bezierCurve(
-         control1 = [50.286, 50.657],
-         control2 = [93.436, 109.05],
-         end = [150.712, 152.296]
-     )
-  |> bezierCurve(
-         control1 = [22.767, 7.796],
-         control2 = [24.742, -17.043],
-         end = [11.488, -28.977]
-     )
-  |> bezierCurve(
-         control1 = [-70.654, -64.942],
-         control2 = [-146.483, -123.859],
-         end = [-219.828, -185.66]
-     )
-  |> close()
+region002 = region(point = [477.611, -224.533], sketch = sketch001)
 
-sketch005 = startSketchOn(XY)
-  |> startProfile(at = [202.862, -664.712])
-  |> bezierCurve(
-         control1 = [50.313, 37.204],
-         control2 = [98.997, 84.686],
-         end = [114.534, 147.4]
-     )
-  |> bezierCurve(
-         control1 = [4.067, 39.107],
-         control2 = [60.093, 36.041],
-         end = [85.466, 60.6]
-     )
-  |> bezierCurve(
-         control1 = [5.316, 0.982],
-         control2 = [9.273, 8.972],
-         end = [14.989, 7.193]
-     )
-  |> bezierCurve(
-         control1 = [3.15, -46.522],
-         control2 = [-24.008, -89.422],
-         end = [-54.311, -122.693]
-     )
-  |> bezierCurve(
-         control1 = [-42.321, -45.045],
-         control2 = [-95.987, -89.948],
-         end = [-160.678, -92.5]
-     )
-  |> close()
+region003 = region(point = [333.231, -548.728], sketch = sketch001)
 
-sketch006 = startSketchOn(XY)
-  |> startProfile(at = [530.388, -49.962])
-  |> bezierCurve(
-         control1 = [45.587, 28.575],
-         control2 = [98.649, 42.238],
-         end = [151.468, 49.522]
-     )
-  |> bezierCurve(
-         control1 = [-5.446, -55.79],
-         control2 = [-16.25, -111.406],
-         end = [-36.495, -163.822]
-     )
-  |> bezierCurve(
-         control1 = [-38.325, 38.1],
-         control2 = [-76.649, 76.2],
-         end = [-114.973, 114.3]
-     )
-  |> close()
+region004 = region(point = [619.587, -68.427], sketch = sketch001)
+
+region005 = region(point = [467.417, -222.485], sketch = sketch001)
+
+region006 = region(point = [120.415, -351.444], sketch = sketch001)
+
+region007 = region(point = [249.879, -431.863], sketch = sketch001)

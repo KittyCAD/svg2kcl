@@ -1,15 +1,40 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [100, -114.142])
-  |> line(endAbsolute = [114.142, -128.284])
-  |> line(endAbsolute = [100, -142.426])
-  |> line(endAbsolute = [85.858, -128.284])
-  |> line(endAbsolute = [100, -114.142])
-  |> close()
+sketch001 = sketch(on = XY) {
+  pt001 = [var 100, var -114.142]
+  pt002 = [var 114.142, var -128.284]
+  seg001 = line(start = pt001, end = pt002)
+  distance([seg001.start, seg001.end]) == 20
+  pt003 = [var 100, var -142.426]
+  seg002 = line(start = pt002, end = pt003)
+  distance([seg002.start, seg002.end]) == 20
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 85.858, var -128.284]
+  seg003 = line(start = pt003, end = pt004)
+  distance([seg003.start, seg003.end]) == 20
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = pt004, end = pt001)
+  distance([seg004.start, seg004.end]) == 20
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+  pt005 = [var 201.436, var -180]
+  pt006 = [var 241.436, var -180]
+  seg005 = line(start = pt005, end = pt006)
+  horizontal(seg005)
+  distance([seg005.start, seg005.end]) == 40
+  pt007 = [var 252.154, var -220]
+  seg006 = line(start = pt006, end = pt007)
+  distance([seg006.start, seg006.end]) == 41.411
+  coincident([seg005.end, seg006.start])
+  pt008 = [var 212.154, var -220]
+  seg007 = line(start = pt007, end = pt008)
+  horizontal(seg007)
+  distance([seg007.start, seg007.end]) == 40
+  coincident([seg006.end, seg007.start])
+  seg008 = line(start = pt008, end = pt005)
+  distance([seg008.start, seg008.end]) == 41.411
+  coincident([seg007.end, seg008.start])
+  coincident([seg008.end, seg005.start])
+}
 
-sketch002 = startSketchOn(XY)
-  |> startProfile(at = [201.436, -180])
-  |> line(endAbsolute = [241.436, -180])
-  |> line(endAbsolute = [252.154, -220])
-  |> line(endAbsolute = [212.154, -220])
-  |> line(endAbsolute = [201.436, -180])
-  |> close()
+region001 = region(point = [226.795, -200], sketch = sketch001)
+
+region002 = region(point = [100, -128.284], sketch = sketch001)

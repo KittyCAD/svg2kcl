@@ -21,7 +21,7 @@ export async function convertSvgToKcl(
   const convertedElements = converter.convertElements(svg.elements)
 
   // Write.
-  const writer = new KclWriter()
+  const writer = new KclWriter(options)
   const result = await writer.formatAndWrite(convertedElements, outputPath)
 
   return result
@@ -32,7 +32,7 @@ async function main() {
   const args = process.argv.slice(2)
 
   if (args.length < 1) {
-    console.log('Usage: ts-node main.ts <inputFile> [outputFile] [--center]')
+    console.log('Usage: ts-node main.ts <inputFile> [outputFile] [--center] [--no-regions]')
     console.log('Example: ts-node main.ts ./input.svg ./output.kcl --center')
     process.exit(1)
   }
@@ -46,7 +46,8 @@ async function main() {
   const outputFile = fileArgs[1] || inputFile.replace(/\.[^/.]+$/, '') + '.kcl'
 
   const options: KclOptions = {
-    centerOnViewBox: flags.includes('--center')
+    centerOnViewBox: flags.includes('--center'),
+    emitRegions: !flags.includes('--no-regions')
   }
 
   try {

@@ -1,49 +1,126 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -5])
-  |> line(endAbsolute = [110, -15])
-  |> line(endAbsolute = [60, -65])
-  |> line(endAbsolute = [110, -115])
-  |> line(endAbsolute = [10, -125])
-  |> line(endAbsolute = [10, -5])
-  |> close()
+sketch001 = sketch(on = XY) {
+  pt001 = [var 10, var -5]
+  pt002 = [var 110, var -15]
+  seg001 = line(start = pt001, end = pt002)
+  distance([seg001.start, seg001.end]) == 100.499
+  pt003 = [var 60, var -65]
+  seg002 = line(start = pt002, end = pt003)
+  distance([seg002.start, seg002.end]) == 70.711
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 110, var -115]
+  seg003 = line(start = pt003, end = pt004)
+  distance([seg003.start, seg003.end]) == 70.711
+  coincident([seg002.end, seg003.start])
+  pt005 = [var 10, var -125]
+  seg004 = line(start = pt004, end = pt005)
+  distance([seg004.start, seg004.end]) == 100.499
+  coincident([seg003.end, seg004.start])
+  seg005 = line(start = pt005, end = pt001)
+  vertical(seg005)
+  distance([seg005.start, seg005.end]) == 120
+  coincident([seg004.end, seg005.start])
+  coincident([seg005.end, seg001.start])
+  pt006 = [var 150, var -5]
+  pt007 = [var 250, var -15]
+  seg006 = line(start = pt006, end = pt007)
+  distance([seg006.start, seg006.end]) == 100.499
+  pt008 = [var 200, var -65]
+  seg007 = line(start = pt007, end = pt008)
+  distance([seg007.start, seg007.end]) == 70.711
+  coincident([seg006.end, seg007.start])
+  pt009 = [var 250, var -115]
+  seg008 = line(start = pt008, end = pt009)
+  distance([seg008.start, seg008.end]) == 70.711
+  coincident([seg007.end, seg008.start])
+  pt010 = [var 150, var -125]
+  seg009 = line(start = pt009, end = pt010)
+  distance([seg009.start, seg009.end]) == 100.499
+  coincident([seg008.end, seg009.start])
+  seg010 = line(start = pt010, end = pt006)
+  vertical(seg010)
+  distance([seg010.start, seg010.end]) == 120
+  coincident([seg009.end, seg010.start])
+  coincident([seg010.end, seg006.start])
+  pt011 = [var 170, var -35]
+  seg011 = line(start = pt011, end = pt008)
+  distance([seg011.start, seg011.end]) == 42.426
+  pt012 = [var 170, var -95]
+  seg012 = line(start = pt008, end = pt012)
+  distance([seg012.start, seg012.end]) == 42.426
+  coincident([seg011.end, seg012.start])
+  seg013 = line(start = pt012, end = pt011)
+  vertical(seg013)
+  distance([seg013.start, seg013.end]) == 60
+  coincident([seg012.end, seg013.start])
+  coincident([seg013.end, seg011.start])
+  pt013 = [var 290, var -5]
+  pt014 = [var 390, var -15]
+  seg014 = line(start = pt013, end = pt014)
+  distance([seg014.start, seg014.end]) == 100.499
+  pt015 = [var 340, var -65]
+  seg015 = line(start = pt014, end = pt015)
+  distance([seg015.start, seg015.end]) == 70.711
+  coincident([seg014.end, seg015.start])
+  pt016 = [var 390, var -115]
+  seg016 = line(start = pt015, end = pt016)
+  distance([seg016.start, seg016.end]) == 70.711
+  coincident([seg015.end, seg016.start])
+  pt017 = [var 290, var -125]
+  seg017 = line(start = pt016, end = pt017)
+  distance([seg017.start, seg017.end]) == 100.499
+  coincident([seg016.end, seg017.start])
+  seg018 = line(start = pt017, end = pt013)
+  vertical(seg018)
+  distance([seg018.start, seg018.end]) == 120
+  coincident([seg017.end, seg018.start])
+  coincident([seg018.end, seg014.start])
+  pt018 = [var 430, var -5]
+  pt019 = [var 530, var -15]
+  seg019 = line(start = pt018, end = pt019)
+  distance([seg019.start, seg019.end]) == 100.499
+  pt020 = [var 480, var -65]
+  seg020 = line(start = pt019, end = pt020)
+  distance([seg020.start, seg020.end]) == 70.711
+  coincident([seg019.end, seg020.start])
+  pt021 = [var 530, var -115]
+  seg021 = line(start = pt020, end = pt021)
+  distance([seg021.start, seg021.end]) == 70.711
+  coincident([seg020.end, seg021.start])
+  pt022 = [var 430, var -125]
+  seg022 = line(start = pt021, end = pt022)
+  distance([seg022.start, seg022.end]) == 100.499
+  coincident([seg021.end, seg022.start])
+  seg023 = line(start = pt022, end = pt018)
+  vertical(seg023)
+  distance([seg023.start, seg023.end]) == 120
+  coincident([seg022.end, seg023.start])
+  coincident([seg023.end, seg019.start])
+  pt023 = [var 450, var -35]
+  seg024 = line(start = pt023, end = pt020)
+  distance([seg024.start, seg024.end]) == 42.426
+  pt024 = [var 450, var -95]
+  seg025 = line(start = pt020, end = pt024)
+  distance([seg025.start, seg025.end]) == 42.426
+  coincident([seg024.end, seg025.start])
+  seg026 = line(start = pt024, end = pt023)
+  vertical(seg026)
+  distance([seg026.start, seg026.end]) == 60
+  coincident([seg025.end, seg026.start])
+  coincident([seg026.end, seg024.start])
+  coincident([seg007.end, seg011.end])
+  coincident([seg007.end, seg012.start])
+  coincident([seg020.end, seg024.end])
+  coincident([seg020.end, seg025.start])
+}
 
-sketch002 = startSketchOn(XY)
-  |> startProfile(at = [150, -5])
-  |> line(endAbsolute = [250, -15])
-  |> line(endAbsolute = [200, -65])
-  |> line(endAbsolute = [250, -115])
-  |> line(endAbsolute = [150, -125])
-  |> line(endAbsolute = [150, -5])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [170, -35])
-    |> line(endAbsolute = [200, -65])
-    |> line(endAbsolute = [170, -95])
-    |> line(endAbsolute = [170, -35])
-    |> close())
+region001 = region(point = [48.235, -65], sketch = sketch001)
 
-sketch003 = startSketchOn(XY)
-  |> startProfile(at = [290, -5])
-  |> line(endAbsolute = [390, -15])
-  |> line(endAbsolute = [340, -65])
-  |> line(endAbsolute = [390, -115])
-  |> line(endAbsolute = [290, -125])
-  |> line(endAbsolute = [290, -5])
-  |> close()
+region002 = region(point = [328.235, -65], sketch = sketch001)
 
-sketch004 = startSketchOn(XY)
-  |> startProfile(at = [430, -5])
-  |> line(endAbsolute = [530, -15])
-  |> line(endAbsolute = [480, -65])
-  |> line(endAbsolute = [530, -115])
-  |> line(endAbsolute = [430, -125])
-  |> line(endAbsolute = [430, -5])
-  |> close()
-  |> subtract2d(tool =
-        startSketchOn(XY)
-  |> startProfile(at = [450, -35])
-    |> line(endAbsolute = [480, -65])
-    |> line(endAbsolute = [450, -95])
-    |> line(endAbsolute = [450, -35])
-    |> close())
+region003 = region(point = [199.892, -10.55], sketch = sketch001)
+
+region004 = region(point = [479.892, -10.55], sketch = sketch001)
+
+region005 = region(point = [180, -65], sketch = sketch001)
+
+region006 = region(point = [460, -65], sketch = sketch001)

@@ -1,5 +1,12 @@
-sketch001 = startSketchOn(XY)
-  |> circle(center = [30, -30], radius = 20)
+sketch001 = sketch(on = XY) {
+  seg001 = circle(start = [var 50, var -30], center = [var 30, var -30])
+  horizontal([seg001.center, seg001.start])
+  diameter(seg001) == 40
+  seg002 = circle(start = [var 95, var -70], center = [var 70, var -70])
+  horizontal([seg002.center, seg002.start])
+  diameter(seg002) == 50
+}
 
-sketch002 = startSketchOn(XY)
-  |> circle(center = [70, -70], radius = 25)
+region001 = region(point = [30, -30], sketch = sketch001)
+
+region002 = region(point = [70, -70], sketch = sketch001)

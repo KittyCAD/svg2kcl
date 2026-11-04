@@ -1,38 +1,68 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(end = [80, 0])
-  |> line(end = [0, -20])
-  |> line(end = [-80, 0])
-  |> close()
+sketch001 = sketch(on = XY) {
+  pt001 = [var 10, var -10]
+  pt002 = [var 90, var -10]
+  seg001 = line(start = pt001, end = pt002)
+  horizontal(seg001)
+  distance([seg001.start, seg001.end]) == 80
+  pt003 = [var 90, var -30]
+  seg002 = line(start = pt002, end = pt003)
+  vertical(seg002)
+  distance([seg002.start, seg002.end]) == 20
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 10, var -30]
+  seg003 = line(start = pt003, end = pt004)
+  horizontal(seg003)
+  distance([seg003.start, seg003.end]) == 80
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = pt004, end = pt001)
+  vertical(seg004)
+  distance([seg004.start, seg004.end]) == 20
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+  seg005 = circle(start = [var 65, var -50], center = [var 50, var -50])
+  horizontal([seg005.center, seg005.start])
+  diameter(seg005) == 30
+  pt005 = [var 10, var -70]
+  pt006 = [var 90, var -70]
+  seg006 = line(start = pt005, end = pt006)
+  horizontal(seg006)
+  distance([seg006.start, seg006.end]) == 80
+  pt007 = [var 20, var -80]
+  pt008 = [var 50, var -80]
+  seg007 = line(start = pt007, end = pt008)
+  horizontal(seg007)
+  distance([seg007.start, seg007.end]) == 30
+  pt009 = [var 35, var -57.5]
+  seg008 = arc(start = pt007, end = pt008, center = pt009)
+  radius(seg008) == 27.042
+  coincident([seg007.end, seg008.end])
+  coincident([seg008.start, seg007.start])
+  pt010 = [var 80, var -80]
+  pt011 = [var 65, var -102.5]
+  seg009 = arc(start = pt010, end = pt008, center = pt011)
+  radius(seg009) == 27.042
+  seg010 = line(start = pt010, end = pt008)
+  horizontal(seg010)
+  distance([seg010.start, seg010.end]) == 30
+  coincident([seg009.start, seg010.start])
+  coincident([seg010.end, seg009.end])
+  pt012 = [var 10, var -90]
+  pt013 = [var 50, var -95]
+  seg011 = line(start = pt012, end = pt013)
+  distance([seg011.start, seg011.end]) == 40.311
+  pt014 = [var 90, var -90]
+  seg012 = line(start = pt013, end = pt014)
+  distance([seg012.start, seg012.end]) == 40.311
+  coincident([seg011.end, seg012.start])
+  seg013 = line(start = pt014, end = pt012)
+  horizontal(seg013)
+  distance([seg013.start, seg013.end]) == 80
+  coincident([seg012.end, seg013.start])
+  coincident([seg013.end, seg011.start])
+  coincident([seg007.end, seg009.end])
+  coincident([seg007.end, seg010.end])
+}
 
-sketch002 = startSketchOn(XY)
-  |> circle(center = [50, -50], radius = 15)
+region001 = region(point = [50, -20], sketch = sketch001)
 
-sketch003 = startSketchOn(XY)
-  |> startProfile(at = [10, -70])
-  |> line(end = [80, 0])
-
-sketch004 = startSketchOn(XY)
-  |> startProfile(at = [20, -80])
-  |> line(endAbsolute = [50, -80])
-  |> bezierCurve(
-         control1 = [-10, -6.667],
-         control2 = [-20, -6.667],
-         end = [-30, 0]
-     )
-  |> close()
-  startSketchOn(XY)
-  |> startProfile(at = [50, -80])
-  |> bezierCurve(
-         control1 = [10, 6.667],
-         control2 = [20, 6.667],
-         end = [30, 0]
-     )
-  |> line(endAbsolute = [50, -80])
-  |> close()
-
-sketch005 = startSketchOn(XY)
-  |> startProfile(at = [10, -90])
-  |> line(end = [40, -5])
-  |> line(end = [40, 5])
-  |> close()
+region002 = region(point = [50, -91.667], sketch = sketch001)

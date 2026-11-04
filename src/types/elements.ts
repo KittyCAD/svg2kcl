@@ -14,6 +14,7 @@ export enum ElementType {
 }
 
 export type ElementProperties = {
+  fill?: string
   id?: string
   transform?: Transform
   fillRule?: FillRule

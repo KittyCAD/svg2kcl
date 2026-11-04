@@ -73,7 +73,7 @@ export class SvgPathParser {
       this.state.command === PathCommandType.StopAbsolute ||
       this.state.command === PathCommandType.StopRelative
     ) {
-      this.processValues([])
+      this.processValues(this.state.command, [])
     }
   }
 
@@ -108,14 +108,14 @@ export class SvgPathParser {
     this.state.valueBuffer = ''
   }
 
-  private processValues(parameters: number[]): void {
+  private processValues(command: PathCommandType, parameters: number[]): void {
     // Pull current (soon to be previous) command point.
     const previousPoint = { ...this.state.currentPoint }
 
     // Handle any move command (start of path or subpath).
     if (
-      this.state.command === PathCommandType.MoveAbsolute ||
-      this.state.command === PathCommandType.MoveRelative
+      command === PathCommandType.MoveAbsolute ||
+      command === PathCommandType.MoveRelative
     ) {
       if (!this.state.firstMoveCompleted) {
         // First move in the entire path - always treat as absolute.
@@ -124,7 +124,7 @@ export class SvgPathParser {
         this.state.firstMoveCompleted = true
       } else {
         // Subsequent moves - respect relative/absolute.
-        if (this.state.command === PathCommandType.MoveAbsolute) {
+        if (command === PathCommandType.MoveAbsolute) {
           this.state.currentPoint = { x: parameters[0], y: parameters[1] }
         } else {
           this.state.currentPoint.x += parameters[0]
@@ -137,7 +137,7 @@ export class SvgPathParser {
       this.state.isPathOpen = true
 
       this.path.commands.push({
-        type: !this.state.firstMoveCompleted ? PathCommandType.MoveAbsolute : this.state.command,
+        type: command,
         parameters,
         startPositionAbsolute: previousPoint,
         endPositionAbsolute: { ...this.state.currentPoint }
@@ -147,8 +147,8 @@ export class SvgPathParser {
 
     // Handle path closing.
     if (
-      this.state.command === PathCommandType.StopAbsolute ||
-      this.state.command === PathCommandType.StopRelative
+      command === PathCommandType.StopAbsolute ||
+      command === PathCommandType.StopRelative
     ) {
       if (this.state.subPathStart && this.state.isPathOpen) {
         this.state.currentPoint = { ...this.state.subPathStart }
@@ -156,7 +156,7 @@ export class SvgPathParser {
       }
 
       this.path.commands.push({
-        type: this.state.command,
+        type: command,
         parameters: [],
         startPositionAbsolute: previousPoint,
         endPositionAbsolute: { ...this.state.currentPoint }
@@ -165,7 +165,7 @@ export class SvgPathParser {
     }
 
     // Update currentPoint for absolute commands.
-    switch (this.state.command) {
+    switch (command) {
       case PathCommandType.LineAbsolute:
         this.state.currentPoint = { x: parameters[0], y: parameters[1] }
         break
@@ -193,7 +193,7 @@ export class SvgPathParser {
     }
 
     // Update currentPoint for relative commands.
-    switch (this.state.command) {
+    switch (command) {
       case PathCommandType.LineRelative:
         this.state.currentPoint.x += parameters[0]
         this.state.currentPoint.y += parameters[1]
@@ -228,7 +228,7 @@ export class SvgPathParser {
 
     // Push the command.
     this.path.commands.push({
-      type: this.state.command,
+      type: command,
       parameters,
       startPositionAbsolute: previousPoint,
       endPositionAbsolute: { ...this.state.currentPoint }
@@ -272,7 +272,14 @@ export class SvgPathParser {
     for (let i = 0; i < this.state.values.length; i += nParams) {
       const parameters = this.state.values.slice(i, i + nParams)
       if (parameters.length === nParams) {
-        this.processValues(parameters)
+        const command =
+          i > 0 && this.state.command === PathCommandType.MoveAbsolute
+            ? PathCommandType.LineAbsolute
+            : i > 0 && this.state.command === PathCommandType.MoveRelative
+              ? PathCommandType.LineRelative
+              : this.state.command
+
+        this.processValues(command, parameters)
       }
     }
   }

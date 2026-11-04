@@ -1,13 +1,34 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [10, -10])
-  |> line(end = [20, -80])
-  |> line(end = [20, 80])
-  |> line(end = [20, -80])
-  |> line(end = [20, 80])
-
-sketch002 = startSketchOn(XY)
-  |> startProfile(at = [10, -50])
-  |> line(end = [20, 20])
-  |> line(end = [20, -20])
-  |> line(end = [20, 20])
-  |> line(end = [20, -20])
+sketch001 = sketch(on = XY) {
+  pt001 = [var 10, var -10]
+  pt002 = [var 30, var -90]
+  seg001 = line(start = pt001, end = pt002)
+  distance([seg001.start, seg001.end]) == 82.462
+  pt003 = [var 50, var -10]
+  seg002 = line(start = pt002, end = pt003)
+  distance([seg002.start, seg002.end]) == 82.462
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 70, var -90]
+  seg003 = line(start = pt003, end = pt004)
+  distance([seg003.start, seg003.end]) == 82.462
+  coincident([seg002.end, seg003.start])
+  pt005 = [var 90, var -10]
+  seg004 = line(start = pt004, end = pt005)
+  distance([seg004.start, seg004.end]) == 82.462
+  coincident([seg003.end, seg004.start])
+  pt006 = [var 10, var -50]
+  pt007 = [var 30, var -30]
+  seg005 = line(start = pt006, end = pt007)
+  distance([seg005.start, seg005.end]) == 28.284
+  pt008 = [var 50, var -50]
+  seg006 = line(start = pt007, end = pt008)
+  distance([seg006.start, seg006.end]) == 28.284
+  coincident([seg005.end, seg006.start])
+  pt009 = [var 70, var -30]
+  seg007 = line(start = pt008, end = pt009)
+  distance([seg007.start, seg007.end]) == 28.284
+  coincident([seg006.end, seg007.start])
+  pt010 = [var 90, var -50]
+  seg008 = line(start = pt009, end = pt010)
+  distance([seg008.start, seg008.end]) == 28.284
+  coincident([seg007.end, seg008.start])
+}

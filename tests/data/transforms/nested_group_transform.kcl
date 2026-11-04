@@ -1,7 +1,20 @@
-sketch001 = startSketchOn(XY)
-  |> startProfile(at = [100, -128.284])
-  |> line(endAbsolute = [128.284, -156.569])
-  |> line(endAbsolute = [100, -184.853])
-  |> line(endAbsolute = [71.716, -156.569])
-  |> line(endAbsolute = [100, -128.284])
-  |> close()
+sketch001 = sketch(on = XY) {
+  pt001 = [var 100, var -128.284]
+  pt002 = [var 128.284, var -156.569]
+  seg001 = line(start = pt001, end = pt002)
+  distance([seg001.start, seg001.end]) == 40
+  pt003 = [var 100, var -184.853]
+  seg002 = line(start = pt002, end = pt003)
+  distance([seg002.start, seg002.end]) == 40
+  coincident([seg001.end, seg002.start])
+  pt004 = [var 71.716, var -156.569]
+  seg003 = line(start = pt003, end = pt004)
+  distance([seg003.start, seg003.end]) == 40
+  coincident([seg002.end, seg003.start])
+  seg004 = line(start = pt004, end = pt001)
+  distance([seg004.start, seg004.end]) == 40
+  coincident([seg003.end, seg004.start])
+  coincident([seg004.end, seg001.start])
+}
+
+region001 = region(point = [100, -156.569], sketch = sketch001)

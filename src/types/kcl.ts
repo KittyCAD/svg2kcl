@@ -3,6 +3,7 @@ import { Plane3D } from './base'
 // Options that control KCL output generation.
 export type KclOptions = {
   centerOnViewBox?: boolean
+  emitRegions?: boolean
 }
 
 // The type of operation being performed.

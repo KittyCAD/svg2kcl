@@ -2,7 +2,8 @@ import { describe, expect, it } from '@jest/globals'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { SvgReader, SvgReadError } from '../src/reader/base'
-import { ElementType } from '../src/types/elements'
+import { ElementType, PathElement } from '../src/types/elements'
+import { PathCommandType } from '../src/types/paths'
 
 // const __filename = fileURLToPath(import.meta.url)
 // const __dirname = dirname(__filename)
@@ -20,6 +21,24 @@ describe('SvgReader', () => {
       expect(svg.viewBox).toEqual({ xMin: 0, yMin: 0, width: 100, height: 100 })
       expect(svg.elements).toHaveLength(1)
       expect(svg.elements[0].type).toBe(ElementType.Path)
+    })
+
+    it('should parse coordinate pairs after moveto as implicit lineto commands', () => {
+      const svg = reader.readString(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="m10 10 5 0 0 5"/></svg>'
+      )
+      const pathElement = svg.elements[0] as PathElement
+
+      expect(pathElement.commands.map((command) => command.type)).toEqual([
+        PathCommandType.MoveRelative,
+        PathCommandType.LineRelative,
+        PathCommandType.LineRelative
+      ])
+      expect(pathElement.commands.map((command) => command.endPositionAbsolute)).toEqual([
+        { x: 10, y: 10 },
+        { x: 15, y: 10 },
+        { x: 15, y: 15 }
+      ])
     })
 
     it('should correctly read basic_rectangle.svg', async () => {
